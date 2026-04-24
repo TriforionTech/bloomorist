@@ -38,8 +38,7 @@ class MembershipUserForm
                     ->required(),
                 TextInput::make('provinsi')
                     ->label('Province')
-                    ->placeholder('Enter member province')
-                    ->required(),
+                    ->placeholder('Enter member province'),
                 TextInput::make('negara')
                     ->label('Country')
                     ->default('Indonesia')

@@ -135,14 +135,14 @@
                     
                     @if(isset($summary['box_fee']) && $summary['box_fee'] > 0)
                     <tr>
-                        <td class="label">Box Tambahan</td>
+                        <td class="label">Box</td>
                         <td class="value">Rp. {{ number_format($summary['box_fee'], 0, ',', '.') }}</td>
                     </tr>
                     @endif
 
                     @if(isset($summary['wrapping_fee']) && $summary['wrapping_fee'] > 0)
                     <tr>
-                        <td class="label">Biaya Wrapping</td>
+                        <td class="label">Wrapping</td>
                         <td class="value">Rp. {{ number_format($summary['wrapping_fee'], 0, ',', '.') }}</td>
                     </tr>
                     @endif
