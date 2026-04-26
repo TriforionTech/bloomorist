@@ -26,7 +26,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Toggle;
-
+use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Illuminate\Support\HtmlString;
@@ -51,9 +52,7 @@ class GenerateInvoice extends Page implements HasSchemas
         $this->getSchema('invoiceForm')->fill();
     }
 
-
-    
-
+     
     // Helper method untuk get product price dengan cache
     protected function getProductPrice(int $productId): float
     {
@@ -195,6 +194,8 @@ class GenerateInvoice extends Page implements HasSchemas
     // SCHEMA BUILDERS
     protected function setCustomerTypeSection(): Section{
         return Section::make('Customer Type')
+        ->icon('heroicon-o-user-circle')
+        ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
         ->schema([
             Radio::make('customer_type')
                 ->label('Select Customer Type')
@@ -299,6 +300,8 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setCustomerInformationSection(): Section{
         return Section::make('Customer Information')
+        ->icon('heroicon-o-identification')
+        ->description('Masukkan data pelanggan yang diperlukan untuk identifikasi dan keperluan transaksi.')
         ->columns(2)
         ->schema([
             TextInput::make('name')
@@ -381,6 +384,8 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setProductListSection(): Section{
         return Section::make('Product List')
+        ->icon('heroicon-o-shopping-bag')
+        ->description('Pilih produk yang akan dimasukkan ke dalam transaksi beserta jumlahnya. Pastikan untuk memeriksa kembali harga dan diskon yang diterapkan sebelum generate invoice.')
         ->schema([
             Toggle::make('discount_mode_member')
                 ->label('Custom Discount')
@@ -442,6 +447,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->label('Item')
                         ->options(
                             Product::query()
+                                ->whereNotIn('nama_barang', ['Wrapping', 'Box'])
                                 ->orderBy('nama_barang')
                                 ->pluck('nama_barang', 'id')
                         )
@@ -452,7 +458,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->native(false)
                         ->disableOptionWhen(function (string $value, Get $get) {
                             // ambil semua data dari repeater 'products'
-                            $allRepeaterItems = $get('products') ?? [];
+                            $allRepeaterItems = $get('../../products') ?? [];
                             
                             // ambil semua produk yang telah dipilih
                             $selectedProductIds = collect($allRepeaterItems)
@@ -538,7 +544,9 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setAdditionalSection(): Section{
         return Section::make('Add Ons')
-            ->columns(2)
+            ->description('Tambahkan ongkos kirim dan perlengkapan tambahan untuk pesanan ini.')
+            ->icon('heroicon-o-plus-circle')
+            ->columns(1)
             ->schema([
                 TextInput::make('ongkir')
                     ->label('Ongkos Kirim')
@@ -558,79 +566,144 @@ class GenerateInvoice extends Page implements HasSchemas
 
                 Grid::make(2)
                 ->schema([
-                    // BOX
-                    Toggle::make('use_box')
-                        ->label('Tambahkan Box')
-                        ->inline(false)
-                        ->live()
-                        ->helperText(fn (Get $get) => $get('use_box') 
-                            ? 'Biaya Box: Rp ' . number_format($get('box_fee'), 0, ',', '.') 
-                            : 'Tanpa Box'
-                        )
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            if ($state) {
-                                $hargaBox = Product::where('nama_barang', 'Box')->value('harga_jual_barang') ?? 0;
-                                $set('box_fee', $hargaBox);
-                            } else {
-                                $set('box_fee', 0);
-                            }
-                        }),
-                    Hidden::make('box_fee')->default(0),
+                    // Box
+                    Fieldset::make('Packaging Box')
+                        ->schema([
+                            Toggle::make('use_box')
+                                ->label('Tambahkan Box')
+                                ->inline(false)
+                                ->live()
+                                ->helperText(fn (Get $get) => $get('use_box') 
+                                    ? 'Biaya Per Box: Rp ' . number_format($get('single_box_fee'), 0, ',', '.') 
+                                    : 'Tanpa Box'
+                                )
+                                ->afterStateUpdated(function ($state, Set $set) {
+                                    if ($state) {
+                                        // Fetch harga dari DB
+                                        $hargaBox = Product::where('nama_barang', 'Box')->value('harga_jual_barang') ?? 0;
+                                        $set('box_unit_price', $hargaBox);
+                                        $set('box_qty', 1);
+                                        $set('single_box_fee', $hargaBox);
+                                        $set('box_fee', $hargaBox);
+                                    } else {
+                                        $set('box_qty', null);
+                                        $set('box_unit_price', 0);
+                                        $set('single_box_fee', 0);
+                                        $set('box_fee', 0);
+                                    }
+                                }),
+                            TextInput::make('box_qty')
+                                ->label('Jumlah Box')
+                                ->numeric()
+                                ->default(1)
+                                ->minValue(1)
+                                ->live(onBlur: true)
+                                ->visible(fn (Get $get) => $get('use_box')) // Hanya muncul jika toggle nyala
+                                ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                    $qty = (int) ($state ?: 0);
+                                    $price = (int) $get('box_unit_price');
+                                    $set('box_fee', $qty * $price);
+                                })
+                                ->helperText(fn (Get $get) => 'Subtotal Box: Rp ' . number_format((int) $get('box_fee'), 0, ',', '.')),
 
-                    // WRAPPING
-                    Toggle::make('use_wrapping')
-                        ->label('Tambahkan Wrapping')
-                        ->inline(false)
-                        ->live()
-                        ->helperText(fn (Get $get) => $get('use_wrapping') 
-                            ? 'Biaya Wrapping: Rp ' . number_format($get('wrapping_fee'), 0, ',', '.') 
-                            : 'Tanpa Wrapping'
-                        )
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            if ($state) {
-                                $hargaWrap = Product::where('nama_barang', 'Wrapping')->value('harga_jual_barang') ?? 0;
-                                $set('wrapping_fee', $hargaWrap);
-                            } else {
-                                $set('wrapping_fee', 0);
-                            }
-                        }),
-                    Hidden::make('wrapping_fee')->default(0),
+                            // Hidden state untuk menyimpan perhitungan
+                            Hidden::make('box_unit_price')->default(0),
+                            Hidden::make('box_fee')->default(0),
+                        ])
+                        ->columns(1), // Memastikan elemen di dalam fieldset berbaris vertikal ke bawah
+
+                    // Wrapping
+                    Fieldset::make('Kertas Wrapping')
+                        ->schema([
+                            Toggle::make('use_wrapping')
+                                ->label('Tambahkan Wrapping')
+                                ->inline(false)
+                                ->live()
+                                ->helperText(fn (Get $get) => $get('use_wrapping') 
+                                    ? 'Biaya Wrapping: Rp ' . number_format($get('single_wrapping_fee'), 0, ',', '.') 
+                                    : 'Tanpa Wrapping'
+                                )
+                                ->afterStateUpdated(function ($state, Set $set) {
+                                    if ($state) {
+                                        $hargaWrap = Product::where('nama_barang', 'Wrapping')->value('harga_jual_barang') ?? 0;
+                                        $set('wrap_unit_price', $hargaWrap);
+                                        $set('wrapping_qty', 1);
+                                        $set('single_wrapping_fee', $hargaWrap);
+                                        $set('wrapping_fee', $hargaWrap);
+                                    } else {
+                                        $set('wrapping_qty', null);
+                                        $set('wrap_unit_price', 0);
+                                        $set('single_wrapping_fee', 0);
+                                        $set('wrapping_fee', 0);
+                                    }
+                                }),
+                            TextInput::make('wrapping_qty')
+                                ->label('Jumlah Wrapping')
+                                ->numeric()
+                                ->default(1)
+                                ->minValue(1)
+                                ->live(onBlur: true)
+                                ->visible(fn (Get $get) => $get('use_wrapping'))
+                                ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                    $qty = (int) ($state ?: 0);
+                                    $price = (int) $get('wrap_unit_price');
+                                    $set('wrapping_fee', $qty * $price);
+                                })
+                                ->helperText(fn (Get $get) => 'Subtotal Wrapping: Rp ' . number_format((int) $get('wrapping_fee'), 0, ',', '.')),
+
+                            Hidden::make('wrap_unit_price')->default(0),
+                            Hidden::make('wrapping_fee')->default(0),
+                        ])
+                        ->columns(1),
                 ]),
             ]);
     }
 
-    protected function setInvoiceDetailSection(): Section{
+    protected function setInvoiceDetailSection(): Section
+    {
         return Section::make('Invoice Details')
-            ->columns(3)
+            ->icon('heroicon-o-document-text')
+            ->description('Periksa ringkasan pesanan sebelum generate invoice. Anda juga dapat melakukan custom nomor dan tanggal penerbitan/jatuh tempo sesuai kebutuhan.')
             ->schema([
-                TextInput::make('custom_invoice_number')
-                        ->label('Invoice Number')
-                        ->placeholder(fn () => $this->generateInvoiceNumber())
-                        ->helperText('Leave blank to auto-generate')
-                        ->numeric()
-                        ->maxLength(10)
-                        ->extraInputAttributes([
-                            'min' => 0, 
-                            'max' => 9999999999, 
-                            'oninput' => 'this.value = this.value.slice(0, 10);'
-                        ]),
-
-                DatePicker::make('issued_date')
-                    ->label('Issued On')
-                    ->placeholder(now()->format('d M Y'))
-                    ->helperText('Leave blank to use today')
-                    ->native(false)
-                    ->displayFormat('d M Y'),
-
-                DatePicker::make('due_date')
-                    ->label('Due By')
-                    ->placeholder(now()->format('d M Y'))
-                    ->helperText('Leave blank to use today')
-                    ->native(false)
-                    ->displayFormat('d M Y'),
+    
+                // Ringkasan Transaksi
+                View::make('filament.forms.invoice-summary')
+                    ->columnSpanFull()
+                    ->live(),
+    
+                // Custom Fields
+                Grid::make(3)
+                    ->schema([
+                        TextInput::make('custom_invoice_number')
+                            ->label('Invoice Number')
+                            ->placeholder(fn () => $this->generateInvoiceNumber())
+                            ->helperText('Leave blank to auto-generate')
+                            ->numeric()
+                            ->maxLength(10)
+                            ->extraInputAttributes([
+                                'min'     => 0,
+                                'max'     => 9999999999,
+                                'oninput' => 'this.value = this.value.slice(0, 10);',
+                            ]),
+    
+                        DatePicker::make('issued_date')
+                            ->label('Issued On')
+                            ->placeholder(now()->format('d M Y'))
+                            ->helperText('Leave blank to use today')
+                            ->native(false)
+                            ->displayFormat('d M Y'),
+    
+                        DatePicker::make('due_date')
+                            ->label('Due By')
+                            ->placeholder(now()->format('d M Y'))
+                            ->helperText('Leave blank to use today')
+                            ->native(false)
+                            ->displayFormat('d M Y'),
+                    ]),
             ]);
     }
     
+
     // MAIN WRAPPER
     public function invoiceForm(Schema $schema): Schema
     {
@@ -854,6 +927,7 @@ class GenerateInvoice extends Page implements HasSchemas
             });
     }
 
+    // Untuk validasi field kosong atau kondisi lain sebelum generate
     public function validateThenGenerate(): void
     {        
         $this->getSchema('invoiceForm')->getState();
