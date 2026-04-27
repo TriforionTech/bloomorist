@@ -26,8 +26,7 @@ class MembershipUserForm
                 TextInput::make('email')
                     ->label('Email address')
                     ->email()
-                    ->placeholder('example@domain.com')
-                    ->required(),
+                    ->placeholder('example@domain.com'),
                 Textarea::make('alamat')
                     ->label('Address')
                     ->placeholder('Enter member address')

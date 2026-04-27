@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('nama');
             $table->string('alias')->nullable();
-            $table->string('email')->unique();
-            $table->string('alamat');
-            $table->string('kota');
-            $table->string('provinsi');
-            $table->string('negara');
-            $table->string('nomor_hp');
+            $table->string('email')->unique()->nullable();
+            $table->string('alamat')->nullable();
+            $table->string('kota')->nullable();
+            $table->string('provinsi')->nullable();
+            $table->string('negara')->nullable();
+            $table->string('nomor_hp')->nullable();
             $table->integer('membership_id');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')
