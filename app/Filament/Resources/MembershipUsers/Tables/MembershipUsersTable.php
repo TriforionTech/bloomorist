@@ -16,9 +16,12 @@ class MembershipUsersTable
     {
         return $table
             ->columns([
-                TextColumn::make('id')
+                // TextColumn::make('id')
+                //     ->label('NO.')
+                //     ->sortable(),
+                TextColumn::make('no')
                     ->label('NO.')
-                    ->sortable(),
+                    ->rowIndex(),
                 TextColumn::make('nama')
                     ->label('NAME')
                     ->searchable()

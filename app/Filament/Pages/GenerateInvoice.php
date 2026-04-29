@@ -249,7 +249,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         });
                 })
                 ->getOptionLabelUsing(function ($value) {
-                    $member = MembershipUser::find($value);
+                    $member = MembershipUser::query()->find($value);
                     return $member
                         ? "{$member->nama} [{$member->alias}]"
                         : null;
@@ -265,7 +265,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
                     // Jika admin memilih member, tarik datanya dari DB
                     if ($state) {
-                        $member = MembershipUser::find($state);
+                        $member = MembershipUser::query()->find($state);
                         
                         if ($member) {
                             // Autofill semua field
@@ -326,22 +326,18 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->readOnly(fn (Get $get) => $this->isMember($get)),
 
             TextInput::make('city')
-                ->required()
                 ->placeholder(fn (Get $get) => 
                     $this->dynamicPlaceholder($get, 'Enter customer city')
                 )
                 ->readOnly(fn (Get $get) => $this->isMember($get)),
 
             TextInput::make('province')
-                ->required()
                 ->placeholder(fn (Get $get) => 
                     $this->dynamicPlaceholder($get, 'Enter customer province')
                 )
                 ->readOnly(fn (Get $get) => $this->isMember($get)),
 
             TextInput::make('country')
-                ->default('Indonesia')
-                ->required()
                 ->readOnly(fn (Get $get) => $this->isMember($get))
                 ->default(fn (Get $get) => 
                     $get('customer_type') !== 'member' ? 'Indonesia' : null
@@ -354,7 +350,6 @@ class GenerateInvoice extends Page implements HasSchemas
 
             TextInput::make('email')
                 ->email()
-                ->required()
                 ->readOnly(fn (Get $get) => $this->isMember($get))
                 ->placeholder(fn (Get $get) => 
                     $this->dynamicPlaceholder($get, 'example@domain.com')
@@ -366,8 +361,8 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->rule('regex:/^[0-9+\-\s]+$/')
                 ->readOnly(fn (Get $get) => $this->isMember($get))
                 ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'e.g., +6281234567890')
-                ),                        
+                    $this->dynamicPlaceholder($get, 'e.g., 081234567890')
+                ),
 
             Select::make('membership_id')
                 ->label('Membership Category')
@@ -447,7 +442,9 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->label('Item')
                         ->options(
                             Product::query()
-                                ->whereNotIn('nama_barang', ['Wrapping', 'Box'])
+                                ->where(function ($query) {
+                                    $query->whereNotIn('nama_barang', ['Wrapping', 'Box']);
+                                })
                                 ->orderBy('nama_barang')
                                 ->pluck('nama_barang', 'id')
                         )
@@ -580,7 +577,7 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->afterStateUpdated(function ($state, Set $set) {
                                     if ($state) {
                                         // Fetch harga dari DB
-                                        $hargaBox = Product::where('nama_barang', 'Box')->value('harga_jual_barang') ?? 0;
+                                        $hargaBox = Product::query()->where('nama_barang', 'Box')->value('harga_jual_barang') ?? 0;
                                         $set('box_unit_price', $hargaBox);
                                         $set('box_qty', 1);
                                         $set('single_box_fee', $hargaBox);
@@ -625,7 +622,7 @@ class GenerateInvoice extends Page implements HasSchemas
                                 )
                                 ->afterStateUpdated(function ($state, Set $set) {
                                     if ($state) {
-                                        $hargaWrap = Product::where('nama_barang', 'Wrapping')->value('harga_jual_barang') ?? 0;
+                                        $hargaWrap = Product::query()->where('nama_barang', 'Wrapping')->value('harga_jual_barang') ?? 0;
                                         $set('wrap_unit_price', $hargaWrap);
                                         $set('wrapping_qty', 1);
                                         $set('single_wrapping_fee', $hargaWrap);
