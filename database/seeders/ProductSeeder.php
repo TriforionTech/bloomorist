@@ -89,6 +89,9 @@ class ProductSeeder extends Seeder
             ['nama_barang' => 'Tulip Holland', 'harga_beli_barang' => 400000, 'harga_jual_barang' => 450000],
             ['nama_barang' => 'Xanado', 'harga_beli_barang' => 10000, 'harga_jual_barang' => 15000],
             ['nama_barang' => 'Zaitun', 'harga_beli_barang' => 15000, 'harga_jual_barang' => 20000],
+
+            ['nama_barang' => 'Box', 'harga_beli_barang' => 35000, 'harga_jual_barang' => 35000],
+            ['nama_barang' => 'Wrapping', 'harga_beli_barang' => 20000, 'harga_jual_barang' => 20000],
         ];
 
         $products = array_map(fn ($p) => array_merge($p, [

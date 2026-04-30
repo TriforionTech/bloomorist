@@ -6,12 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('bl_member_users_t', function (Blueprint $table) {
+        Schema::create('bl_customers_t', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
             $table->string('alias')->nullable();
@@ -21,7 +18,7 @@ return new class extends Migration
             $table->string('provinsi')->nullable();
             $table->string('negara')->nullable();
             $table->string('nomor_hp')->nullable();
-            $table->integer('membership_id');
+            $table->integer('membership_id')->nullable();
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')
                 ->useCurrent()
@@ -34,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('bl_member_users_t');
+        Schema::dropIfExists('bl_customers_t');
     }
 };

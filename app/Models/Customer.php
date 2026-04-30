@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class MembershipUser extends Model
+class Customer extends Model
 {
-    protected $table = 'bl_member_users_t';
+    protected $table = 'bl_customers_t';
 
     protected $fillable = [
         'nama',

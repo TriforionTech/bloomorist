@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\MembershipUsers\Tables;
+namespace App\Filament\Resources\Customers\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -10,7 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-class MembershipUsersTable
+class CustomersTable
 {
     public static function configure(Table $table): Table
     {

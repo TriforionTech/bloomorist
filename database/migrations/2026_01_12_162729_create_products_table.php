@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create('bl_products_t', function (Blueprint $table) {
             $table->id();
             $table->string('nama_barang');
-            // $table->text('deskripsi')->nullable();
             $table->decimal('harga_beli_barang', 10, 2);
             $table->decimal('harga_jual_barang', 10, 2);
+            $table->integer('stok_barang')->default(0);
             $table->timestamps();
         });
     }

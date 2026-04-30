@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Filament\Resources\MembershipUsers\Pages;
+namespace App\Filament\Resources\Customers\Pages;
 
-use App\Filament\Resources\MembershipUsers\MembershipUserResource;
+use App\Filament\Resources\Customers\CustomerResource;
 use Filament\Resources\Pages\CreateRecord;
 
-class CreateMembershipUser extends CreateRecord
+class CreateCustomer extends CreateRecord
 {
-    protected static string $resource = MembershipUserResource::class;
+    protected static string $resource = CustomerResource::class;
 
     protected function getRedirectUrl(): string
     {

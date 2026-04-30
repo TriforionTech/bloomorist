@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\MembershipUsers\Schemas;
+namespace App\Filament\Resources\Customers\Schemas;
 
 use App\Models\Membership;
 use Filament\Forms\Components\Select;
@@ -8,9 +8,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
-use function Laravel\Prompts\textarea;
-
-class MembershipUserForm
+class CustomerForm
 {
     public static function configure(Schema $schema): Schema
     {
@@ -33,24 +31,20 @@ class MembershipUserForm
                     ->required(),
                 TextInput::make('kota')
                     ->label('City')
-                    ->placeholder('Enter member city')
-                    ->required(),
+                    ->placeholder('Enter member city'),
                 TextInput::make('provinsi')
                     ->label('Province')
                     ->placeholder('Enter member province'),
                 TextInput::make('negara')
                     ->label('Country')
-                    ->default('Indonesia')
-                    ->required(),
+                    ->default('Indonesia'),
                 TextInput::make('nomor_hp')
                     ->label('Phone Number')
-                    ->placeholder('e.g., +628xxxxxxxxxx')
-                    ->required()
+                    ->placeholder('e.g., 08xxxxxxxxxx')
                     ->tel()
                     ->rule('regex:/^[0-9+\-\s]+$/'),
                 Select::make('membership_id')
                     ->label('Membership Category')
-                    ->required()
                     ->searchable()
                     ->options(
                         Membership::pluck('nama', 'id')

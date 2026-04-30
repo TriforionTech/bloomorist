@@ -5,7 +5,7 @@ namespace App\Filament\Pages;
 use BackedEnum;
 use UnitEnum;
 use App\Models\Membership;
-use App\Models\MembershipUser;
+use App\Models\Customer;
 use App\Models\Product;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -237,7 +237,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->loadingMessage('Loading members...')
                 ->searchable(['nama', 'alias'])
                 ->getSearchResultsUsing(function (string $search) {
-                    return MembershipUser::query()
+                    return Customer::query()
                         ->where('nama', 'like', "%{$search}%")
                         ->orWhere('alias', 'like', "%{$search}%")
                         ->limit(100)
@@ -249,7 +249,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         });
                 })
                 ->getOptionLabelUsing(function ($value) {
-                    $member = MembershipUser::query()->find($value);
+                    $member = Customer::query()->find($value);
                     return $member
                         ? "{$member->nama} [{$member->alias}]"
                         : null;
@@ -265,7 +265,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
                     // Jika admin memilih member, tarik datanya dari DB
                     if ($state) {
-                        $member = MembershipUser::query()->find($state);
+                        $member = Customer::query()->find($state);
                         
                         if ($member) {
                             // Autofill semua field
