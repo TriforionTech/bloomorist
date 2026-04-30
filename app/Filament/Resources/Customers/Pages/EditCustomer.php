@@ -16,4 +16,10 @@ class EditCustomer extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function getRedirectUrl(): string
+    {
+        // arahkan ke halaman list/index tabel setelah berhasil create
+        return $this->getResource()::getUrl('index'); 
+    }
 }
