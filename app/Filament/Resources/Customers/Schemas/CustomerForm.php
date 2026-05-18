@@ -22,7 +22,7 @@ class CustomerForm
                     ->label('Alias')
                     ->placeholder('Enter member alias (optional)'),
                 TextInput::make('email')
-                    ->label('Email address')
+                    ->label('Email')
                     ->email()
                     ->placeholder('example@domain.com'),
                 Textarea::make('alamat')

@@ -30,6 +30,7 @@ use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Support\RawJs;
 use Illuminate\Support\HtmlString;
 
 class GenerateInvoice extends Page implements HasSchemas
@@ -594,6 +595,16 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->numeric()
                                 ->default(1)
                                 ->minValue(1)
+                                ->maxValue(999)
+                                ->required()
+                                ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                ->extraInputAttributes([
+                                    'inputmode' => 'numeric',
+                                    'min' => 1, 
+                                    'max' => 999,
+                                    'pattern' => '[0-9]*',
+                                    'oninput' => 'this.value = this.value.slice(0, 3);'
+                                ])
                                 ->live(onBlur: true)
                                 ->visible(fn (Get $get) => $get('use_box')) // Hanya muncul jika toggle nyala
                                 ->afterStateUpdated(function ($state, Get $get, Set $set) {
@@ -639,6 +650,16 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->numeric()
                                 ->default(1)
                                 ->minValue(1)
+                                ->maxValue(999)
+                                ->required()
+                                ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                ->extraInputAttributes([
+                                    'inputmode' => 'numeric',
+                                    'min' => 1, 
+                                    'max' => 999,
+                                    'pattern' => '[0-9]*',
+                                    'oninput' => 'this.value = this.value.slice(0, 3);'
+                                ])
                                 ->live(onBlur: true)
                                 ->visible(fn (Get $get) => $get('use_wrapping'))
                                 ->afterStateUpdated(function ($state, Get $get, Set $set) {

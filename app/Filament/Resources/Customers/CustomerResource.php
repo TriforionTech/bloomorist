@@ -17,10 +17,10 @@ use Filament\Tables\Table;
 class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
-    protected static ?string $navigationLabel = 'Member';
-    protected static ?string $pluralLabel = 'Members';
-    protected static ?string $label = 'Member';
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static ?string $navigationLabel = 'Customer';
+    protected static ?string $pluralLabel = 'Customers';
+    protected static ?string $label = 'Customer';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
     public static function form(Schema $schema): Schema
     {

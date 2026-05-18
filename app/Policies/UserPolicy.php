@@ -57,7 +57,7 @@ class UserPolicy
     // Digunakan jika ada user nakal yg delete manual melalui url
     public function delete(User $user, User $model): Response
     {
-        // DILARANG KERAS menghapus diri sendiri (berlaku utk superadmin juga)
+        // Tidak boleh menghapus diri sendiri (berlaku utk superadmin juga)
         if ($user->id === $model->id) {
             return Response::deny('You cannot delete your own account.');
         }
@@ -79,6 +79,11 @@ class UserPolicy
     {
         return $user->is_super_admin;
     }    
+
+    public function restore(User $user): bool
+    {
+        return $user->is_super_admin;
+    }
 
     public function restoreAny(User $user): bool
     {

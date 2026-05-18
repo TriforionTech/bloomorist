@@ -15,11 +15,7 @@
     $isMember    = !empty($membershipId);
 
     // Konfigurasi diskon
-    // Member: selalu ada diskon (dari membership atau custom per-item)
-    // Non-member: hanya jika mode bukan 'none'
     $hasDiscount = $isMember || in_array($discountMode, ['global', 'per_item']);
-
-    // Untuk keperluan label kolom
     $isPerItem = ($isMember && $discountModeMember) || (!$isMember && $discountMode === 'per_item');
 
     $cleanNumber = fn($val) => (float) str_replace('.', '', (string) ($val ?? 0));
@@ -32,17 +28,15 @@
     foreach ($products as $item) {
         if (empty($item['product_id'])) continue;
 
-        // cuma ambil nama produk untuk summary, harga sudah dihitung di calculateItemPrices()
         $name          = Product::whereKey($item['product_id'])->value('nama_barang') ?? '—';
         $qty           = (int) ($item['quantity'] ?? 1);
-        $normalPrice   = $cleanNumber($item['normal_price']);   // unit_price * qty
-        $discountPrice = $cleanNumber($item['discount_price']); // sudah dihitung di calculateItemPrices()
+        $normalPrice   = $cleanNumber($item['normal_price']); 
+        $discountPrice = $cleanNumber($item['discount_price']); 
         $itemDiscount  = (float) ($item['item_discount'] ?? 0);
 
         $subtotalNormal   += $normalPrice;
         $subtotalDiscount += $discountPrice;
 
-        // Baris ini ada diskonnya jika harga beda
         $isDiscounted = $hasDiscount && ($normalPrice !== $discountPrice);
         if ($isDiscounted) $hasAnyDiscount = true;
 
@@ -52,7 +46,6 @@
     $totalDiskon  = $subtotalNormal - $subtotalDiscount;
     $grandTotal   = $subtotalDiscount + $ongkir + $boxFee + $wrappingFee;
 
-    // Tampilkan baris diskon di summary hanya jika memang ada selisih
     $showDiscount = $hasAnyDiscount || ($hasDiscount && $totalDiskon > 0);
 @endphp
 
@@ -62,21 +55,21 @@
         border: 1px solid #e2e8f0;
         border-radius: 12px;
         overflow: hidden;
-        font-size: 14px;
+        font-size: 15px; /* Ditingkatkan dari 14px */
         line-height: 1.6;
     }
     .dark .inv-wrap { border-color: rgba(255,255,255,0.1); }
 
     /* ── Header produk ── */
-    .inv-products { padding: 16px 16px 10px; }
+    .inv-products { padding: 18px 18px 12px; }
 
     .inv-label {
-        font-size: 12px;
+        font-size: 13px; /* Ditingkatkan dari 12px */
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: #94a3b8;
-        margin: 0 0 10px;
+        margin: 0 0 12px;
     }
 
     /* ── Table ── */
@@ -86,10 +79,10 @@
     }
 
     .inv-tbl th {
-        font-size: 14px;
+        font-size: 15px; /* Ditingkatkan dari 14px */
         font-weight: 600;
         color: #64748b;
-        padding-bottom: 8px;
+        padding-bottom: 10px;
         border-bottom: 1px solid #e2e8f0;
     }
     .dark .inv-tbl th { color: #94a3b8; border-bottom-color: rgba(255,255,255,0.1); }
@@ -99,7 +92,7 @@
     .inv-tbl th.th-right { text-align: right; }
 
     .inv-tbl td {
-        padding: 9px 0;
+        padding: 12px 0; /* Ruang bernapas diperbesar */
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
         vertical-align: middle;
@@ -107,8 +100,8 @@
     .dark .inv-tbl td { border-bottom-color: rgba(255,255,255,0.05); color: #e2e8f0; }
     .inv-tbl tr:last-child td { border-bottom: none; }
 
-    .td-name  { text-align: left; padding-right: 10px; }
-    .td-qty   { text-align: center; padding: 0 8px; color: #64748b; white-space: nowrap; }
+    .td-name  { text-align: left; padding-right: 12px; }
+    .td-qty   { text-align: center; padding: 0 10px; color: #64748b; white-space: nowrap; }
     .dark .td-qty { color: #94a3b8; }
     .td-price { text-align: right; }
 
@@ -117,25 +110,27 @@
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 1px;
+        gap: 2px;
     }
     .price-cross {
-        font-size: 12px;
+        font-size: 13px; /* Ditingkatkan dari 12px */
         color: #94a3b8;
         text-decoration: line-through;
     }
     .price-final {
+        font-size: 15px;
         font-weight: 600;
         color: #1e293b;
     }
     .dark .price-final { color: #f1f5f9; }
     .price-saving {
-        font-size: 11px;
+        font-size: 12px; /* Ditingkatkan dari 11px */
         font-weight: 600;
         color: #ef4444;
     }
     .dark .price-saving { color: #f87171; }
     .price-normal {
+        font-size: 15px;
         font-weight: 500;
         color: #1e293b;
     }
@@ -145,7 +140,7 @@
     .inv-summary {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 12px 16px;
+        padding: 16px 18px; /* Diperlebar sedikit */
     }
     .dark .inv-summary {
         border-top-color: rgba(255,255,255,0.1);
@@ -153,7 +148,7 @@
     }
 
     .inv-stbl { width: 100%; border-collapse: collapse; }
-    .inv-stbl td { padding: 4px 0; font-size: 14px; }
+    .inv-stbl td { padding: 6px 0; font-size: 15px; } /* Ditingkatkan dari 14px */
     .inv-stbl td:last-child { text-align: right; }
 
     .s-muted  { color: #64748b; }
@@ -165,11 +160,12 @@
     .dark .s-normal { color: #cbd5e1; }
 
     .inv-stbl tr.grand-row td {
-        padding-top: 10px;
-        border-top: 1px solid #e2e8f0;
+        padding-top: 14px;
+        border-top: 1px dashed #cbd5e1; /* Garis pemisah dibuat dashed agar lebih estetik */
         font-weight: 700;
-        font-size: 14px;
+        font-size: 16px; /* Ditingkatkan dari 14px */
         color: #0f172a;
+        margin-top: 8px;
     }
     .dark .inv-stbl tr.grand-row td {
         border-top-color: rgba(255,255,255,0.1);
@@ -177,7 +173,8 @@
     }
     .grand-amount {
         color: #2563eb;
-        font-weight: 700;
+        font-weight: 800;
+        font-size: 18px; /* Ukuran khusus agar sangat mencolok */
         text-align: right;
     }
     .dark .grand-amount { color: #60a5fa; }
@@ -186,31 +183,32 @@
     .inv-empty {
         border: 2px dashed #cbd5e1;
         border-radius: 12px;
-        padding: 32px 16px;
+        padding: 40px 16px;
         text-align: center;
-        font-size: 13px;
+        font-size: 15px; /* Ditingkatkan dari 13px */
         color: #94a3b8;
     }
     .dark .inv-empty { border-color: #475569; color: #64748b; }
 
     /* ── Responsive: layar kecil (<520px) ── */
     @media (max-width: 520px) {
-        .inv-wrap { font-size: 13px; border-radius: 10px; }
-        .inv-products { padding: 12px 12px 8px; }
-        .inv-summary { padding: 10px 12px; }
+        .inv-wrap { font-size: 14px; border-radius: 10px; } /* Standar mobile text size */
+        .inv-products { padding: 14px 14px 10px; }
+        .inv-summary { padding: 14px; }
 
-        .inv-tbl th { font-size: 12px; padding-bottom: 6px; }
-        .inv-tbl td { padding: 7px 0; font-size: 13px; }
-        .inv-stbl td { font-size: 12px; padding: 3px 0; }
+        .inv-tbl th { font-size: 13px; padding-bottom: 8px; }
+        .inv-tbl td { padding: 10px 0; font-size: 14px; } /* Padding ditingkatkan agar area tap/scroll aman */
+        
+        .inv-stbl td { font-size: 14px; padding: 5px 0; } /* Info subtotal dll dibesarkan jadi 14px */
 
-        .inv-stbl tr.grand-row td { font-size: 13px; padding-top: 8px; }
+        .inv-stbl tr.grand-row td { font-size: 15px; padding-top: 12px; }
+        .grand-amount { font-size: 17px; } /* Tetap besar di mobile */
 
-        /* Kolom nama lebih longgar di HP */
-        .td-name  { padding-right: 6px; }
-        .td-qty   { padding: 0 5px; }
+        .td-name  { padding-right: 8px; }
+        .td-qty   { padding: 0 6px; }
 
-        .price-cross  { font-size: 11px; }
-        .price-saving { font-size: 10px; }
+        .price-cross  { font-size: 12px; }
+        .price-saving { font-size: 11px; }
     }
 </style>
 
@@ -306,7 +304,7 @@
                             <td class="s-muted">
                                 Box
                                 @if ($boxQty > 1)
-                                    <span style="font-size:11px;color:#94a3b8;">({{ $boxQty }} pcs)</span>
+                                    <span style="font-size:12px;color:#94a3b8;">({{ $boxQty }} pcs)</span>
                                 @endif
                             </td>
                             <td class="s-normal">Rp {{ number_format($boxFee, 0, ',', '.') }}</td>
@@ -319,7 +317,7 @@
                             <td class="s-muted">
                                 Wrapping
                                 @if ($wrappingQty > 1)
-                                    <span style="font-size:11px;color:#94a3b8;">({{ $wrappingQty }} pcs)</span>
+                                    <span style="font-size:12px;color:#94a3b8;">({{ $wrappingQty }} pcs)</span>
                                 @endif
                             </td>
                             <td class="s-normal">Rp {{ number_format($wrappingFee, 0, ',', '.') }}</td>

@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
-use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -21,9 +20,6 @@ class UsersTable
     {
         return $table
             ->columns([
-                // TextColumn::make('id')
-                //     ->label('NO.')
-                //     ->sortable(),
                 TextColumn::make('no')
                     ->label('NO.')
                     ->rowIndex(),
@@ -97,7 +93,7 @@ class UsersTable
                             
                             $action->halt();
                         }
-                    }),                    
+                    }),
                 DeleteAction::make()
                     // Button SELALU muncul
                     ->authorize(fn () => true)
@@ -137,7 +133,7 @@ class UsersTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->visible(fn () => Filament::auth()->user()?->is_super_admin)
-                        ->before(function ($action, Collection $records) {
+                        ->before(function ($action) {
                             $currentUser = Filament::auth()->user();
                             
                             if (!$currentUser->is_super_admin) {
@@ -147,7 +143,7 @@ class UsersTable
                                     ->body('Only Superadmin can delete users.')
                                     ->send();
                                 
-                                $action->halt();
+                                $action->halt(); // hentikan paksa
                                 return;
                             }
                         })
@@ -163,11 +159,11 @@ class UsersTable
                                     continue;
                                 }
                                 
-                                // Skip other superadmins
-                                if ($record->is_super_admin) {
-                                    $skippedCount++;
-                                    continue;
-                                }
+                                // // Skip other superadmins
+                                // if ($record->is_super_admin) {
+                                //     $skippedCount++;
+                                //     continue;
+                                // }
                                 
                                 // Delete jika lolos semua validasi
                                 if (Gate::allows('delete', $record)) {

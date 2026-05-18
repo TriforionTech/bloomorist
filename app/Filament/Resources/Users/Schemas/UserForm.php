@@ -17,7 +17,7 @@ class UserForm
                     ->placeholder('Enter admin name')
                     ->required(),
                 TextInput::make('email')
-                    ->label('Email address')
+                    ->label('Email')
                     ->email()
                     ->placeholder('example@domain.com')
                     ->required(),
@@ -26,6 +26,7 @@ class UserForm
                     ->placeholder('Enter secure password')
                     ->required(),
                 TextInput::make('confirm-password')
+                    ->label('Confirm Password')
                     ->password()
                     ->placeholder('Confirm your password')
                     ->required()
@@ -34,7 +35,7 @@ class UserForm
                         'same' => 'Password confirmation does not match.',
                     ]),
                 Select::make('is_super_admin')
-                    ->label('Super Admin')
+                    ->label('Superadmin')
                     ->placeholder('Select role')
                     ->options([
                         0 => 'No',

@@ -10,9 +10,9 @@ class Product extends Model
 
     protected $fillable = [
         'nama_barang',
-        // 'deskripsi',
         'harga_beli_barang',
         'harga_jual_barang',
+        'stok_barang',
     ];
 
     public $timestamps = true;

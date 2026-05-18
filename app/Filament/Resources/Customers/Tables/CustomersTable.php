@@ -6,6 +6,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -16,9 +17,6 @@ class CustomersTable
     {
         return $table
             ->columns([
-                // TextColumn::make('id')
-                //     ->label('NO.')
-                //     ->sortable(),
                 TextColumn::make('no')
                     ->label('NO.')
                     ->rowIndex(),
@@ -99,12 +97,13 @@ class CustomersTable
             ])
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()->tooltip('Edit this customer'),
+                DeleteAction::make()->tooltip('Delete this customer'),
             ])            
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => Filament::auth()->user()?->is_super_admin),
                 ]),
             ]);
     }
