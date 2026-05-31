@@ -4,6 +4,9 @@ namespace App\Filament\Pages;
 
 use BackedEnum;
 use UnitEnum;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Membership;
 use App\Models\Customer;
 use App\Models\Product;
@@ -40,9 +43,13 @@ class GenerateInvoice extends Page implements HasSchemas
     protected string $view = 'filament.pages.generate-invoice';
     protected static ?string $title = 'Create Invoice';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
-    protected static string|UnitEnum|null $navigationGroup = 'Reports';
+    protected static string|UnitEnum|null $navigationGroup = 'Invoices';
+    protected static ?string $navigationLabel = 'Generate';
 
     public array $data = [];
+
+    // Edit mode properties
+    public ?int $invoiceId = null;
 
     // Cache untuk mengurangi database queries
     protected array $productPriceCache = [];
@@ -50,7 +57,96 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public function mount(): void
     {
-        $this->getSchema('invoiceForm')->fill();
+        // Cek apakah ada query param 'invoice' untuk edit mode
+        $this->invoiceId = request()->query('invoice') ? (int) request()->query('invoice') : null;
+
+        if ($this->isEditMode()) {
+            $this->fillFormFromInvoice();
+        } else {
+            $this->getSchema('invoiceForm')->fill();
+        }
+    }
+
+    // === EDIT MODE HELPERS ===
+
+    public function isEditMode(): bool
+    {
+        return $this->invoiceId !== null;
+    }
+
+    public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
+    {
+        if ($this->isEditMode()) {
+            $invoice = Invoice::find($this->invoiceId);
+            return 'Edit Invoice #' . ($invoice?->invoice_number ?? $this->invoiceId);
+        }
+        return 'Create Invoice';
+    }
+
+    protected function fillFormFromInvoice(): void
+    {
+        $invoice = Invoice::with(['regularItems', 'boxItem', 'wrappingItem', 'customer'])->findOrFail($this->invoiceId);
+
+        // Bangun data products dari regularItems relasi
+        $products = $invoice->regularItems->map(function ($item) {
+            return [
+                'product_id'     => $item->product_id,
+                'quantity'       => $item->quantity,
+                'unit_price'     => $item->unit_price,
+                'normal_price'   => $item->normal_price,
+                'item_discount'  => $item->item_discount,
+                'discount_price' => $item->discount_price,
+            ];
+        })->toArray();
+
+        // Jika tidak ada items, default 1 row kosong
+        if (empty($products)) {
+            $products = [[
+                'product_id'     => null,
+                'quantity'       => 1,
+                'unit_price'     => 0,
+                'normal_price'   => 0,
+                'item_discount'  => 0,
+                'discount_price' => 0,
+            ]];
+        }
+
+        $boxItem = $invoice->boxItem;
+        $wrappingItem = $invoice->wrappingItem;
+
+        $formData = [
+            'customer_type'         => $invoice->customer_type ?? 'member',
+            'member_id'             => $invoice->customer_id,
+            'name'                  => $invoice->customer?->nama,
+            'alias'                 => $invoice->customer?->alias,
+            'address'               => $invoice->customer?->alamat,
+            'city'                  => $invoice->customer?->kota,
+            'province'              => $invoice->customer?->provinsi,
+            'country'               => $invoice->customer?->negara ?? 'Indonesia',
+            'email'                 => $invoice->customer?->email,
+            'phone_number'          => $invoice->customer?->nomor_hp,
+            'membership_id'         => $invoice->customer?->membership_id,
+            'discount_mode'         => $invoice->discount_mode ?? 'none',
+            'discount_mode_member'  => (bool) $invoice->discount_mode_member,
+            'custom_discount'       => $invoice->custom_discount,
+            'products'              => $products,
+            'ongkir'                => $invoice->ongkir,
+            'use_box'               => (bool) $invoice->use_box,
+            'box_qty'               => $boxItem ? $boxItem->quantity : null,
+            'box_unit_price'        => $boxItem ? $boxItem->unit_price : 0,
+            'box_fee'               => $boxItem ? $boxItem->discount_price : 0,
+            'single_box_fee'        => $boxItem ? $boxItem->unit_price : 0,
+            'use_wrapping'          => (bool) $invoice->use_wrapping,
+            'wrapping_qty'          => $wrappingItem ? $wrappingItem->quantity : null,
+            'wrap_unit_price'       => $wrappingItem ? $wrappingItem->unit_price : 0,
+            'wrapping_fee'          => $wrappingItem ? $wrappingItem->discount_price : 0,
+            'single_wrapping_fee'   => $wrappingItem ? $wrappingItem->unit_price : 0,
+            'custom_invoice_number' => $invoice->invoice_number,
+            'issued_date'           => $invoice->issued_date?->format('Y-m-d'),
+            'due_date'              => $invoice->due_date?->format('Y-m-d'),
+        ];
+
+        $this->getSchema('invoiceForm')->fill($formData);
     }
 
      
@@ -234,8 +330,8 @@ class GenerateInvoice extends Page implements HasSchemas
             }),
 
             Select::make('member_id')
-                ->label('Search Member')
-                ->loadingMessage('Loading members...')
+                ->label('Search Customer')
+                ->loadingMessage('Loading customers...')
                 ->searchable(['nama', 'alias'])
                 ->getSearchResultsUsing(function (string $search) {
                     return Customer::query()
@@ -255,11 +351,11 @@ class GenerateInvoice extends Page implements HasSchemas
                         ? "{$member->nama} [{$member->alias}]"
                         : null;
                 })
-                ->searchingMessage('Searching members...')
+                ->searchingMessage('Searching customer...')
                 ->searchPrompt('Search by name or alias')
                 ->preload()
-                ->noSearchResultsMessage('No members found.')
-                ->noOptionsMessage('No members available.')
+                ->noSearchResultsMessage('No customer found.')
+                ->noOptionsMessage('No customer available.')
                 // ->visible(fn (Get $get) => $this->isMember($get))
                 ->live()
                 ->native(false)
@@ -745,6 +841,16 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public function resetFormAction(): Action
     {
+        if ($this->isEditMode()) {
+            return Action::make('reset')
+                ->label('Cancel')
+                ->color('gray')
+                ->requiresConfirmation()
+                ->modalHeading('Batalkan Perubahan')
+                ->modalDescription('Perubahan yang belum disimpan akan hilang. Kembali ke halaman daftar invoice?')
+                ->action(fn () => redirect(InvoiceResource::getUrl('index')));
+        }
+
         return Action::make('reset')
             ->label('Reset')
             ->color('gray')
@@ -756,33 +862,26 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public function generateAction(): Action{
         return Action::make('generate')
-                ->label('Generate Invoice')
-                ->icon('heroicon-o-document-arrow-down')
+                ->label($this->isEditMode() ? 'Save Changes' : 'Save Invoice')
+                ->icon('heroicon-o-check-circle')
                 ->requiresConfirmation()
-                ->modalHeading('Konfirmasi Generate Invoice')
+                ->modalHeading($this->isEditMode() ? 'Konfirmasi Simpan Perubahan' : 'Konfirmasi Simpan Invoice')
                 ->modalDescription(function () {
+                    $warnings = [];
+
                     // validasi minimal ada 1 product yang diinsert
-                    // cegah user generate invoice kosong
                     $products = $this->data['products'] ?? [];
                     $hasProduct = collect($products)->contains(
                         fn($item) => !empty($item['product_id'])
                     );
 
                     if (!$hasProduct) {
-                        $warnings[] = '⚠️ Belum ada produk yang ditambahkan. Harap isi minimal satu produk sebelum generate invoice.';
+                        $warnings[] = '⚠️ Belum ada produk yang ditambahkan. Harap isi minimal satu produk sebelum menyimpan invoice.';
                     }
 
                     // validasi issued on dan due by
                     $issuedDate = $this->data['issued_date'] ?? null;
                     $dueDate    = $this->data['due_date'] ?? null;
-
-                    // if (empty($issuedDate)) {
-                    //     $warnings[] = '📅 Issued On tidak diisi — akan menggunakan tanggal hari ini (' . now()->format('d M Y') . ').';
-                    // }
-
-                    // if (empty($dueDate)) {
-                    //     $warnings[] = '📅 Due By tidak diisi — akan menggunakan tanggal hari ini (' . now()->format('d M Y') . ').';
-                    // }
 
                     if (!empty($issuedDate) && !empty($dueDate)) {
                         $issued = Carbon::parse($issuedDate);
@@ -804,9 +903,13 @@ class GenerateInvoice extends Page implements HasSchemas
                         return new HtmlString(implode('<br><br>', $warnings));
                     }
 
-                    return 'Apakah semua data sudah dipastikan benar? Invoice PDF akan segera dibuat dan diunduh.';
+                    if ($this->isEditMode()) {
+                        return 'Apakah semua perubahan sudah dipastikan benar? Data invoice akan diperbarui.';
+                    }
+
+                    return 'Apakah semua data sudah dipastikan benar? Invoice akan disimpan ke sistem.';
                 })
-                ->modalSubmitActionLabel('Ya, Generate PDF')
+                ->modalSubmitActionLabel($this->isEditMode() ? 'Ya, Simpan Perubahan' : 'Ya, Buat Invoice')
                 ->action(function () {
                 $data = $this->getSchema('invoiceForm')->getState();
                 
@@ -876,7 +979,9 @@ class GenerateInvoice extends Page implements HasSchemas
                 
                 // START PROSES
                 $products = [];
+                $itemsData = [];
                 $subtotal = 0;
+                $totalNormalPrice = 0;
 
                 $cleanNumber = function($val) {
                     return (float) str_replace('.', '', (string) ($val ?? 0));
@@ -897,18 +1002,20 @@ class GenerateInvoice extends Page implements HasSchemas
                         'normal_price' => $normalPrice,
                         'item_discount_percent' => $itemDiscountPercent,
                         'discount_price' => $discountPrice,
-                        'total' => $discountPrice, // total per baris = harga yang sudah didiskon
+                        'total' => $discountPrice,
                     ];
 
-                    // // Hitung tax -> sementara belum ada perhitungan tax
-                    // $taxAmount = 0;
-                    // if (isset($item['tax']) && $item['tax'] > 0) {
-                    //     $taxAmount = $itemTotal * ($item['tax'] / 100);
-                    //     $itemTotal += $taxAmount;
-                    //     $totalTax += $taxAmount;
-                    // }
+                    $itemsData[] = [
+                        'product_id'     => $item['product_id'],
+                        'quantity'       => (int) ($item['quantity'] ?? 1),
+                        'unit_price'     => $unitPrice,
+                        'normal_price'   => $normalPrice,
+                        'item_discount'  => $itemDiscountPercent,
+                        'discount_price' => $discountPrice,
+                    ];
                     
                     $subtotal += $discountPrice;
+                    $totalNormalPrice += $normalPrice;
                 }                    
 
                 // hitung add ons dan total akhir
@@ -916,7 +1023,38 @@ class GenerateInvoice extends Page implements HasSchemas
                 $box_fee = (float) ($data['box_fee'] ?? 0);
                 $wrapping_fee = (float) ($data['wrapping_fee'] ?? 0);
 
+                if ($data['use_box'] ?? false) {
+                    $boxId = Product::query()->where('nama_barang', 'Box')->value('id');
+                    if ($boxId) {
+                        $itemsData[] = [
+                            'product_id'     => $boxId,
+                            'quantity'       => (int) ($data['box_qty'] ?? 1),
+                            'unit_price'     => (float) ($data['box_unit_price'] ?? 0),
+                            'normal_price'   => $box_fee,
+                            'item_discount'  => 0,
+                            'discount_price' => $box_fee,
+                        ];
+                    }
+                }
+
+                if ($data['use_wrapping'] ?? false) {
+                    $wrapId = Product::query()->where('nama_barang', 'Wrapping')->value('id');
+                    if ($wrapId) {
+                        $itemsData[] = [
+                            'product_id'     => $wrapId,
+                            'quantity'       => (int) ($data['wrapping_qty'] ?? 1),
+                            'unit_price'     => (float) ($data['wrap_unit_price'] ?? 0),
+                            'normal_price'   => $wrapping_fee,
+                            'item_discount'  => 0,
+                            'discount_price' => $wrapping_fee,
+                        ];
+                    }
+                }
+
                 $grand_total = $subtotal + $ongkir + $box_fee + $wrapping_fee;
+
+                // hitung discount_total = total harga normal - subtotal setelah diskon
+                $discount_total = $totalNormalPrice - $subtotal;
 
                 $summary = [
                     'subtotal' => $subtotal,
@@ -925,23 +1063,86 @@ class GenerateInvoice extends Page implements HasSchemas
                     'wrapping_fee' => $wrapping_fee,
                     'total' => $grand_total
                 ];
-                
-                // generate
-                $pdf = Pdf::loadView('invoice-template', [
-                    'invoiceNumber' => $invoiceNumber,
-                    'issuedDate' => $issuedDate,
-                    'dueDate' => $dueDate,
-                    'customer' => $customer,
-                    'products' => $products,
-                    'summary' => $summary,
-                    'flags' => $flags,
-                ]);
-                
-                $pdf->setPaper('A4', 'portrait');
-                
-                return response()->streamDownload(function () use ($pdf) {
-                    echo $pdf->stream();
-                }, "INV_Bloomorist_{$invoiceNumber}.pdf");
+
+                $customerId = $data['member_id'] ?? null;
+                if (!$customerId && !empty($data['name'])) {
+                    $customer = Customer::create([
+                        'nama' => $data['name'],
+                        'alias' => $data['alias'] ?? null,
+                        'alamat' => $data['address'] ?? null,
+                        'kota' => $data['city'] ?? null,
+                        'provinsi' => $data['province'] ?? null,
+                        'negara' => $data['country'] ?? 'Indonesia',
+                        'email' => $data['email'] ?? null,
+                        'nomor_hp' => $data['phone_number'] ?? null,
+                        'membership_id' => $data['membership_id'] ?? null,
+                    ]);
+                    $customerId = $customer->id;
+                }
+
+                // === DATA INVOICE UNTUK SIMPAN KE DB ===
+                $invoiceData = [
+                    'invoice_number'      => $invoiceNumber,
+                    'customer_type'       => $data['customer_type'] ?? 'non_member',
+                    'customer_id'         => $customerId,
+                    'discount_mode'       => $data['discount_mode'] ?? 'none',
+                    'discount_mode_member'=> $data['discount_mode_member'] ?? false,
+                    'custom_discount'     => $data['custom_discount'] ?? 0,
+                    'ongkir'              => $ongkir,
+                    'use_box'             => $data['use_box'] ?? false,
+                    'use_wrapping'        => $data['use_wrapping'] ?? false,
+                    'subtotal'            => $subtotal,
+                    'discount_total'      => $discount_total,
+                    'grand_total'         => $grand_total,
+                    'issued_date'         => $issuedDate ? Carbon::parse($issuedDate) : null,
+                    'due_date'            => $dueDate ? Carbon::parse($dueDate) : null,
+                ];
+
+                // === BRANCHING: CREATE vs EDIT ===
+                if ($this->isEditMode()) {
+                    // EDIT MODE: Update existing invoice
+                    $invoice = Invoice::findOrFail($this->invoiceId);
+                    
+                    // Update invoice data (status tidak diubah saat edit)
+                    $invoice->update($invoiceData);
+
+                    // Delete old items dan insert ulang (strategy paling aman)
+                    $invoice->items()->delete();
+                    foreach ($itemsData as $itemData) {
+                        $invoice->items()->create($itemData);
+                    }
+
+                    $invoice->load('items');
+                    $invoice->save();
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Invoice berhasil diperbarui!')
+                        ->body("Invoice #{$invoiceNumber} telah diperbarui.")
+                        ->success()
+                        ->send();
+                } else {
+                    // CREATE MODE: Create new invoice
+                    $invoiceData['status'] = 'pending';
+                    $invoice = Invoice::create($invoiceData);
+
+                    foreach ($itemsData as $itemData) {
+                        $invoice->items()->create($itemData);
+                    }
+
+                    $invoice->load('items');
+                    $invoice->save();
+
+                    // reset form setelah berhasil simpan
+                    $this->getSchema('invoiceForm')->fill();
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Invoice berhasil disimpan!')
+                        ->body("Invoice #{$invoiceNumber} telah tersimpan ke database dengan status pending.")
+                        ->success()
+                        ->send();
+                }
+
+                return redirect(InvoiceResource::getUrl('index'));
             });
     }
 
@@ -954,170 +1155,3 @@ class GenerateInvoice extends Page implements HasSchemas
     }
 }
 
-
-
-// GAK DIPAKE TPI SIMPEN AJA
-// public function getHeaderActions(): array
-// {
-//     return [
-//         Action::make('reset')
-//             ->color('gray')
-//             ->requiresConfirmation()
-//             ->modalHeading('Reset Form')
-//             ->modalDescription('Semua data yang sudah Anda isi akan dihapus. Lanjutkan?')
-//             ->action(fn () => $this->getSchema('invoiceForm')->fill()),
-
-    // Action::make('generate')
-    //     ->label('Generate Invoice')
-    //     ->icon('heroicon-o-document-arrow-down')
-    //     ->requiresConfirmation()
-    //     ->modalHeading('Konfirmasi Generate Invoice')
-    //     ->modalDescription(function () {
-    //         $ongkir = (float) ($this->data['ongkir'] ?? 0);
-
-    //         if ($ongkir == 0) {
-    //             return '⚠️ PERINGATAN: Ongkos kirim saat ini bernilai Rp 0. Apakah Anda yakin ingin melanjutkan pencetakan invoice tanpa biaya ongkir?';
-    //         }
-
-    //         return 'Apakah semua data sudah dipastikan benar? Invoice PDF akan segera dibuat dan diunduh.';
-    //     })
-    //     ->modalSubmitActionLabel('Ya, Generate PDF')
-    //     ->action(function () {
-    //     // $data = $this->data;
-    //     $data = $this->getSchema('invoiceForm')->getState();
-        
-    //     // konfigurasi invoice details
-    //     $invoiceNumber = !empty($data['custom_invoice_number']) 
-    //         ? $data['custom_invoice_number'] 
-    //         : $this->generateInvoiceNumber();
-
-    //     $issuedDate = !empty($data['issued_date']) 
-    //         ? Carbon::parse($data['issued_date'])->format('d M Y') 
-    //         : now()->format('d M Y');
-
-    //     $dueDate = !empty($data['due_date']) 
-    //         ? Carbon::parse($data['due_date'])->format('d M Y') 
-    //         : now()->format('d M Y');
-
-    //     // konfigurasi jenis member
-    //     $isMember = !empty($data['membership_id']);
-    //     $membershipName = '-';
-    //     if ($isMember) {
-    //         $membershipName = Membership::whereKey($data['membership_id'])->value('nama') ?? 'Member';                        
-    //     } 
-
-    //     // ambil datanya
-    //     $customer = [
-    //         'name' => $data['name'] ?? 'Unknown',
-    //         'alias' => $data['alias'] ?? '',
-    //         'address' => $data['address'] ?? '-',
-    //         'city' => $data['city'] ?? '-',
-    //         'province' => $data['province'] ?? '-',
-    //         'country' => $data['country'] ?? 'Indonesia',
-    //         'email' => $data['email'] ?? '-',
-    //         'phone_number' => $data['phone_number'] ?? '-',
-    //         'membership' => $membershipName
-    //     ];
-
-    //     // konfigurasi diskon
-    //     $discountMode = $data['discount_mode'] ?? 'none';
-    //     $hasDiscount = false;
-    //     $isPerItemDiscount = false;
-
-    //     if ($isMember) {
-    //         $hasDiscount = true;
-    //     } else {
-    //         if ($discountMode !== 'none') {
-    //             $hasDiscount = true;
-    //         }
-    //         if ($discountMode === 'per_item') {
-    //             $isPerItemDiscount = true;
-    //         }
-    //     }
-
-    //     // konfigurasi colspan dinamis untuk PDF
-    //     $tableColspan = 4;
-    //     if ($hasDiscount) {
-    //         $tableColspan += 2;
-    //         if ($isPerItemDiscount) {
-    //             $tableColspan += 1;
-    //         }
-    //     }
-
-    //     $flags = [
-    //         'has_discount' => $hasDiscount,
-    //         'is_per_item_discount' => $isPerItemDiscount,
-    //         'table_colspan' => $tableColspan,
-    //     ];
-        
-    //     // START PROSES
-    //     $products = [];
-    //     $subtotal = 0;
-
-    //     $cleanNumber = function($val) {
-    //         return (float) str_replace('.', '', (string) ($val ?? 0));
-    //     };
-
-    //     foreach ($data['products'] ?? [] as $item) {
-    //         $productName = Product::whereKey($item['product_id'])->value('nama_barang') ?? 'Unknown Product';
-            
-    //         $unitPrice = $cleanNumber($item['unit_price']);
-    //         $normalPrice = $cleanNumber($item['normal_price']);
-    //         $discountPrice = $cleanNumber($item['discount_price']);
-    //         $itemDiscountPercent = (float) ($item['item_discount'] ?? 0);
-            
-    //         $products[] = [
-    //             'name' => $productName,
-    //             'unit_price' => $unitPrice,
-    //             'quantity' => $item['quantity'],
-    //             'normal_price' => $normalPrice,
-    //             'item_discount_percent' => $itemDiscountPercent,
-    //             'discount_price' => $discountPrice,
-    //             'total' => $discountPrice, // total per baris = harga yang sudah didiskon
-    //         ];
-
-    //         // // Hitung tax -> sementara belum ada perhitungan tax
-    //         // $taxAmount = 0;
-    //         // if (isset($item['tax']) && $item['tax'] > 0) {
-    //         //     $taxAmount = $itemTotal * ($item['tax'] / 100);
-    //         //     $itemTotal += $taxAmount;
-    //         //     $totalTax += $taxAmount;
-    //         // }
-            
-    //         $subtotal += $discountPrice;
-    //     }                    
-
-    //     // hitung add ons dan total akhir
-    //     $ongkir = (float) ($data['ongkir'] ?? 0);
-    //     $box_fee = (float) ($data['box_fee'] ?? 0);
-    //     $wrapping_fee = (float) ($data['wrapping_fee'] ?? 0);
-
-    //     $grand_total = $subtotal + $ongkir + $box_fee + $wrapping_fee;
-
-    //     $summary = [
-    //         'subtotal' => $subtotal,
-    //         'ongkir' => $ongkir,
-    //         'box_fee' => $box_fee,
-    //         'wrapping_fee' => $wrapping_fee,
-    //         'total' => $grand_total
-    //     ];
-        
-    //     // generate
-    //     $pdf = Pdf::loadView('invoice-template', [
-    //         'invoiceNumber' => $invoiceNumber,
-    //         'issuedDate' => $issuedDate,
-    //         'dueDate' => $dueDate,
-    //         'customer' => $customer,
-    //         'products' => $products,
-    //         'summary' => $summary,
-    //         'flags' => $flags,
-    //     ]);
-        
-    //     $pdf->setPaper('A4', 'portrait');
-        
-    //     return response()->streamDownload(function () use ($pdf) {
-    //         echo $pdf->stream();
-    //     }, "Invoice_Bloomorist_{$invoiceNumber}.pdf");
-    // })
-//     ];
-// }

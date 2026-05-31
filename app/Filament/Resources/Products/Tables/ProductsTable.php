@@ -40,7 +40,7 @@ class ProductsTable
                     ->money('IDR', locale: 'id')
                     ->sortable(),
                 TextColumn::make('stok_barang')
-                    ->label('STOK')
+                    ->label('STOCK')
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('created_at')

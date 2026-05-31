@@ -21,4 +21,9 @@ class Customer extends Model
     ];
 
     public $timestamps = true;
+
+    public function membership()
+    {
+        return $this->belongsTo(Membership::class, 'membership_id');
+    }
 }
