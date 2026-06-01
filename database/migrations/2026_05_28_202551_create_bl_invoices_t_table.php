@@ -16,14 +16,6 @@ return new class extends Migration
             $table->string('invoice_number')->unique();
             $table->enum('customer_type', ['member', 'non_member'])->default('member');
             $table->unsignedBigInteger('customer_id')->nullable(); // can link to customers
-            $table->string('customer_name')->nullable();
-            $table->string('customer_alias')->nullable();
-            $table->text('customer_address')->nullable();
-            $table->string('customer_city')->nullable();
-            $table->string('customer_province')->nullable();
-            $table->string('customer_country')->nullable();
-            $table->string('customer_email')->nullable();
-            $table->string('customer_phone')->nullable();
             $table->unsignedBigInteger('membership_id')->nullable();
             
             // Temporary form states for discount
@@ -34,13 +26,7 @@ return new class extends Migration
             // Add ons
             $table->decimal('ongkir', 15, 2)->default(0);
             $table->boolean('use_box')->default(false);
-            $table->integer('box_qty')->nullable();
-            $table->decimal('box_unit_price', 15, 2)->default(0);
-            $table->decimal('box_fee', 15, 2)->default(0);
             $table->boolean('use_wrapping')->default(false);
-            $table->integer('wrapping_qty')->nullable();
-            $table->decimal('wrap_unit_price', 15, 2)->default(0);
-            $table->decimal('wrapping_fee', 15, 2)->default(0);
             
             // Summary
             $table->decimal('subtotal', 15, 2)->default(0);
