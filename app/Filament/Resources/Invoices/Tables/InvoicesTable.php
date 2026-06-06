@@ -8,10 +8,12 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
+use Filament\Notifications\Notification;
 
 class InvoicesTable
 {
@@ -22,6 +24,9 @@ class InvoicesTable
                 ->withSum('regularItems', 'normal_price')
                 ->withCount('regularItems'))
             ->columns([
+                TextColumn::make('no')
+                    ->label('NO.')
+                    ->rowIndex(),
                 TextColumn::make('invoice_number')
                     ->label('INVOICE NO.')
                     ->searchable()
@@ -48,13 +53,12 @@ class InvoicesTable
 
                 TextColumn::make('regular_items_sum_normal_price')
                     ->label('SUBTOTAL')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable()
                     ->description('Sebelum diskon'),
 
                 TextColumn::make('discount_total')
                     ->label('DISKON')
-                    ->money('IDR')
                     ->sortable()
                     ->color('danger')
                     ->formatStateUsing(fn ($state) => $state > 0 ? '-Rp ' . number_format($state, 0, ',', '.') : 'Rp 0')
@@ -66,15 +70,15 @@ class InvoicesTable
 
                 TextColumn::make('ongkir')
                     ->label('ONGKIR')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('add_ons_total')
                     ->label('ADD ONS')
                     ->state(fn (Invoice $record): float => ($record->boxItem?->discount_price ?? 0) + ($record->wrappingItem?->discount_price ?? 0))
-                    ->money('IDR')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->description(fn (Invoice $record): string => 
                         collect([
                             $record->use_box ? "Box x" . ($record->boxItem?->quantity ?? 1) : null,
@@ -84,7 +88,7 @@ class InvoicesTable
 
                 TextColumn::make('grand_total')
                     ->label('GRAND TOTAL')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable()
                     ->weight('bold')
                     ->color('success'),
@@ -112,7 +116,7 @@ class InvoicesTable
                         'pending'   => 'warning',
                         'paid'      => 'success',
                         'cancelled' => 'danger',
-                        'refunded'  => 'gray',
+                        'refunded'  => 'info',
                         default     => 'primary',
                     }),
             ])
@@ -134,55 +138,113 @@ class InvoicesTable
             ->defaultSort('created_at', 'desc')
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
-                Action::make('markAsPaid')
-                    ->label('Mark as Paid')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (Invoice $record) => $record->status === 'pending')
-                    ->action(fn (Invoice $record) => $record->update(['status' => 'paid']))
-                    ->tooltip('Update status to paid'),
+                Action::make('changeStatus')
+                    ->hiddenLabel()
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->size('xl')
+                    ->tooltip('Update invoice status')
+                    ->modalHeading('Ubah Status Invoice')
+                    ->modalDescription(fn (Invoice $record) => "Invoice #{$record->invoice_number} — Status saat ini: " . strtoupper($record->status))
+                    ->modalSubmitActionLabel('Ya, Ubah Status')
+                    ->modalCancelActionLabel('Batal')
+                    ->schema([
+                        Select::make('new_status')
+                            ->label('Status Baru')
+                            ->options(fn (Invoice $record) => collect([
+                                'pending'   => 'Pending',
+                                'paid'      => 'Paid',
+                                'cancelled' => 'Cancelled',
+                                'refunded'  => 'Refunded',
+                            ])->except([$record->status])->toArray())
+                            ->required()
+                            ->native(false),
+                    ])
+                    ->action(function (Invoice $record, array $data) {
+                        Invoice::handleStatusChange($record, $data['new_status']);
+
+                        Notification::make()
+                            ->title('Status berhasil diubah')
+                            ->body("Invoice #{$record->invoice_number} → " . strtoupper($data['new_status']))
+                            ->success()
+                            ->send();
+                    }),
 
                 Action::make('downloadPdf')
-                    ->label('Download PDF')
+                    ->hiddenLabel()
                     ->icon('heroicon-o-document-arrow-down')
-                    ->color('primary')
+                    ->color('success')
+                    ->size('xl')
                     ->url(fn (Invoice $record) => route('invoice.download', $record))
                     ->openUrlInNewTab()
-                    ->tooltip('Download this invoice'),
+                    ->tooltip('Download PDF'),
 
                 Action::make('edit')
-                    ->label('Edit')
+                    ->hiddenLabel()
                     ->icon('heroicon-o-pencil-square')
                     ->color('warning')
+                    ->size('xl')
                     ->url(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id)
-                    ->tooltip('Edit this invoice'),
+                    ->tooltip('Edit invoice'),
+                
+                Action::make('delete')
+                    ->hiddenLabel()
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->size('xl')
+                    ->requiresConfirmation()
+                    ->modalHeading('Hapus Invoice')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus invoice ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalSubmitActionLabel('Ya, Hapus')
+                    ->modalCancelActionLabel('Batal')
+                    ->action(fn (Invoice $record) => $record->delete())
+                    ->tooltip('Delete invoice'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    BulkAction::make('markAsPaid')
-                        ->label('Mark as Paid')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading('Mark Selected Invoices as Paid')
-                        ->modalDescription('Invoice yang statusnya sudah paid akan diabaikan. Hanya invoice dengan status pending yang akan diupdate.')
-                        ->action(function (Collection $records) {
-                            $updated = $records
-                                ->where('status', 'pending')
-                                ->each(fn (Invoice $record) => $record->update(['status' => 'paid']));
-                            
-                            $count = $updated->count();
+                    BulkAction::make('changeStatus')
+                        ->label('Update status')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('primary')
+                        ->modalHeading('Ubah Status Invoice Terpilih')
+                        ->modalDescription('Pilih status baru untuk semua invoice yang dicentang. Invoice yang sudah memiliki status yang sama akan diabaikan.')
+                        ->modalSubmitActionLabel('Ya, Ubah Status')
+                        ->modalCancelActionLabel('Batal')
+                        ->schema([
+                            Select::make('new_status')
+                                ->label('Status Baru')
+                                ->options([
+                                    'pending'   => 'Pending',
+                                    'paid'      => 'Paid',
+                                    'cancelled' => 'Cancelled',
+                                    'refunded'  => 'Refunded',
+                                ])
+                                ->required()
+                                ->native(false),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $updated = 0;
 
-                            \Filament\Notifications\Notification::make()
-                                ->title("{$count} invoice berhasil diupdate")
-                                ->body("{$count} invoice telah ditandai sebagai paid.")
+                            foreach ($records as $record) {
+                                if ($record->status !== $data['new_status']) {
+                                    Invoice::handleStatusChange($record, $data['new_status']);
+                                    $updated++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title("{$updated} invoice berhasil diupdate")
+                                ->body("{$updated} invoice telah diubah statusnya menjadi " . strtoupper($data['new_status']) . ".")
                                 ->success()
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
 
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->modalHeading('Hapus Invoice Terpilih')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus semua invoice yang dipilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalSubmitActionLabel('Ya, Hapus Semua')
+                        ->modalCancelActionLabel('Batal'),
                 ]),
             ]);
     }

@@ -632,7 +632,22 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->addActionLabel('Add Product')
                 ->defaultItems(1)
                 ->reorderable(false)
-                ->collapsible(),
+                ->collapsible()
+                ->live()
+                ->deleteAction(
+                    // Override seluruh action callback untuk mencegah partiallyRender()
+                    // sehingga Livewire melakukan full re-render (bukan partial),
+                    // dan invoice-summary di section berbeda ikut ter-update.
+                    fn (\Filament\Actions\Action $action) => $action->action(
+                        function (array $arguments, \Filament\Forms\Components\Repeater $component): void {
+                            $items = $component->getRawState();
+                            unset($items[$arguments['item']]);
+                            $component->rawState($items);
+                            $component->callAfterStateUpdated();
+                            // Tidak memanggil partiallyRender() → Livewire full re-render
+                        }
+                    )
+                ),
         ]);
     }
 
@@ -644,17 +659,15 @@ class GenerateInvoice extends Page implements HasSchemas
             ->schema([
                 TextInput::make('ongkir')
                     ->label('Ongkos Kirim')
-                    ->numeric()
-                    ->minValue(0)
-                    ->maxValue(999999999)
-                    ->maxLength(9)
-                    ->extraInputAttributes([
-                        'min' => 0, 
-                        'max' => 999999999, 
-                        'oninput' => 'this.value = this.value.slice(0, 9);'
-                    ])
                     ->prefix('Rp')
                     ->default(0)
+                    ->maxLength(13)
+                    ->extraInputAttributes([
+                        'inputmode' => 'numeric',
+                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                    ])
+                    ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                    ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '0')
                     ->live(onBlur: true)
                     ->required(),
 
@@ -694,12 +707,13 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->maxValue(999)
                                 ->required()
                                 ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                ->maxLength(3)
                                 ->extraInputAttributes([
                                     'inputmode' => 'numeric',
                                     'min' => 1, 
                                     'max' => 999,
                                     'pattern' => '[0-9]*',
-                                    'oninput' => 'this.value = this.value.slice(0, 3);'
+                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
                                 ])
                                 ->live(onBlur: true)
                                 ->visible(fn (Get $get) => $get('use_box')) // Hanya muncul jika toggle nyala
@@ -749,12 +763,13 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->maxValue(999)
                                 ->required()
                                 ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                ->maxLength(3)
                                 ->extraInputAttributes([
                                     'inputmode' => 'numeric',
                                     'min' => 1, 
                                     'max' => 999,
                                     'pattern' => '[0-9]*',
-                                    'oninput' => 'this.value = this.value.slice(0, 3);'
+                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
                                 ])
                                 ->live(onBlur: true)
                                 ->visible(fn (Get $get) => $get('use_wrapping'))

@@ -65,8 +65,60 @@ class Invoice extends Model
         return $this->belongsTo(Customer::class, 'customer_id');
     }
 
-    public function membership()
+    /**
+     * Handle status change with automatic stock adjustment.
+     * ALL items (including Box/Wrapping) affect stock.
+     *
+     * Rules:
+     * - pending → paid    : Potong stok (Sale)
+     * - paid → cancelled  : Kembalikan stok (Return)
+     * - paid → refunded   : Kembalikan stok (Refund)
+     * - pending → cancelled: Tidak ada perubahan stok
+     * - cancelled/refunded → paid: Potong stok kembali
+     */
+    public static function handleStatusChange(self $invoice, string $newStatus): void
     {
-        return $this->belongsTo(Membership::class, 'membership_id');
+        $oldStatus = $invoice->status;
+
+        // Skip jika status tidak berubah
+        if ($oldStatus === $newStatus) {
+            return;
+        }
+
+        $items = $invoice->items()->with('product')->get();
+
+        // Tentukan apakah perlu potong atau kembalikan stok
+        $shouldDecrementStock = false;
+        $shouldIncrementStock = false;
+
+        // Dari status non-paid → paid: potong stok
+        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
+            // Kecuali dari pending ke cancel (tidak potong)
+            $shouldDecrementStock = true;
+        }
+
+        // Dari paid → cancelled/refunded: kembalikan stok
+        if ($oldStatus === 'paid' && in_array($newStatus, ['cancelled', 'refunded'])) {
+            $shouldIncrementStock = true;
+        }
+
+        if ($shouldDecrementStock) {
+            foreach ($items as $item) {
+                if ($item->product) {
+                    $item->product->decrement('stok_barang', $item->quantity);
+                }
+            }
+        }
+
+        if ($shouldIncrementStock) {
+            foreach ($items as $item) {
+                if ($item->product) {
+                    $item->product->increment('stok_barang', $item->quantity);
+                }
+            }
+        }
+
+        // Update status
+        $invoice->update(['status' => $newStatus]);
     }
 }

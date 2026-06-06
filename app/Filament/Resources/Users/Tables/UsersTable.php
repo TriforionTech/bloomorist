@@ -68,7 +68,7 @@ class UsersTable
                     ->disabled(fn ($record) => Gate::denies('update', $record))
                     ->tooltip(function ($record) {
                         $response = Gate::inspect('update', $record);
-                        return $response->denied() ? $response->message() : 'Edit this user';
+                        return $response->denied() ? $response->message() : 'Edit this admin';
                     })
                     ->icon(function ($record) {
                         return Gate::inspect('update', $record)->denied() 
@@ -102,7 +102,7 @@ class UsersTable
                     ->disabled(fn ($record) => Gate::inspect('delete', $record)->denied())
                     ->tooltip(function ($record) {
                         $response = Gate::inspect('delete', $record);
-                        return $response->denied() ? $response->message() : 'Delete this user';
+                        return $response->denied() ? $response->message() : 'Delete this admin';
                     })
                     ->icon(function ($record) {
                         return Gate::inspect('delete', $record)->denied() 
@@ -127,7 +127,11 @@ class UsersTable
                             
                             $action->halt();
                         }
-                    }),                    
+                    })
+                    ->modalHeading('Hapus Admin')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus admin ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalSubmitActionLabel('Ya, Hapus')
+                    ->modalCancelActionLabel('Batal'),                    
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

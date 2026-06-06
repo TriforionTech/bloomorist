@@ -162,8 +162,8 @@ body {
 }
 
 .product-table tbody td {
-    padding: 10px 12px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 11px;
     color: #1f2937;
     border-bottom: 1px solid #e5e7eb;
 }
@@ -173,7 +173,8 @@ body {
 }
 
 .product-table tbody td.total-price {
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 800;
     color: #111827;
 }
 
@@ -231,11 +232,11 @@ body {
 }
 
 .summary-table tr {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .summary-table td {
-    padding: 8px 0;
+    padding: 4px 0;
     font-size: 12px;
 }
 

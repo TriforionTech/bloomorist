@@ -33,11 +33,11 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('harga_beli_barang')
                     ->label('COST PRICE')
-                    ->money('IDR', locale: 'id')
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('harga_jual_barang')
                     ->label('SELLING PRICE')
-                    ->money('IDR', locale: 'id')
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('stok_barang')
                     ->label('STOCK')
@@ -45,12 +45,12 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('CREATED AT')
-                    ->dateTime()
+                    ->date('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('UPDATED AT')
-                    ->dateTime()
+                    ->date('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -149,17 +149,19 @@ class ProductsTable
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
                 EditAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
                     ->authorize(fn () => true)
                     ->visible(fn () => true)
                     ->disabled(fn ($record) => Gate::denies('update', $record))
                     ->tooltip(function ($record) {
                         $response = Gate::inspect('update', $record);
-                        return $response->denied() ? $response->message() : 'Edit this product';
+                        return $response->denied() ? $response->message() : 'Edit product';
                     })
                     ->icon(function ($record) {
                         return Gate::inspect('update', $record)->denied() 
                             ? 'heroicon-o-lock-closed' 
-                            : 'heroicon-o-pencil';
+                            : 'heroicon-o-pencil-square';
                     })
                     ->color(function ($record) {
                         return Gate::inspect('update', $record)->denied() 
@@ -181,12 +183,18 @@ class ProductsTable
                     }),
 
             DeleteAction::make()
+                ->hiddenLabel()
+                ->size('xl')
                 ->authorize(fn () => true)
                 ->visible(fn () => true)
                 ->disabled(fn ($record) => Gate::denies('delete', $record))
+                ->modalHeading('Hapus Produk')
+                ->modalDescription('Apakah Anda yakin ingin menghapus produk ini? Tindakan ini tidak dapat dibatalkan.')
+                ->modalSubmitActionLabel('Ya, Hapus')
+                ->modalCancelActionLabel('Batal')
                 ->tooltip(function ($record) {
                     $response = Gate::inspect('delete', $record);
-                    return $response->denied() ? $response->message() : 'Delete this product';
+                    return $response->denied() ? $response->message() : 'Delete product';
                 })
                 ->icon(function ($record) {
                     return Gate::inspect('delete', $record)->denied() 
@@ -204,7 +212,7 @@ class ProductsTable
                 if ($response->denied()) {
                     Notification::make()
                         ->danger()
-                        ->title('Action Denied')
+                        ->title('Akses Ditolak')
                         ->body($response->message())
                         ->send();
                     
@@ -215,16 +223,19 @@ class ProductsTable
         ->toolbarActions([
             BulkActionGroup::make([
                 DeleteBulkAction::make()
+                    ->modalHeading('Hapus Produk Terpilih')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus semua produk yang dipilih? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalSubmitActionLabel('Ya, Hapus Semua')
+                    ->modalCancelActionLabel('Batal')
                     ->visible(fn () => Filament::auth()->user()?->is_super_admin)
                     ->before(function ($action) {
                         $currentUser = Filament::auth()->user();
                         
-                        // jagaan layer 2, tpi umumnya tdk mungkin terjadi karena button sudah disembunyikan untuk non-superadmin
                         if (!$currentUser?->is_super_admin) {
                             Notification::make()
                                 ->danger()
-                                ->title('Access Denied')
-                                ->body('Only Superadmin is allowed to delete product data.')
+                                ->title('Akses Ditolak')
+                                ->body('Hanya Superadmin yang dapat menghapus data produk.')
                                 ->send();
                             
                             $action->halt();
@@ -241,8 +252,8 @@ class ProductsTable
                         
                         Notification::make()
                             ->success()
-                            ->title('Products Deleted')
-                            ->body("{$deletedCount} products successfully deleted from the system.")
+                            ->title('Produk Dihapus')
+                            ->body("{$deletedCount} produk berhasil dihapus dari sistem.")
                             ->send();
                     }),
             ]),

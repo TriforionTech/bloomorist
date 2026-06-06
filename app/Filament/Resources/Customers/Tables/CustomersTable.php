@@ -76,12 +76,12 @@ class CustomersTable
                     }),
                 TextColumn::make('created_at')
                     ->label('CREATED AT')
-                    ->dateTime()
+                    ->date('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('UPDATED AT')
-                    ->dateTime()
+                    ->date('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -97,12 +97,28 @@ class CustomersTable
             ])
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
-                EditAction::make()->tooltip('Edit this customer'),
-                DeleteAction::make()->tooltip('Delete this customer'),
+                EditAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->tooltip('Edit customer')
+                    ->icon('heroicon-o-pencil-square'),
+                DeleteAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->tooltip('Delete customer')
+                    ->icon('heroicon-o-trash')
+                    ->modalHeading('Hapus Customer')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus customer ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalSubmitActionLabel('Ya, Hapus')
+                    ->modalCancelActionLabel('Batal'),
             ])            
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        ->modalHeading('Hapus Customer Terpilih')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus semua customer yang dipilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalSubmitActionLabel('Ya, Hapus Semua')
+                        ->modalCancelActionLabel('Batal')
                         ->visible(fn () => Filament::auth()->user()?->is_super_admin),
                 ]),
             ]);

@@ -1,12 +1,13 @@
 @php
     use App\Models\Product;
 
-    $formData         = $this->data;
+    // Baca dari live Filament schema state (bukan $this->data yang bisa stale)
+    $formData         = $this->getSchema('invoiceForm')->getRawState();
     $products         = $formData['products'] ?? [];
     $discountMode     = $formData['discount_mode'] ?? 'none';
     $discountModeMember = (bool) ($formData['discount_mode_member'] ?? false);
     $membershipId     = $formData['membership_id'] ?? null;
-    $ongkir           = (float) ($formData['ongkir'] ?? 0);
+    $ongkir           = (float) str_replace('.', '', (string) ($formData['ongkir'] ?? 0));
     $boxFee           = (float) ($formData['box_fee'] ?? 0);
     $wrappingFee      = (float) ($formData['wrapping_fee'] ?? 0);
     $boxQty           = (int) ($formData['box_qty'] ?? 0);
@@ -40,7 +41,8 @@
         $isDiscounted = $hasDiscount && ($normalPrice !== $discountPrice);
         if ($isDiscounted) $hasAnyDiscount = true;
 
-        $rows[] = compact('name', 'qty', 'normalPrice', 'discountPrice', 'isDiscounted', 'itemDiscount');
+        $productId     = $item['product_id'];
+        $rows[] = compact('productId', 'name', 'qty', 'normalPrice', 'discountPrice', 'isDiscounted', 'itemDiscount');
     }
 
     $totalDiskon  = $subtotalNormal - $subtotalDiscount;
@@ -55,7 +57,7 @@
         border: 1px solid #e2e8f0;
         border-radius: 12px;
         overflow: hidden;
-        font-size: 15px; /* Ditingkatkan dari 14px */
+        font-size: 15px;
         line-height: 1.6;
     }
     .dark .inv-wrap { border-color: rgba(255,255,255,0.1); }
@@ -64,7 +66,7 @@
     .inv-products { padding: 18px 18px 12px; }
 
     .inv-label {
-        font-size: 13px; /* Ditingkatkan dari 12px */
+        font-size: 13px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -79,7 +81,7 @@
     }
 
     .inv-tbl th {
-        font-size: 15px; /* Ditingkatkan dari 14px */
+        font-size: 15px;
         font-weight: 600;
         color: #64748b;
         padding-bottom: 10px;
@@ -92,7 +94,7 @@
     .inv-tbl th.th-right { text-align: right; }
 
     .inv-tbl td {
-        padding: 12px 0; /* Ruang bernapas diperbesar */
+        padding: 12px 0;
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
         vertical-align: middle;
@@ -113,7 +115,7 @@
         gap: 2px;
     }
     .price-cross {
-        font-size: 13px; /* Ditingkatkan dari 12px */
+        font-size: 13px;
         color: #94a3b8;
         text-decoration: line-through;
     }
@@ -124,7 +126,7 @@
     }
     .dark .price-final { color: #f1f5f9; }
     .price-saving {
-        font-size: 12px; /* Ditingkatkan dari 11px */
+        font-size: 12px;
         font-weight: 600;
         color: #ef4444;
     }
@@ -140,7 +142,7 @@
     .inv-summary {
         border-top: 1px solid #e2e8f0;
         background: #f8fafc;
-        padding: 16px 18px; /* Diperlebar sedikit */
+        padding: 16px 18px;
     }
     .dark .inv-summary {
         border-top-color: rgba(255,255,255,0.1);
@@ -148,7 +150,7 @@
     }
 
     .inv-stbl { width: 100%; border-collapse: collapse; }
-    .inv-stbl td { padding: 6px 0; font-size: 15px; } /* Ditingkatkan dari 14px */
+    .inv-stbl td { padding: 6px 0; font-size: 15px; }
     .inv-stbl td:last-child { text-align: right; }
 
     .s-muted  { color: #64748b; }
@@ -161,9 +163,9 @@
 
     .inv-stbl tr.grand-row td {
         padding-top: 14px;
-        border-top: 1px dashed #cbd5e1; /* Garis pemisah dibuat dashed agar lebih estetik */
+        border-top: 1px dashed #cbd5e1;
         font-weight: 700;
-        font-size: 16px; /* Ditingkatkan dari 14px */
+        font-size: 16px;
         color: #0f172a;
         margin-top: 8px;
     }
@@ -174,7 +176,7 @@
     .grand-amount {
         color: #2563eb;
         font-weight: 800;
-        font-size: 18px; /* Ukuran khusus agar sangat mencolok */
+        font-size: 18px;
         text-align: right;
     }
     .dark .grand-amount { color: #60a5fa; }
@@ -185,24 +187,24 @@
         border-radius: 12px;
         padding: 40px 16px;
         text-align: center;
-        font-size: 15px; /* Ditingkatkan dari 13px */
+        font-size: 15px;
         color: #94a3b8;
     }
     .dark .inv-empty { border-color: #475569; color: #64748b; }
 
     /* ── Responsive: layar kecil (<520px) ── */
     @media (max-width: 520px) {
-        .inv-wrap { font-size: 14px; border-radius: 10px; } /* Standar mobile text size */
+        .inv-wrap { font-size: 14px; border-radius: 10px; }
         .inv-products { padding: 14px 14px 10px; }
         .inv-summary { padding: 14px; }
 
         .inv-tbl th { font-size: 13px; padding-bottom: 8px; }
-        .inv-tbl td { padding: 10px 0; font-size: 14px; } /* Padding ditingkatkan agar area tap/scroll aman */
+        .inv-tbl td { padding: 10px 0; font-size: 14px; }
         
-        .inv-stbl td { font-size: 14px; padding: 5px 0; } /* Info subtotal dll dibesarkan jadi 14px */
+        .inv-stbl td { font-size: 14px; padding: 5px 0; }
 
         .inv-stbl tr.grand-row td { font-size: 15px; padding-top: 12px; }
-        .grand-amount { font-size: 17px; } /* Tetap besar di mobile */
+        .grand-amount { font-size: 17px; }
 
         .td-name  { padding-right: 8px; }
         .td-qty   { padding: 0 6px; }
@@ -231,8 +233,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($rows as $row)
-                        <tr>
+                    @foreach ($rows as $index => $row)
+                        <tr wire:key="invoice-row-{{ $row['productId'] }}-{{ $index }}">
                             <td class="td-name">{{ $row['name'] }}</td>
                             <td class="td-qty">{{ $row['qty'] }}</td>
                             <td class="td-price">

@@ -85,16 +85,16 @@
                     @foreach($products as $product)
                     <tr>
                         <td>{{ $product['name'] }}</td>
-                        <td class="text-right">Rp {{ number_format($product['unit_price'], 0, ',', '.') }}</td>
+                        <td class="text-right">Rp{{ number_format($product['unit_price'], 0, ',', '.') }}</td>
                         <td class="text-right">{{ $product['quantity'] }}</td>
                         @if($flags['has_discount'])
-                            <td class="text-right">Rp. {{ number_format($product['normal_price'], 0, ',', '.') }}</td>
+                            <td class="text-right">Rp{{ number_format($product['normal_price'], 0, ',', '.') }}</td>
                             @if($flags['is_per_item_discount'])
                                 <td class="text-right">{{ $product['item_discount_percent'] }}%</td>
                             @endif
-                            <td class="text-right">Rp. {{ number_format($product['discount_price'], 0, ',', '.') }}</td>
+                            <td class="text-right">Rp{{ number_format($product['discount_price'], 0, ',', '.') }}</td>
                         @endif
-                        <td class="text-right total-price">Rp. {{ number_format($product['total'], 0, ',', '.') }}</td>
+                        <td class="text-right total-price">Rp{{ number_format($product['total'], 0, ',', '.') }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -113,8 +113,8 @@
                 <div class="section-title">Terms</div>
                 <div class="terms-content">
                     <div class="bank-name">Bank BCA</div>
-                    <div>an. Bigatri Indoflora Pacific</div>
-                    <div>No rek : 0191268856</div>
+                    <div>Bigatri Indoflora Pacific</div>
+                    <div>0191268856</div>
                 </div>
             </div>
 
@@ -124,31 +124,23 @@
                 <table class="summary-table">
                     <tr>
                         <td class="label">Subtotal</td>
-                        <td class="value">Rp. {{ number_format($summary['subtotal'], 0, ',', '.') }}</td>
+                        <td class="value">Rp{{ number_format($summary['subtotal'], 0, ',', '.') }}</td>
                     </tr>
+                    @if(isset($summary['discount_total']) && $summary['discount_total'] > 0)
+                    <tr>
+                        <td class="label" style="color: #dc2626;">Discount Total</td>
+                        <td class="value" style="color: #dc2626;">- Rp{{ number_format($summary['discount_total'], 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
                     @if(isset($summary['ongkir']) && $summary['ongkir'] > 0)
                     <tr>
-                        <td class="label">Ongkos Kirim</td>
-                        <td class="value">Rp. {{ number_format($summary['ongkir'], 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-                    
-                    @if(isset($summary['box_fee']) && $summary['box_fee'] > 0)
-                    <tr>
-                        <td class="label">Box</td>
-                        <td class="value">Rp. {{ number_format($summary['box_fee'], 0, ',', '.') }}</td>
-                    </tr>
-                    @endif
-
-                    @if(isset($summary['wrapping_fee']) && $summary['wrapping_fee'] > 0)
-                    <tr>
-                        <td class="label">Wrapping</td>
-                        <td class="value">Rp. {{ number_format($summary['wrapping_fee'], 0, ',', '.') }}</td>
+                        <td class="label">Shipping Cost</td>
+                        <td class="value">Rp{{ number_format($summary['ongkir'], 0, ',', '.') }}</td>
                     </tr>
                     @endif
                     <tr class="total-row">
                         <td class="label">Total</td>
-                        <td class="value">Rp. {{ number_format($summary['total'], 0, ',', '.') }}</td>
+                        <td class="value">Rp{{ number_format($summary['total'], 0, ',', '.') }}</td>
                     </tr>
                 </table>
             </div>

@@ -20,14 +20,28 @@ class ProductForm
                     ->label('Purchase Price')
                     ->placeholder('Enter purchase price')
                     ->required()
-                    ->numeric()
+                    ->prefix('Rp')
+                    ->maxLength(13)
+                    ->extraInputAttributes([
+                        'inputmode' => 'numeric',
+                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                    ])
+                    ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                    ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
                     ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
                     ->dehydrated(),
                 TextInput::make('harga_jual_barang')
                     ->label('Selling Price')
                     ->placeholder('Enter selling price')
                     ->required()
-                    ->numeric()
+                    ->prefix('Rp')
+                    ->maxLength(13)
+                    ->extraInputAttributes([
+                        'inputmode' => 'numeric',
+                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                    ])
+                    ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                    ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
                     ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
                     ->dehydrated(),
                 TextInput::make('stok_barang')
@@ -35,7 +49,13 @@ class ProductForm
                     ->placeholder('Enter stock quantity')
                     ->required()
                     ->numeric()
-                    ->default(0),
+                    ->default(0)
+                    ->maxLength(6)
+                    ->extraInputAttributes([
+                        'inputmode' => 'numeric',
+                        'min' => 0,
+                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,6);",
+                    ]),
             ]);
     }
 }

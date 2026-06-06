@@ -50,10 +50,13 @@ class InvoiceController extends Controller
             'table_colspan' => $tableColspan,
         ];
 
+        // ALL items (including Box/Wrapping) go into the product list
         $products = [];
-        foreach ($invoice->regularItems as $item) {
+        foreach ($invoice->items()->with('product')->get() as $item) {
+            $productName = $item->product->nama_barang ?? 'Unknown Product';
+
             $products[] = [
-                'name' => $item->product->nama_barang ?? 'Unknown Product',
+                'name' => $productName,
                 'unit_price' => $item->unit_price,
                 'quantity' => $item->quantity,
                 'normal_price' => $item->normal_price,
@@ -65,10 +68,9 @@ class InvoiceController extends Controller
 
         $summary = [
             'subtotal' => $invoice->subtotal,
+            'discount_total' => $invoice->discount_total,
             'ongkir' => $invoice->ongkir,
-            'box_fee' => $invoice->boxItem ? $invoice->boxItem->discount_price : 0,
-            'wrapping_fee' => $invoice->wrappingItem ? $invoice->wrappingItem->discount_price : 0,
-            'total' => $invoice->grand_total
+            'total' => $invoice->grand_total,
         ];
 
         $pdf = Pdf::loadView('invoice-template', [
