@@ -4,7 +4,7 @@
     {{ $this->invoiceForm }}
 
     {{-- Footer Actions --}}
-    <div class="flex items-center justify-start gap-3 mt-6">
+    <div class="items-center justify-start mt-6" style="display:flex; gap:12px;">
         {{-- Save: validasi dulu via Livewire, baru buka modal jika lolos --}}
         <x-filament::button
             color="primary"

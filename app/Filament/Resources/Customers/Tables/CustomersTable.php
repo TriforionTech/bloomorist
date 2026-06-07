@@ -76,12 +76,14 @@ class CustomersTable
                     }),
                 TextColumn::make('created_at')
                     ->label('CREATED AT')
-                    ->date('d M Y')
+                    ->dateTime('d M Y H:i')
+                    ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('UPDATED AT')
-                    ->date('d M Y')
+                    ->dateTime('d M Y H:i')
+                    ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

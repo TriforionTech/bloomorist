@@ -86,6 +86,7 @@ class Invoice extends Model
         }
 
         $items = $invoice->items()->with('product')->get();
+        $userId = \Filament\Facades\Filament::auth()->id() ?? 1;
 
         // Tentukan apakah perlu potong atau kembalikan stok
         $shouldDecrementStock = false;
@@ -106,6 +107,15 @@ class Invoice extends Model
             foreach ($items as $item) {
                 if ($item->product) {
                     $item->product->decrement('stok_barang', $item->quantity);
+
+                    StockMovement::create([
+                        'product_id' => $item->product->id,
+                        'type' => 'sale',
+                        'quantity' => $item->quantity,
+                        'reference_id' => $invoice->invoice_number,
+                        'notes' => 'Auto: Invoice paid - ' . $invoice->invoice_number,
+                        'user_id' => $userId,
+                    ]);
                 }
             }
         }
@@ -114,6 +124,15 @@ class Invoice extends Model
             foreach ($items as $item) {
                 if ($item->product) {
                     $item->product->increment('stok_barang', $item->quantity);
+
+                    StockMovement::create([
+                        'product_id' => $item->product->id,
+                        'type' => 'return',
+                        'quantity' => $item->quantity,
+                        'reference_id' => $invoice->invoice_number,
+                        'notes' => 'Auto: Invoice ' . $newStatus . ' - ' . $invoice->invoice_number,
+                        'user_id' => $userId,
+                    ]);
                 }
             }
         }

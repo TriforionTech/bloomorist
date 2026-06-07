@@ -46,16 +46,11 @@ class ProductForm
                     ->dehydrated(),
                 TextInput::make('stok_barang')
                     ->label('Stock')
-                    ->placeholder('Enter stock quantity')
-                    ->required()
                     ->numeric()
                     ->default(0)
-                    ->maxLength(6)
-                    ->extraInputAttributes([
-                        'inputmode' => 'numeric',
-                        'min' => 0,
-                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,6);",
-                    ]),
+                    ->disabled()
+                    ->dehydrated()
+                    ->helperText('Stock is managed via Stock Movements.'),
             ]);
     }
 }

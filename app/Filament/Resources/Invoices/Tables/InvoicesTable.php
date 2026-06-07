@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Invoices\Tables;
 use App\Filament\Pages\GenerateInvoice;
 use App\Models\Invoice;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -14,6 +15,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Filament\Notifications\Notification;
+use Filament\Support\Enums\Width;
+use Filament\Support\Enums\Size;
 
 class InvoicesTable
 {
@@ -111,6 +114,7 @@ class InvoicesTable
                 TextColumn::make('status')
                     ->label('STATUS')
                     ->badge()
+                    ->sortable()
                     ->formatStateUsing(fn (string $state): string => strtoupper($state))
                     ->color(fn (string $state): string => match ($state) {
                         'pending'   => 'warning',
@@ -127,13 +131,15 @@ class InvoicesTable
                         'paid'      => 'Paid',
                         'cancelled' => 'Cancelled',
                         'refunded'  => 'Refunded',
-                    ]),
+                    ])
+                    ->searchable(),
                 SelectFilter::make('customer_type')
                     ->label('Customer Type')
                     ->options([
                         'member'     => 'Member',
                         'non_member' => 'Non-Member',
-                    ]),
+                    ])
+                    ->searchable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActionsColumnLabel('ACTIONS')
@@ -141,7 +147,7 @@ class InvoicesTable
                 Action::make('changeStatus')
                     ->hiddenLabel()
                     ->icon('heroicon-o-arrow-path')
-                    ->color('primary')
+                    ->color('info')
                     ->size('xl')
                     ->tooltip('Update invoice status')
                     ->modalHeading('Ubah Status Invoice')
@@ -169,25 +175,24 @@ class InvoicesTable
                             ->success()
                             ->send();
                     }),
-
                 Action::make('downloadPdf')
-                    ->hiddenLabel()
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('success')
-                    ->size('xl')
-                    ->url(fn (Invoice $record) => route('invoice.download', $record))
-                    ->openUrlInNewTab()
-                    ->tooltip('Download PDF'),
-
-                Action::make('edit')
-                    ->hiddenLabel()
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->size('xl')
-                    ->url(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id)
-                    ->tooltip('Edit invoice'),
-                
-                Action::make('delete')
+                        ->hiddenLabel()
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->color('success')
+                        ->size('xl')
+                        ->url(fn (Invoice $record) => route('invoice.download', $record))
+                        ->openUrlInNewTab()
+                        ->tooltip('Download PDF'),
+                ActionGroup::make([
+                    Action::make('edit')
+                        ->hiddenLabel()
+                        ->icon('heroicon-o-pencil-square')
+                        ->color('warning')
+                        ->size('xl')
+                        ->url(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id),
+                        // ->tooltip('Edit invoice'),
+                    
+                    Action::make('delete')
                     ->hiddenLabel()
                     ->icon('heroicon-o-trash')
                     ->color('danger')
@@ -197,15 +202,20 @@ class InvoicesTable
                     ->modalDescription('Apakah Anda yakin ingin menghapus invoice ini? Tindakan ini tidak dapat dibatalkan.')
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal')
-                    ->action(fn (Invoice $record) => $record->delete())
-                    ->tooltip('Delete invoice'),
+                    ->action(fn (Invoice $record) => $record->delete()),
+                    // ->tooltip('Delete invoice'), 
+                ])
+                ->icon('heroicon-m-ellipsis-horizontal')
+                ->color('gray')
+                ->size(Size::Small)
+                ->tooltip('More Actions'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     BulkAction::make('changeStatus')
                         ->label('Update status')
                         ->icon('heroicon-o-arrow-path')
-                        ->color('primary')
+                        ->color('info')
                         ->modalHeading('Ubah Status Invoice Terpilih')
                         ->modalDescription('Pilih status baru untuk semua invoice yang dicentang. Invoice yang sudah memiliki status yang sama akan diabaikan.')
                         ->modalSubmitActionLabel('Ya, Ubah Status')

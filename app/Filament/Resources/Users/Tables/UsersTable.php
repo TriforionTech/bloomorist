@@ -40,12 +40,14 @@ class UsersTable
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->label('CREATED AT')
-                    ->dateTime()
+                    ->dateTime('d M Y H:i')
+                    ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->label('UPDATED AT')
-                    ->dateTime()
+                    ->dateTime('d M Y H:i')
+                    ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -61,6 +63,8 @@ class UsersTable
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
                 EditAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
                     // Button SELALU muncul
                     ->authorize(fn () => true)
                     ->visible(fn () => true)
@@ -73,7 +77,7 @@ class UsersTable
                     ->icon(function ($record) {
                         return Gate::inspect('update', $record)->denied() 
                             ? 'heroicon-o-lock-closed' 
-                            : 'heroicon-o-pencil';
+                            : 'heroicon-o-pencil-square';
                     })
                     ->color(function ($record) {
                         return Gate::inspect('update', $record)->denied() 
@@ -95,6 +99,8 @@ class UsersTable
                         }
                     }),
                 DeleteAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
                     // Button SELALU muncul
                     ->authorize(fn () => true)
                     ->visible(fn () => true)
@@ -201,6 +207,7 @@ class UsersTable
                         }),
                 ]),
             ])
+            
             ->recordUrl(function ($record) {
                 $user = Filament::auth()->user();
 

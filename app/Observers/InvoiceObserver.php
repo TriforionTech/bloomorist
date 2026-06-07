@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\Invoice;
+use App\Models\StockMovement;
+use Filament\Facades\Filament;
 
 class InvoiceObserver
 {
@@ -45,6 +47,7 @@ class InvoiceObserver
         if ($invoice->isDirty('status')) {
             $originalStatus = $invoice->getOriginal('status');
             $newStatus = $invoice->status;
+            $userId = Filament::auth()->id() ?? 1;
 
             // Jika status berubah menjadi paid, kurangi stok
             if ($newStatus === 'paid' && $originalStatus !== 'paid') {
@@ -52,6 +55,15 @@ class InvoiceObserver
                     if ($item->product) {
                         $item->product->stok_barang -= $item->quantity;
                         $item->product->save();
+
+                        StockMovement::create([
+                            'product_id' => $item->product->id,
+                            'type' => 'sale',
+                            'quantity' => $item->quantity,
+                            'reference_id' => $invoice->invoice_number,
+                            'notes' => 'Auto: Invoice paid - ' . $invoice->invoice_number,
+                            'user_id' => $userId,
+                        ]);
                     }
                 }
             }
@@ -62,6 +74,15 @@ class InvoiceObserver
                     if ($item->product) {
                         $item->product->stok_barang += $item->quantity;
                         $item->product->save();
+
+                        StockMovement::create([
+                            'product_id' => $item->product->id,
+                            'type' => 'return',
+                            'quantity' => $item->quantity,
+                            'reference_id' => $invoice->invoice_number,
+                            'notes' => 'Auto: Invoice ' . $newStatus . ' - ' . $invoice->invoice_number,
+                            'user_id' => $userId,
+                        ]);
                     }
                 }
             }

@@ -23,5 +23,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Invoice::observe(InvoiceObserver::class);
+
+        \Filament\Support\Facades\FilamentView::registerRenderHook(
+            \Filament\Tables\View\TablesRenderHook::TOOLBAR_START,
+            fn (): string => view('filament.tables.stock-movement-export-button')->render(),
+            scopes: \App\Filament\Resources\StockMovements\Pages\ListStockMovements::class,
+        );
     }
 }

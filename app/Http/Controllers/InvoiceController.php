@@ -86,7 +86,9 @@ class InvoiceController extends Controller
         $pdf->setPaper('A4', 'portrait');
         
         return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->stream();
-        }, "INV_Bloomorist_{$invoice->invoice_number}.pdf");
+            echo $pdf->output();
+        }, "INV_Bloomorist_{$invoice->invoice_number}.pdf", [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 }
