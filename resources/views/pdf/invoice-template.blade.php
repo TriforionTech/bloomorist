@@ -112,9 +112,17 @@
             <div class="terms-column">
                 <div class="section-title">Terms</div>
                 <div class="terms-content">
-                    <div class="bank-name">Bank BCA</div>
-                    <div>Bigatri Indoflora Pacific</div>
-                    <div>0191268856</div>
+                    <div class="bank-account">
+                        <div class="bank-name">Bank BCA</div>
+                        <div>Bigatri Indoflora Pacific</div>
+                        <div>0191268856</div>
+                    </div>
+
+                    <div class="bank-account">
+                        <div class="bank-name">Bank BRI</div>
+                        <div>Wahyu Bintang Kusyantoro</div>
+                        <div>124701000840564</div>
+                    </div>
                 </div>
             </div>
 

@@ -73,7 +73,7 @@ class InvoiceController extends Controller
             'total' => $invoice->grand_total,
         ];
 
-        $pdf = Pdf::loadView('invoice-template', [
+        $pdf = Pdf::loadView('pdf.invoice-template', [
             'invoiceNumber' => $invoice->invoice_number,
             'issuedDate' => $invoice->issued_date ? $invoice->issued_date->format('d M Y') : now()->format('d M Y'),
             'dueDate' => $invoice->due_date ? $invoice->due_date->format('d M Y') : now()->format('d M Y'),

@@ -217,8 +217,16 @@ body {
     line-height: 1.5;
 }
 
-.terms-content div {
-    margin-bottom: 4px;
+.bank-account {
+    margin-bottom: 12px;
+}
+
+.bank-account:last-child {
+    margin-bottom: 0;
+}
+
+.bank-account div {
+    margin-bottom: 2px;
 }
 
 .terms-content .bank-name {

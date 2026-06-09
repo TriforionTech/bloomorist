@@ -181,7 +181,7 @@ class InvoicesTable
                         ->color('success')
                         ->size('xl')
                         ->url(fn (Invoice $record) => route('invoice.download', $record))
-                        ->openUrlInNewTab()
+                        // ->openUrlInNewTab()
                         ->tooltip('Download PDF'),
                 ActionGroup::make([
                     Action::make('edit')

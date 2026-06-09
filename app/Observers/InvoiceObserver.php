@@ -40,53 +40,11 @@ class InvoiceObserver
     }
 
     /**
-     * Handle the Invoice "updated" event.
+     * Handle the Invoice "updated" event.          
      */
     public function updated(Invoice $invoice): void
     {
-        if ($invoice->isDirty('status')) {
-            $originalStatus = $invoice->getOriginal('status');
-            $newStatus = $invoice->status;
-            $userId = Filament::auth()->id() ?? 1;
-
-            // Jika status berubah menjadi paid, kurangi stok
-            if ($newStatus === 'paid' && $originalStatus !== 'paid') {
-                foreach ($invoice->items as $item) {
-                    if ($item->product) {
-                        $item->product->stok_barang -= $item->quantity;
-                        $item->product->save();
-
-                        StockMovement::create([
-                            'product_id' => $item->product->id,
-                            'type' => 'sale',
-                            'quantity' => $item->quantity,
-                            'reference_id' => $invoice->invoice_number,
-                            'notes' => 'Auto: Invoice paid - ' . $invoice->invoice_number,
-                            'user_id' => $userId,
-                        ]);
-                    }
-                }
-            }
-
-            // Jika status dari paid berubah menjadi refunded/cancelled, kembalikan stok
-            if ($originalStatus === 'paid' && in_array($newStatus, ['refunded', 'cancelled'])) {
-                foreach ($invoice->items as $item) {
-                    if ($item->product) {
-                        $item->product->stok_barang += $item->quantity;
-                        $item->product->save();
-
-                        StockMovement::create([
-                            'product_id' => $item->product->id,
-                            'type' => 'return',
-                            'quantity' => $item->quantity,
-                            'reference_id' => $invoice->invoice_number,
-                            'notes' => 'Auto: Invoice ' . $newStatus . ' - ' . $invoice->invoice_number,
-                            'user_id' => $userId,
-                        ]);
-                    }
-                }
-            }
-        }
+        //
     }
 
     /**
