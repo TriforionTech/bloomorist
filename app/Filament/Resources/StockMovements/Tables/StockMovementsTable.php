@@ -25,7 +25,7 @@ class StockMovementsTable
                     ->dateTime('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable(),
-                TextColumn::make('product.nama_barang')
+                TextColumn::make('product.nama')
                     ->label('PRODUCT')
                     ->searchable()
                     ->sortable(),

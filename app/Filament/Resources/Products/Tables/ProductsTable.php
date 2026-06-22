@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\Products\Tables;
 
 use App\Filament\Resources\Products\ProductResource;
+use App\Models\InvoiceItem;
 use App\Models\StockMovement;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -18,6 +20,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -30,32 +33,61 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // Default: hanya tampilkan produk aktif
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true))
+            ->defaultSort('sku', 'asc')
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
                     ->rowIndex(),
-                TextColumn::make('nama_barang')
+                TextColumn::make('sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->weight('bold')
+                    ->color('primary')
+                    ->toggleable(isToggledHiddenByDefault: false),
+                TextColumn::make('nama')
                     ->label('NAME')
                     ->searchable(
                         query: function ($query, string $search) {
                             return $query
-                                ->where('nama_barang', 'like', "%{$search}%")
-                                ->orWhere('harga_jual_barang', $search);
+                                ->where('nama', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('harga_jual', $search);
                         }
                     )
                     ->sortable(),
-                TextColumn::make('harga_beli_barang')
+                TextColumn::make('kategori')
+                    ->label('CATEGORY')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'bunga'     => 'FLOWERS',
+                        'packaging' => 'PACKAGING',
+                        'others'    => 'OTHERS',
+                        default     => strtoupper($state),
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'bunga'     => 'flower',
+                        'packaging' => 'package',
+                        'others'    => 'other',
+                        default     => 'gray',
+                    })
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+                TextColumn::make('harga_beli')
                     ->label('COST PRICE')
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
-                TextColumn::make('harga_jual_barang')
+                TextColumn::make('harga_jual')
                     ->label('SELLING PRICE')
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('margin')
                     ->label('MARGIN')
                     ->state(function ($record) {
-                        return $record->harga_jual_barang - $record->harga_beli_barang;
+                        return $record->harga_jual - $record->harga_beli;
                     })
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable()
@@ -64,18 +96,18 @@ class ProductsTable
                     ->label('MARKUP')
                     ->sortable()
                     ->state(function ($record) {
-                        if ($record->harga_beli_barang <= 0) {
+                        if ($record->harga_beli <= 0) {
                             return 0;
                         }
 
                         return round(
-                            (($record->harga_jual_barang - $record->harga_beli_barang)
-                            / $record->harga_beli_barang) * 100
+                            (($record->harga_jual - $record->harga_beli)
+                            / $record->harga_beli) * 100
                         );
                     })
                     ->suffix('%')
                     ->toggleable(isToggledHiddenByDefault: false),
-                TextColumn::make('stok_barang')
+                TextColumn::make('stok')
                     ->label('STOCK')
                     ->badge()
                     ->color(fn ($state) => match (true) {
@@ -99,7 +131,7 @@ class ProductsTable
             ])
             ->filters([
                 // harga beli
-                Filter::make('harga_beli_barang')
+                Filter::make('harga_beli')
                     ->schema([
                         Grid::make([
                             'default' => 1,
@@ -125,11 +157,11 @@ class ProductsTable
                         return $query
                             ->when(
                                 $data['min_cost'],
-                                fn (Builder $query, $min): Builder => $query->where('harga_beli_barang', '>=', $min)
+                                fn (Builder $query, $min): Builder => $query->where('harga_beli', '>=', $min)
                             )
                             ->when(
                                 $data['max_cost'],
-                                fn (Builder $query, $max): Builder => $query->where('harga_beli_barang', '<=', $max)
+                                fn (Builder $query, $max): Builder => $query->where('harga_beli', '<=', $max)
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -144,7 +176,7 @@ class ProductsTable
                     }),
 
                 // harga jual
-                Filter::make('harga_jual_barang')
+                Filter::make('harga_jual')
                     ->schema([
                         Grid::make([
                             'default' => 1,
@@ -170,11 +202,11 @@ class ProductsTable
                         return $query
                             ->when(
                                 $data['min_price'],
-                                fn (Builder $query, $min): Builder => $query->where('harga_jual_barang', '>=', $min)
+                                fn (Builder $query, $min): Builder => $query->where('harga_jual', '>=', $min)
                             )
                             ->when(
                                 $data['max_price'],
-                                fn (Builder $query, $max): Builder => $query->where('harga_jual_barang', '<=', $max)
+                                fn (Builder $query, $max): Builder => $query->where('harga_jual', '<=', $max)
                             );
                     })
                     ->indicateUsing(function (array $data): array {
@@ -187,6 +219,26 @@ class ProductsTable
                         }
                         return $indicators;
                     }),
+
+                // filter stok
+                SelectFilter::make('stock_status')
+                    ->label('Stock Status')
+                    ->options([
+                        'habis'        => '🔴 Habis (0)',
+                        'hampir_habis' => '🟠 Hampir Habis (1–10)',
+                        'rendah'       => '🟡 Rendah (11–30)',
+                        'aman'         => '🟢 Aman (>30)',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'habis'        => $query->where('stok', 0),
+                            'hampir_habis' => $query->whereBetween('stok', [1, 10]),
+                            'rendah'       => $query->whereBetween('stok', [11, 30]),
+                            'aman'         => $query->where('stok', '>', 30),
+                            default        => $query,
+                        };
+                    })
+                    ->native(false),
             ])
             ->filtersFormWidth('xl')
             ->recordActionsColumnLabel('ACTIONS')
@@ -197,7 +249,7 @@ class ProductsTable
                     ->size('xl')
                     ->color('info')
                     ->tooltip('Adjust Stock')
-                    ->modalHeading(fn ($record) => 'Adjust Stock: ' . $record->nama_barang)
+                    ->modalHeading(fn ($record) => 'Adjust Stock: ' . $record->nama)
                     ->modalSubmitActionLabel('Simpan')
                     ->modalCancelActionLabel('Batal')
                     ->form([
@@ -238,9 +290,9 @@ class ProductsTable
                             ]);
 
                             if ($data['type'] === 'in') {
-                                $record->increment('stok_barang', $data['quantity']);
+                                $record->increment('stok', $data['quantity']);
                             } else {
-                                $record->decrement('stok_barang', $data['quantity']);
+                                $record->decrement('stok', $data['quantity']);
                             }
                         });
 
@@ -284,14 +336,32 @@ class ProductsTable
                             $action->halt();
                         }
                     }),
-                    DeleteAction::make()
+
+                    // === SOFT DELETE: set is_active = false instead of real delete ===
+                    Action::make('deactivate')
                     ->hiddenLabel()
                     ->size('xl')
                     ->authorize(fn () => true)
                     ->visible(fn () => true)
                     ->disabled(fn ($record) => Gate::denies('delete', $record))
-                    ->modalHeading('Hapus Produk')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus produk ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->requiresConfirmation()
+                    ->modalHeading(function ($record) {
+                        $invoiceCount = InvoiceItem::where('product_id', $record->id)
+                            ->distinct('invoice_id')
+                            ->count('invoice_id');
+                        return $invoiceCount > 0
+                            ? "⚠️ Hapus Produk (Terdapat di {$invoiceCount} Invoice)"
+                            : 'Hapus Produk';
+                    })
+                    ->modalDescription(function ($record) {
+                        $invoiceCount = InvoiceItem::where('product_id', $record->id)
+                            ->distinct('invoice_id')
+                            ->count('invoice_id');
+                        if ($invoiceCount > 0) {
+                            return "Produk \"" . $record->nama . "\" (SKU: {$record->sku}) tercatat pada {$invoiceCount} invoice. Produk akan dinonaktifkan dan tidak tampil di daftar produk maupun dropdown invoice, namun data transaksi historis tetap aman. Lanjutkan?";
+                        }
+                        return 'Produk akan dinonaktifkan dan tidak tampil di daftar. Data transaksi historis tetap aman. Lanjutkan?';
+                    })
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal')
                     ->tooltip(function ($record) {
@@ -308,69 +378,85 @@ class ProductsTable
                             ? 'gray' 
                             : 'danger';
                     })
-                    ->before(function ($action, $record) {
-                    $response = Gate::inspect('delete', $record);
-                    
-                    if ($response->denied()) {
+                    ->action(function ($record) {
+                        $record->update(['is_active' => false]);
+
                         Notification::make()
-                            ->danger()
-                            ->title('Akses Ditolak')
-                            ->body($response->message())
+                            ->success()
+                            ->title('Produk Dihapus')
+                            ->body("Produk \"{$record->nama}\" telah dinonaktifkan.")
                             ->send();
+                    })
+                    ->before(function ($action, $record) {
+                        $response = Gate::inspect('delete', $record);
                         
-                        $action->halt();
-                    }
+                        if ($response->denied()) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Akses Ditolak')
+                                ->body($response->message())
+                                ->send();
+                            
+                            $action->halt();
+                        }
                     }),
                 ])
                 ->icon('heroicon-m-ellipsis-horizontal') 
                 ->color('gray')
                 ->size(Size::Small)
                 ->tooltip('More Actions'),
-        ])
-        ->toolbarActions([
-            BulkActionGroup::make([
-                DeleteBulkAction::make()
-                    ->modalHeading('Hapus Produk Terpilih')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus semua produk yang dipilih? Tindakan ini tidak dapat dibatalkan.')
-                    ->modalSubmitActionLabel('Ya, Hapus Semua')
-                    ->modalCancelActionLabel('Batal')
-                    ->visible(fn () => Filament::auth()->user()?->is_super_admin)
-                    ->before(function ($action) {
-                        $currentUser = Filament::auth()->user();
-                        
-                        if (!$currentUser?->is_super_admin) {
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // === SOFT DELETE BULK: set is_active = false ===
+                    BulkAction::make('deactivateBulk')
+                        ->label('Delete')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading(function (Collection $records) {
+                            $affectedIds = $records->pluck('id');
+                            $invoiceCount = InvoiceItem::whereIn('product_id', $affectedIds)
+                                ->distinct('invoice_id')
+                                ->count('invoice_id');
+                            return $invoiceCount > 0
+                                ? "⚠️ Hapus Produk Terpilih (Mempengaruhi {$invoiceCount} Invoice)"
+                                : 'Hapus Produk Terpilih';
+                        })
+                        ->modalDescription(function (Collection $records) {
+                            $affectedIds = $records->pluck('id');
+                            $invoiceCount = InvoiceItem::whereIn('product_id', $affectedIds)
+                                ->distinct('invoice_id')
+                                ->count('invoice_id');
+                            if ($invoiceCount > 0) {
+                                $affected = $records->filter(fn ($r) =>
+                                    InvoiceItem::where('product_id', $r->id)->exists()
+                                )->pluck('nama')->implode(', ');
+                                return "Beberapa produk yang dipilih ({$affected}) tercatat pada {$invoiceCount} invoice. Produk akan dinonaktifkan namun data transaksi historis tetap aman. Lanjutkan?";
+                            }
+                            return 'Produk terpilih akan dinonaktifkan. Data transaksi historis tetap aman. Lanjutkan?';
+                        })
+                        ->modalSubmitActionLabel('Ya, Hapus Semua')
+                        ->modalCancelActionLabel('Batal')
+                        ->visible(fn () => Filament::auth()->user()?->is_super_admin)
+                        ->action(function (Collection $records) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                $record->update(['is_active' => false]);
+                                $count++;
+                            }
+
                             Notification::make()
-                                ->danger()
-                                ->title('Akses Ditolak')
-                                ->body('Hanya Superadmin yang dapat menghapus data produk.')
+                                ->success()
+                                ->title('Produk Dihapus')
+                                ->body("{$count} produk berhasil dinonaktifkan.")
                                 ->send();
-                            
-                            $action->halt();
-                            return;
-                        }
-                    })
-                    ->action(function (Collection $records) {
-                        $deletedCount = 0;
-                        
-                        foreach ($records as $record) {
-                            $record->delete();
-                            $deletedCount++;
-                        }
-                        
-                        Notification::make()
-                            ->success()
-                            ->title('Produk Dihapus')
-                            ->body("{$deletedCount} produk berhasil dihapus dari sistem.")
-                            ->send();
-                    }),
-            ]),
-        ])
-        
-        ->recordUrl(function ($record) {
-            // return Filament::auth()->user()?->is_super_admin 
-            //     ? ProductResource::getUrl('edit', ['record' => $record]) 
-            //     : null;
-            return ProductResource::getUrl('edit', ['record' => $record]);
-        });
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ])
+            ->recordUrl(function ($record) {
+                return ProductResource::getUrl('edit', ['record' => $record]);
+            });
     }
 }

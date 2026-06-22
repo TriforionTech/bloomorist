@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\InvoiceStatusService;
 use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
@@ -39,25 +40,32 @@ class Invoice extends Model
         return $this->hasMany(InvoiceItem::class, 'invoice_id');
     }
 
+    /**
+     * Regular items: exclude Box dan Wrapping berdasarkan snapshot_name.
+     * Menggunakan snapshot agar tetap berfungsi meski produk di-deactivate/dihapus.
+     */
     public function regularItems()
     {
-        return $this->hasMany(InvoiceItem::class, 'invoice_id')->whereHas('product', function ($q) {
-            $q->whereNotIn('nama_barang', ['Box', 'Wrapping']);
-        });
+        return $this->hasMany(InvoiceItem::class, 'invoice_id')
+            ->whereNotIn('snapshot_name', ['Box', 'Wrapping']);
     }
 
+    /**
+     * Box item berdasarkan snapshot_name.
+     */
     public function boxItem()
     {
-        return $this->hasOne(InvoiceItem::class, 'invoice_id')->whereHas('product', function ($q) {
-            $q->where('nama_barang', 'Box');
-        });
+        return $this->hasOne(InvoiceItem::class, 'invoice_id')
+            ->where('snapshot_name', 'Box');
     }
 
+    /**
+     * Wrapping item berdasarkan snapshot_name.
+     */
     public function wrappingItem()
     {
-        return $this->hasOne(InvoiceItem::class, 'invoice_id')->whereHas('product', function ($q) {
-            $q->where('nama_barang', 'Wrapping');
-        });
+        return $this->hasOne(InvoiceItem::class, 'invoice_id')
+            ->where('snapshot_name', 'Wrapping');
     }
 
     public function customer()
@@ -66,78 +74,11 @@ class Invoice extends Model
     }
 
     /**
-     * Handle status change with automatic stock adjustment.
-     * ALL items (including Box/Wrapping) affect stock.
-     *
-     * Rules:
-     * - pending → paid    : Potong stok (Sale)
-     * - paid → cancelled  : Kembalikan stok (Return)
-     * - paid → refunded   : Kembalikan stok (Refund)
-     * - pending → cancelled: Tidak ada perubahan stok
-     * - cancelled/refunded → paid: Potong stok kembali
+     * Static proxy: delegasi ke InvoiceStatusService.
+     * Dipertahankan agar semua caller (InvoicesTable, dll) tidak perlu diubah.
      */
     public static function handleStatusChange(self $invoice, string $newStatus): void
     {
-        $oldStatus = $invoice->status;
-
-        // Skip jika status tidak berubah
-        if ($oldStatus === $newStatus) {
-            return;
-        }
-
-        $items = $invoice->items()->with('product')->get();
-        $userId = \Filament\Facades\Filament::auth()->id() ?? 1;
-
-        // Tentukan apakah perlu potong atau kembalikan stok
-        $shouldDecrementStock = false;
-        $shouldIncrementStock = false;
-
-        // Dari status non-paid → paid: potong stok
-        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
-            // Kecuali dari pending ke cancel (tidak potong)
-            $shouldDecrementStock = true;
-        }
-
-        // Dari paid → cancelled/refunded: kembalikan stok
-        if ($oldStatus === 'paid' && in_array($newStatus, ['cancelled', 'refunded'])) {
-            $shouldIncrementStock = true;
-        }
-
-        if ($shouldDecrementStock) {
-            foreach ($items as $item) {
-                if ($item->product) {
-                    $item->product->decrement('stok_barang', $item->quantity);
-
-                    StockMovement::create([
-                        'product_id' => $item->product->id,
-                        'type' => 'sale',
-                        'quantity' => $item->quantity,
-                        'reference_id' => $invoice->invoice_number,
-                        'notes' => 'Auto: Invoice paid - ' . $invoice->invoice_number,
-                        'user_id' => $userId,
-                    ]);
-                }
-            }
-        }
-
-        if ($shouldIncrementStock) {
-            foreach ($items as $item) {
-                if ($item->product) {
-                    $item->product->increment('stok_barang', $item->quantity);
-
-                    StockMovement::create([
-                        'product_id' => $item->product->id,
-                        'type' => 'return',
-                        'quantity' => $item->quantity,
-                        'reference_id' => $invoice->invoice_number,
-                        'notes' => 'Auto: Invoice ' . $newStatus . ' - ' . $invoice->invoice_number,
-                        'user_id' => $userId,
-                    ]);
-                }
-            }
-        }
-
-        // Update status
-        $invoice->update(['status' => $newStatus]);
+        app(InvoiceStatusService::class)->changeStatus($invoice, $newStatus);
     }
 }

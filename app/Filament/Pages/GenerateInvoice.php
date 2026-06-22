@@ -154,7 +154,7 @@ class GenerateInvoice extends Page implements HasSchemas
     protected function getProductPrice(int $productId): float
     {
         if (!isset($this->productPriceCache[$productId])) {
-            $this->productPriceCache[$productId] = Product::whereKey($productId)->value('harga_jual_barang') ?? 0;
+            $this->productPriceCache[$productId] = Product::whereKey($productId)->value('harga_jual') ?? 0;
         }
         return $this->productPriceCache[$productId];
     }
@@ -537,14 +537,36 @@ class GenerateInvoice extends Page implements HasSchemas
                 ->schema([
                     Select::make('product_id')
                         ->label('Item')
-                        ->options(
-                            Product::query()
-                                ->where(function ($query) {
-                                    $query->whereNotIn('nama_barang', ['Wrapping', 'Box']);
-                                })
-                                ->orderBy('nama_barang')
-                                ->pluck('nama_barang', 'id')
-                        )
+                        ->options(function () {
+                            // Produk aktif selalu muncul (exclude packaging)
+                            $activeOptions = Product::query()
+                                ->where('is_active', true)
+                                ->where('kategori', '!=', 'packaging')
+                                ->orderBy('nama')
+                                ->pluck('nama', 'id');
+
+                            // Saat edit mode: tambahkan produk non-aktif yang sudah ada di invoice ini
+                            // agar label-nya tetap tampil (bukan ID mentah)
+                            if ($this->invoiceId) {
+                                $invoiceProductIds = \App\Models\InvoiceItem::where('invoice_id', $this->invoiceId)
+                                    ->whereNotNull('product_id')
+                                    ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
+                                    ->pluck('product_id');
+
+                                $inactiveOptions = Product::query()
+                                    ->where('is_active', false)
+                                    ->where('kategori', '!=', 'packaging')
+                                    ->whereIn('id', $invoiceProductIds)
+                                    ->orderBy('nama')
+                                    ->get()
+                                    ->pluck('nama', 'id')
+                                    ->map(fn ($nama) => "{$nama} [Nonaktif]");
+
+                                return $activeOptions->union($inactiveOptions);
+                            }
+
+                            return $activeOptions;
+                        })
                         ->searchable()
                         ->preload()
                         ->required()
@@ -629,6 +651,9 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
                         ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state))
                 ])
+                ->extraAttributes([
+                    'style' => 'max-height: 480px; overflow-y: auto; padding-right: 18px; padding-bottom: 5px; scroll-behavior: smooth;',
+                ])
                 ->addActionLabel('Add Product')
                 ->defaultItems(1)
                 ->reorderable(false)
@@ -687,7 +712,7 @@ class GenerateInvoice extends Page implements HasSchemas
                                 ->afterStateUpdated(function ($state, Set $set) {
                                     if ($state) {
                                         // Fetch harga dari DB
-                                        $hargaBox = Product::query()->where('nama_barang', 'Box')->value('harga_jual_barang') ?? 0;
+                                        $hargaBox = Product::query()->where('nama', 'Box')->value('harga_jual') ?? 0;
                                         $set('box_unit_price', $hargaBox);
                                         $set('box_qty', 1);
                                         $set('single_box_fee', $hargaBox);
@@ -743,7 +768,7 @@ class GenerateInvoice extends Page implements HasSchemas
                                 )
                                 ->afterStateUpdated(function ($state, Set $set) {
                                     if ($state) {
-                                        $hargaWrap = Product::query()->where('nama_barang', 'Wrapping')->value('harga_jual_barang') ?? 0;
+                                        $hargaWrap = Product::query()->where('nama', 'Wrapping')->value('harga_jual') ?? 0;
                                         $set('wrap_unit_price', $hargaWrap);
                                         $set('wrapping_qty', 1);
                                         $set('single_wrapping_fee', $hargaWrap);
@@ -1003,7 +1028,8 @@ class GenerateInvoice extends Page implements HasSchemas
                 };
 
                 foreach ($data['products'] ?? [] as $item) {
-                    $productName = Product::whereKey($item['product_id'])->value('nama_barang') ?? 'Unknown Product';
+                    $product = Product::find($item['product_id']);
+                    $productName = $product->nama ?? 'Unknown Product';
                     
                     $unitPrice = $cleanNumber($item['unit_price']);
                     $normalPrice = $cleanNumber($item['normal_price']);
@@ -1022,6 +1048,8 @@ class GenerateInvoice extends Page implements HasSchemas
 
                     $itemsData[] = [
                         'product_id'     => $item['product_id'],
+                        'snapshot_sku'   => $product->sku ?? 'UNKNOWN',
+                        'snapshot_name'  => $productName,
                         'quantity'       => (int) ($item['quantity'] ?? 1),
                         'unit_price'     => $unitPrice,
                         'normal_price'   => $normalPrice,
@@ -1039,10 +1067,12 @@ class GenerateInvoice extends Page implements HasSchemas
                 $wrapping_fee = (float) ($data['wrapping_fee'] ?? 0);
 
                 if ($data['use_box'] ?? false) {
-                    $boxId = Product::query()->where('nama_barang', 'Box')->value('id');
-                    if ($boxId) {
+                    $boxProduct = Product::query()->where('nama', 'Box')->first();
+                    if ($boxProduct) {
                         $itemsData[] = [
-                            'product_id'     => $boxId,
+                            'product_id'     => $boxProduct->id,
+                            'snapshot_sku'   => $boxProduct->sku ?? 'PKG-BOX-001',
+                            'snapshot_name'  => 'Box',
                             'quantity'       => (int) ($data['box_qty'] ?? 1),
                             'unit_price'     => (float) ($data['box_unit_price'] ?? 0),
                             'normal_price'   => $box_fee,
@@ -1053,10 +1083,12 @@ class GenerateInvoice extends Page implements HasSchemas
                 }
 
                 if ($data['use_wrapping'] ?? false) {
-                    $wrapId = Product::query()->where('nama_barang', 'Wrapping')->value('id');
-                    if ($wrapId) {
+                    $wrapProduct = Product::query()->where('nama', 'Wrapping')->first();
+                    if ($wrapProduct) {
                         $itemsData[] = [
-                            'product_id'     => $wrapId,
+                            'product_id'     => $wrapProduct->id,
+                            'snapshot_sku'   => $wrapProduct->sku ?? 'PKG-WRP-001',
+                            'snapshot_name'  => 'Wrapping',
                             'quantity'       => (int) ($data['wrapping_qty'] ?? 1),
                             'unit_price'     => (float) ($data['wrap_unit_price'] ?? 0),
                             'normal_price'   => $wrapping_fee,

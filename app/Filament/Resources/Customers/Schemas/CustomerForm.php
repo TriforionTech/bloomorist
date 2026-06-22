@@ -7,6 +7,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class CustomerForm
 {
@@ -17,7 +18,12 @@ class CustomerForm
                 TextInput::make('nama')
                     ->label('Name')
                     ->placeholder('Enter member name')
-                    ->required(),
+                    ->required()
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function ($state, $set) {
+                        $set('nama', Str::title($state));
+                    })
+                    ->dehydrateStateUsing(fn ($state) => Str::title($state)),
                 TextInput::make('alias')
                     ->label('Alias')
                     ->placeholder('Enter member alias (optional)'),

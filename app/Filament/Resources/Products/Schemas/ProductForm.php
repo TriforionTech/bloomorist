@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\Products\Schemas;
 
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class ProductForm
 {
@@ -12,11 +14,35 @@ class ProductForm
     {
         return $schema
             ->components([
-                TextInput::make('nama_barang')
+                TextInput::make('sku')
+                    ->label('SKU')
+                    ->readOnly()
+                    ->helperText('Auto-generated based on category and product name.')
+                    ->placeholder('Will be generated on save')
+                    ->visibleOn('edit'),
+
+                TextInput::make('nama')
                     ->label('Product Name')
                     ->placeholder('Enter product name')
-                    ->required(),
-                TextInput::make('harga_beli_barang')
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($state, $set) {
+                        $set('nama', Str::title($state));
+                    })
+                    ->dehydrateStateUsing(fn ($state) => Str::title($state)),
+
+                Select::make('kategori')
+                    ->label('Category')
+                    ->options([
+                        'bunga'     => '🌸 Flowers',
+                        'packaging' => '📦 Packaging',
+                        'others'    => '🔖 Others',
+                    ])
+                    ->default('bunga')
+                    ->required()
+                    ->native(false),
+
+                TextInput::make('harga_beli')
                     ->label('Purchase Price')
                     ->placeholder('Enter purchase price')
                     ->required()
@@ -30,7 +56,8 @@ class ProductForm
                     ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
                     ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
                     ->dehydrated(),
-                TextInput::make('harga_jual_barang')
+
+                TextInput::make('harga_jual')
                     ->label('Selling Price')
                     ->placeholder('Enter selling price')
                     ->required()
@@ -44,7 +71,8 @@ class ProductForm
                     ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
                     ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
                     ->dehydrated(),
-                TextInput::make('stok_barang')
+
+                TextInput::make('stok')
                     ->label('Stock')
                     ->numeric()
                     ->default(0)

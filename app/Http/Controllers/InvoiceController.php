@@ -51,9 +51,10 @@ class InvoiceController extends Controller
         ];
 
         // ALL items (including Box/Wrapping) go into the product list
+        // Menggunakan snapshot_name untuk immutability
         $products = [];
-        foreach ($invoice->items()->with('product')->get() as $item) {
-            $productName = $item->product->nama_barang ?? 'Unknown Product';
+        foreach ($invoice->items()->get() as $item) {
+            $productName = $item->snapshot_name ?: ($item->product->nama ?? 'Unknown Product');
 
             $products[] = [
                 'name' => $productName,

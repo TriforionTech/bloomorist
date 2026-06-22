@@ -16,6 +16,7 @@ class CustomersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('nama', 'asc')
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')

@@ -91,7 +91,7 @@ class ListStockMovements extends ListRecords
             $csvData .= sprintf(
                 "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                 $record->created_at->format('Y-m-d H:i:s'),
-                $record->product->nama_barang ?? '',
+                $record->product->nama ?? '',
                 $record->type,
                 $record->quantity,
                 $record->reference_id,

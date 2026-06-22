@@ -4,15 +4,20 @@ namespace App\Filament\Resources\Invoices\Tables;
 
 use App\Filament\Pages\GenerateInvoice;
 use App\Models\Invoice;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Grid;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
@@ -35,7 +40,8 @@ class InvoicesTable
                     ->searchable()
                     ->sortable()
                     ->copyable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->color('primary'),
 
                 TextColumn::make('customer.nama')
                     ->label('CUSTOMER')
@@ -122,15 +128,22 @@ class InvoicesTable
                         'cancelled' => 'danger',
                         'refunded'  => 'info',
                         default     => 'primary',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending'   => '🕒 PENDING',
+                        'paid'      => '✅ PAID',
+                        'cancelled' => '❌ CANCELLED',
+                        'refunded'  => '↩️ REFUNDED',
+                        default     => strtoupper($state),
                     }),
             ])
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'pending'   => 'Pending',
-                        'paid'      => 'Paid',
-                        'cancelled' => 'Cancelled',
-                        'refunded'  => 'Refunded',
+                        'pending'   => '🕒 Pending',
+                        'paid'      => '✅ Paid',
+                        'cancelled' => '❌ Cancelled',
+                        'refunded'  => '↩️ Refunded',
                     ])
                     ->searchable(),
                 SelectFilter::make('customer_type')
@@ -140,7 +153,46 @@ class InvoicesTable
                         'non_member' => 'Non-Member',
                     ])
                     ->searchable(),
+                Filter::make('issued_date_range')
+                    ->label('Issued Date')
+                    ->schema([
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 2,
+                        ])->schema([
+                            DatePicker::make('issued_from')
+                                ->label('Issued From')
+                                ->native(false)
+                                ->displayFormat('d M Y'),
+                            DatePicker::make('issued_until')
+                                ->label('Issued Until')
+                                ->native(false)
+                                ->displayFormat('d M Y'),
+                        ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['issued_from'] ?? null,
+                                fn (Builder $query, $date): Builder => $query->whereDate('issued_date', '>=', $date)
+                            )
+                            ->when(
+                                $data['issued_until'] ?? null,
+                                fn (Builder $query, $date): Builder => $query->whereDate('issued_date', '<=', $date)
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['issued_from'] ?? null) {
+                            $indicators['issued_from'] = 'Issued From: ' . Carbon::parse($data['issued_from'])->format('d M Y');
+                        }
+                        if ($data['issued_until'] ?? null) {
+                            $indicators['issued_until'] = 'Issued Until: ' . Carbon::parse($data['issued_until'])->format('d M Y');
+                        }
+                        return $indicators;
+                    }),
             ])
+            ->filtersFormWidth('xl')
             ->defaultSort('created_at', 'desc')
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
@@ -158,10 +210,10 @@ class InvoicesTable
                         Select::make('new_status')
                             ->label('Status Baru')
                             ->options(fn (Invoice $record) => collect([
-                                'pending'   => 'Pending',
-                                'paid'      => 'Paid',
-                                'cancelled' => 'Cancelled',
-                                'refunded'  => 'Refunded',
+                                'pending'   => '🕒 Pending',
+                                'paid'      => '✅ Paid',
+                                'cancelled' => '❌ Cancelled',
+                                'refunded'  => '↩️ Refunded',
                             ])->except([$record->status])->toArray())
                             ->required()
                             ->native(false),
@@ -224,10 +276,10 @@ class InvoicesTable
                             Select::make('new_status')
                                 ->label('Status Baru')
                                 ->options([
-                                    'pending'   => 'Pending',
-                                    'paid'      => 'Paid',
-                                    'cancelled' => 'Cancelled',
-                                    'refunded'  => 'Refunded',
+                                    'pending'   => '🕒 Pending',
+                                    'paid'      => '✅ Paid',
+                                    'cancelled' => '❌ Cancelled',
+                                    'refunded'  => '↩️ Refunded',
                                 ])
                                 ->required()
                                 ->native(false),

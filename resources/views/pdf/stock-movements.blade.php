@@ -67,7 +67,7 @@
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td>{{ $record->created_at->format('d M Y H:i') }}</td>
-                    <td>{{ $record->product->nama_barang ?? '-' }}</td>
+                    <td>{{ $record->product->nama ?? '-' }}</td>
                     <td>
                         <span class="badge bg-{{ strtolower($record->type) }}">
                             {{ strtoupper($record->type) }}

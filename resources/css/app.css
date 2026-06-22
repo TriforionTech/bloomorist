@@ -4,8 +4,20 @@
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+@source '../../app/Filament/**/*.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* ─── Grafik Penjualan: kontrol tinggi canvas ─── */
+.fi-wi-chart canvas {
+    height: 320px !important;
+}
+
+/* ─── Widget tabel scrollable (LowStockProducts & TopCustomers) ─── */
+.fi-fixed-table .fi-ta-content {
+    height: 420px;
+    overflow-y: auto;
 }

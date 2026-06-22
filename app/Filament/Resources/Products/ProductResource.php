@@ -29,7 +29,7 @@ class ProductResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
     protected static ?int $navigationSort = 1;
 
-    protected static ?string $recordTitleAttribute = 'nama_barang';
+    protected static ?string $recordTitleAttribute = 'nama';
 
     public static function form(Schema $schema): Schema
     {

@@ -29,7 +29,7 @@
     foreach ($products as $item) {
         if (empty($item['product_id'])) continue;
 
-        $name          = Product::whereKey($item['product_id'])->value('nama_barang') ?? '—';
+        $name          = Product::whereKey($item['product_id'])->value('nama') ?? '—';
         $qty           = (int) ($item['quantity'] ?? 1);
         $normalPrice   = $cleanNumber($item['normal_price']); 
         $discountPrice = $cleanNumber($item['discount_price']); 
@@ -62,8 +62,26 @@
     }
     .dark .inv-wrap { border-color: rgba(255,255,255,0.1); }
 
-    /* ── Header produk ── */
-    .inv-products { padding: 18px 18px 12px; }
+    .inv-products { 
+        padding: 18px 18px 12px; 
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    
+    /* Custom Scrollbar for products container */
+    .inv-products::-webkit-scrollbar {
+        width: 6px;
+    }
+    .inv-products::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .inv-products::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 10px;
+    }
+    .dark .inv-products::-webkit-scrollbar-thumb {
+        background-color: #475569;
+    }
 
     .inv-label {
         font-size: 13px;
