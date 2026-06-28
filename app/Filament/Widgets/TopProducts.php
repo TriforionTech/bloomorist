@@ -3,42 +3,81 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Product;
-use Carbon\Carbon;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 
 class TopProducts extends ChartWidget
 {
+    protected static ?int $sort = 3;
     protected ?string $heading = 'Top Selling Products';
     protected ?string $description = 'Berdasarkan total qty terjual dari invoice lunas';
-    protected static ?int $sort = 3;
-    protected int | string | array $columnSpan = 1;
+
+    protected int|string|array $columnSpan = 1;
+
+    protected ?string $maxHeight = '380px';
+
+    protected ?string $pollingInterval = null;
+
+    public ?string $filter = 'week';
+
+    protected function getFilters(): ?array
+    {
+        return [
+            'today'  => 'Hari Ini',
+            'week'   => '7 Hari Terakhir',
+            'month'  => 'Bulan Ini',
+            'year'   => 'Tahun Ini',
+            'all'    => 'Semua Waktu',
+        ];
+    }
+
+    private function getDateRange(): array
+    {
+        return match ($this->filter) {
+            'week'  => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
+            'month' => [now()->subDays(29)->startOfDay(), now()->endOfDay()],
+            'year'  => [now()->startOfYear(), now()->endOfDay()],
+            'all'   => [null, null],
+            default => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
+        };
+    }
 
     protected function getData(): array
     {
-        $results = Product::query()
+        $productTable     = (new Product)->getTable();
+        $invoiceItemTable = 'bl_invoice_items_t';
+        $invoiceTable     = 'bl_invoices_t';
+
+        [$startDate, $endDate] = $this->getDateRange();
+
+        $query = Product::query()
             ->select(
-                'bl_products_t.id',
-                'bl_products_t.sku',
-                'bl_products_t.nama',
-                DB::raw('SUM(bl_invoice_items_t.quantity) as total_sold')
+                "{$productTable}.id",
+                "{$productTable}.nama",
+                DB::raw("SUM({$invoiceItemTable}.quantity) as total_sold")
             )
-            ->join('bl_invoice_items_t', 'bl_products_t.id', '=', 'bl_invoice_items_t.product_id')
-            ->join('bl_invoices_t', 'bl_invoice_items_t.invoice_id', '=', 'bl_invoices_t.id')
-            ->where('bl_invoices_t.status', 'paid')
-            ->whereNotIn('bl_products_t.nama', ['Box', 'Wrapping'])
-            ->groupBy('bl_products_t.id') // Safe: PK → aman untuk only_full_group_by
+            ->join($invoiceItemTable, "{$productTable}.id", '=', "{$invoiceItemTable}.product_id")
+            ->join($invoiceTable, "{$invoiceItemTable}.invoice_id", '=', "{$invoiceTable}.id")
+            ->where("{$invoiceTable}.status", 'paid')
+            ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping'])
+            ->groupBy(
+                "{$productTable}.id",
+                "{$productTable}.nama"
+            )
             ->orderByDesc('total_sold')
-            ->limit(10)
-            ->get();
+            ->limit(10);
+        
+        if ($startDate && $endDate) {
+            $query->whereBetween("{$invoiceTable}.created_at", [$startDate, $endDate]);
+        }
 
-        // Label: "Nama Produk" — SKU muncul di tooltip via extra dataset metadata
+        $results = $query->get();
+
         $labels     = $results->pluck('nama')->toArray();
-        $quantities = $results->pluck('total_sold')->map(fn ($v) => (int) $v)->toArray();
-        $skus       = $results->pluck('sku')->toArray();
-
-        // Warna gradien pink mengikuti tema Bloomorist
-        $colors = array_fill(0, count($results), 'rgba(219, 39, 119, 0.75)');
+        $quantities = $results->pluck('total_sold')->map(fn($v) => (int) $v)->toArray();
+        $colors     = array_fill(0, count($results), 'rgba(219, 39, 119, 0.75)');
+        $borders    = array_fill(0, count($results), 'rgba(190, 24, 93, 0.9)');
 
         return [
             'datasets' => [
@@ -46,45 +85,35 @@ class TopProducts extends ChartWidget
                     'label'           => 'Qty Terjual',
                     'data'            => $quantities,
                     'backgroundColor' => $colors,
-                    'borderColor'     => array_fill(0, count($results), 'rgba(190, 24, 93, 0.9)'),
+                    'borderColor'     => $borders,
                     'borderWidth'     => 1,
-                    'skus'            => $skus, // Extra metadata untuk tooltip custom
                 ],
             ],
             'labels' => $labels,
         ];
     }
-
-    protected function getOptions(): array
+ 
+    protected function getOptions(): array|RawJs
     {
-        return [
-            'indexAxis'  => 'y', // Horizontal bar chart
-            'responsive' => true,
-            'plugins'    => [
-                'legend' => ['display' => false],
-                'tooltip' => [
-                    'callbacks' => [
-                        // Tampilkan SKU di tooltip
-                        'label' => \Filament\Support\RawJs::make(<<<'JS'
-                            function(context) {
-                                var sku = context.dataset.skus ? context.dataset.skus[context.dataIndex] : '';
-                                return ' ' + context.parsed.x + ' pcs' + (sku ? ' · ' + sku : '');
-                            }
-                        JS),
-                    ],
-                ],
-            ],
-            'scales' => [
-                'x' => [
-                    'beginAtZero' => true,
-                    'ticks'       => ['precision' => 0],
-                    'grid'        => ['display' => true],
-                ],
-                'y' => [
-                    'grid' => ['display' => false],
-                ],
-            ],
-        ];
+        return RawJs::make(<<<'JS'
+            {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { display: true },
+                    },
+                    y: {
+                        grid: { display: false },
+                    },
+                },
+            }
+        JS);
     }
 
     protected function getType(): string

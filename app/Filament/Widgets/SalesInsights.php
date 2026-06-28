@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class SalesInsights extends BaseWidget
 {
     protected static ?int $sort = 4;
-    protected int | string | array $columnSpan = 1;
+    protected int|string|array $columnSpan = 1;
     protected ?string $heading = 'Sales Insights';
 
     protected function getColumns(): int | array | null

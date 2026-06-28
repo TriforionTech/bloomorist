@@ -16,4 +16,11 @@ class ListCustomers extends ListRecords
             CreateAction::make(),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\CustomerType::class,
+        ];
+    }
 }

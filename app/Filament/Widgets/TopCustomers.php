@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class TopCustomers extends BaseWidget
 {
     protected static ?int $sort = 6;
-    protected int | string | array $columnSpan = 1;
+    protected int|string|array $columnSpan = 1;
 
     public function table(Table $table): Table
     {
@@ -28,7 +28,10 @@ class TopCustomers extends BaseWidget
                     )
                     ->join('bl_invoices_t', 'bl_customers_t.id', '=', 'bl_invoices_t.customer_id')
                     ->where('bl_invoices_t.status', 'paid')
-                    ->groupBy('bl_customers_t.id') // Safe: PK → aman untuk only_full_group_by
+                    ->groupBy(
+                        'bl_customers_t.id',
+                        'bl_customers_t.nama'
+                    )
                     ->limit(10)
             )
             ->defaultSort('total_spend', 'desc')

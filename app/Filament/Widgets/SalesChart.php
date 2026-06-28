@@ -8,14 +8,17 @@ use Filament\Widgets\ChartWidget;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Filament\Support\RawJs;
 
 class SalesChart extends ChartWidget
 {
-    protected ?string $heading = 'Grafik Penjualan';
     protected static ?int $sort = 2;
-    protected int | string | array $columnSpan = 'full';
+    protected ?string $heading = 'Grafik Penjualan';
+    protected int|string|array $columnSpan = 'full';
 
     protected ?string $maxHeight = '500px';
+    
+    protected ?string $pollingInterval = null;
 
     public ?string $filter = 'week';
 
@@ -26,21 +29,21 @@ class SalesChart extends ChartWidget
             'week'  => '7 Hari Terakhir',
             'month' => 'Bulan Ini',
             'year'  => 'Tahun Ini',
+            'all'   => 'Per Tahun',
         ];
     }
 
     /**
      * Ringkasan Revenue + Order ditampilkan di atas chart via description.
      */
-    public function getDescription(): string | Htmlable | null
+    public function getDescription(): string|Htmlable|null
     {
-        $baseQuery = Invoice::where('status', 'paid');
-        $this->applyDateFilter($baseQuery);
+        $query = Invoice::where('status', 'paid');
+        $this->applyDateFilter($query);
 
-        $totalRevenue = (clone $baseQuery)->sum('grand_total');
-        $totalOrders  = (clone $baseQuery)->count();
-
-        $formatted = 'Rp ' . number_format($totalRevenue, 0, ',', '.');
+        $totalRevenue = (clone $query)->sum('grand_total');
+        $totalOrders  = (clone $query)->count();
+        $formatted    = 'Rp ' . number_format($totalRevenue, 0, ',', '.');
 
         return new HtmlString("
             <div class='flex flex-wrap items-center gap-6 mt-1 mb-2'>
@@ -86,7 +89,8 @@ class SalesChart extends ChartWidget
                 ->pluck('total', 'date')
                 ->toArray();
 
-            for ($i = 1; $i <= Carbon::now()->daysInMonth; $i++) {
+            $daysInMonth = Carbon::now()->daysInMonth;
+            for ($i = 1; $i <= $daysInMonth; $i++) {
                 $dateString = Carbon::now()->setDay($i)->format('Y-m-d');
                 $labels[]   = $i;
                 $data[]     = (float) ($results[$dateString] ?? 0);
@@ -100,14 +104,30 @@ class SalesChart extends ChartWidget
                 ->pluck('total', 'month')
                 ->toArray();
 
-            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             foreach ($months as $index => $month) {
                 $labels[] = $month;
                 $data[]   = (float) ($results[$index + 1] ?? 0);
             }
 
+        } elseif ($this->filter === 'all') {
+            $results = (clone $baseQuery)
+                ->select(
+                    DB::raw('YEAR(issued_date) as year'),
+                    DB::raw('SUM(grand_total) as total')
+                )
+                ->groupBy('year')
+                ->orderBy('year')
+                ->pluck('total', 'year')
+                ->toArray();
+
+            foreach ($results as $year => $total) {
+                $labels[] = (string) $year;
+                $data[]   = (float) $total;
+            }
+
         } else {
-            // Default: 7 hari terakhir
+            // 7 hari terakhir
             $results = (clone $baseQuery)
                 ->whereBetween('issued_date', [Carbon::today()->subDays(6), Carbon::today()])
                 ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
@@ -125,37 +145,52 @@ class SalesChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label'           => 'Pendapatan (Rp)',
-                    'data'            => $data,
-                    'borderColor'     => '#db2777',
-                    'backgroundColor' => 'rgba(219, 39, 119, 0.08)',
-                    'fill'            => true,
-                    'tension'         => 0.4,
-                    'pointBackgroundColor' => '#db2777',
-                    'pointRadius'     => 4,
+                    'label'                 => 'Pendapatan (Rp)',
+                    'data'                  => $data,
+                    'borderColor'           => '#db2777',
+                    'backgroundColor'       => 'rgba(219, 39, 119, 0.08)',
+                    'fill'                  => true,
+                    'tension'               => 0.4,
+                    'pointBackgroundColor'  => '#db2777',
+                    'pointRadius'           => 4,
                 ],
             ],
             'labels' => $labels,
         ];
     }
 
-    protected function getOptions(): array
+    protected function getOptions(): RawJs
     {
-        return [
-            'responsive'          => true,
-            'maintainAspectRatio' => false,
-            'plugins'    => [
-                'legend' => ['display' => false],
-            ],
-            'scales' => [
-                'y' => [
-                    'beginAtZero' => true,
-                    'ticks'       => [
-                        'precision' => 0,
-                    ],
-                ],
-            ],
-        ];
+        return RawJs::make(<<<'JS'
+            {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const value = context.parsed.y;
+                                return 'Rp ' + new Intl.NumberFormat('id-ID').format(value);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            callback: (value) => {
+                                if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                                if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
+                                return 'Rp ' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        JS);
     }
 
     protected function getType(): string
@@ -175,6 +210,7 @@ class SalesChart extends ChartWidget
                 Carbon::now()->endOfMonth(),
             ]),
             'year'  => $query->whereYear('issued_date', Carbon::now()->year),
+            'all'   => null,
             default => $query->whereBetween('issued_date', [
                 Carbon::today()->subDays(6),
                 Carbon::today(),
