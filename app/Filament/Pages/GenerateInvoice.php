@@ -43,8 +43,10 @@ class GenerateInvoice extends Page implements HasSchemas
     protected string $view = 'filament.pages.generate-invoice';
     protected static ?string $title = 'Create Invoice';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
-    protected static string|UnitEnum|null $navigationGroup = 'Invoices';
-    protected static ?string $navigationLabel = 'Generate';
+    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+    protected static ?string $navigationLabel = 'Generate Invoice';
+
+    
 
     public array $data = [];
 

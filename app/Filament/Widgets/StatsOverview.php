@@ -39,6 +39,11 @@ class StatsOverview extends BaseWidget
         $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
 
         return [
+            Stat::make('Total Order Hari Ini', new \Illuminate\Support\HtmlString('<span class="text-2xl font-bold">' . $totalOrdersToday . '</span>'))
+                ->description('Jumlah pesanan yang masuk hari ini')
+                ->descriptionIcon('heroicon-m-document-text')
+                ->color('info'),
+
             Stat::make('Pendapatan Hari Ini', new \Illuminate\Support\HtmlString('<span class="text-2xl font-bold">Rp ' . number_format($revenueToday, 0, ',', '.') . '</span>'))
                 ->description("Total dari {$invoiceTodayPaidCount} invoice lunas hari ini")
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
@@ -48,11 +53,6 @@ class StatsOverview extends BaseWidget
                 ->description("Total dari {$invoiceMonthPaidCount} invoice lunas bulan ini")
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('primary'),
-
-            Stat::make('Total Order Hari Ini', new \Illuminate\Support\HtmlString('<span class="text-2xl font-bold">' . $totalOrdersToday . '</span>'))
-                ->description('Jumlah pesanan yang masuk hari ini')
-                ->descriptionIcon('heroicon-m-document-text')
-                ->color('info'),
 
             Stat::make('Order Pending', new \Illuminate\Support\HtmlString('<span class="text-2xl font-bold">' . $pendingOrders . '</span>'))
                 ->description('Menunggu pembayaran')

@@ -17,5 +17,5 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })->create()
     ->usePublicPath(
-        dirname(__DIR__) . '/public_html'
+        dirname(__DIR__) . '/public'
     );

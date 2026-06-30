@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* ─── Sync Tailwind v4 dark mode with Filament's class-based toggle ─── */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -20,4 +23,10 @@
 .fi-fixed-table .fi-ta-content {
     height: 420px;
     overflow-y: auto;
+}
+
+.fi-badge {
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
 }
