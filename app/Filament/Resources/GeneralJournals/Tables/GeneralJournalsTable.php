@@ -2,9 +2,6 @@
 
 namespace App\Filament\Resources\GeneralJournals\Tables;
 
-use App\Filament\Resources\GeneralJournals\GeneralJournalResource;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -40,6 +37,7 @@ class GeneralJournalsTable
                     ->color(fn ($state) => match ($state) {
                         'EXPENSE' => 'danger',
                         'INVOICE' => 'success',
+                        'STOCK'   => 'warning',
                         default   => 'info',
                     })
                     ->sortable(),
@@ -60,22 +58,6 @@ class GeneralJournalsTable
                     ->label('TANGGAL')
                     ->date('d M Y')
                     ->sortable(),
-            ])
-            ->recordActions([
-                EditAction::make()
-                    ->hiddenLabel()
-                    ->visible(fn ($record) => $record->reference_id === null),
-
-                DeleteAction::make()
-                    ->hiddenLabel()
-                    ->visible(fn ($record) => $record->reference_id === null),
-            ])
-            ->recordUrl(function ($record) {
-                // Only allow clicking into manual journals
-                if ($record->reference_id !== null) {
-                    return null;
-                }
-                return GeneralJournalResource::getUrl('edit', ['record' => $record]);
-            });
+            ]);
     }
 }

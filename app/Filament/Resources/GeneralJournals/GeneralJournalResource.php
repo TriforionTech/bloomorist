@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\GeneralJournals;
 
 use App\Filament\Resources\GeneralJournals\Pages\CreateGeneralJournal;
-use App\Filament\Resources\GeneralJournals\Pages\EditGeneralJournal;
 use App\Filament\Resources\GeneralJournals\Pages\ListGeneralJournals;
 use App\Filament\Resources\GeneralJournals\Schemas\GeneralJournalForm;
 use App\Filament\Resources\GeneralJournals\Tables\GeneralJournalsTable;
@@ -47,7 +46,6 @@ class GeneralJournalResource extends Resource
         return [
             'index'  => ListGeneralJournals::route('/'),
             'create' => CreateGeneralJournal::route('/create'),
-            'edit'   => EditGeneralJournal::route('/{record}/edit'),
         ];
     }
 }

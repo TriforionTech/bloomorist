@@ -62,7 +62,7 @@ class ChartOfAccountsTable
                 EditAction::make()
                     ->hiddenLabel()
                     ->size('xl')
-                    ->icon('heroicon-o-pencil'),
+                    ->icon('heroicon-o-pencil-square'),
                 DeleteAction::make()
                     ->hiddenLabel()
                     ->size('xl')

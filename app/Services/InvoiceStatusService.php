@@ -10,14 +10,14 @@ class InvoiceStatusService
 {
     /**
      * Handle status change with DB::transaction wrapper.
-     * Semua operasi stok dan (future) accounting di dalam satu transaksi.
+     * Semua operasi stok dan accounting di dalam satu transaksi.
      *
      * Rules:
-     * - pending → paid    : Potong stok (Sale)
-     * - paid → cancelled  : Kembalikan stok (Return)
-     * - paid → refunded   : Kembalikan stok (Refund)
-     * - pending → cancelled: Tidak ada perubahan stok
-     * - cancelled/refunded → paid: Potong stok kembali
+     * - pending → paid    : Potong stok (Sale) + Journal (Debit Kas, Kredit Pendapatan)
+     * - paid → cancelled  : Kembalikan stok (Return) + Reversal Journal
+     * - paid → pending    : Kembalikan stok (Return) + Reversal Journal
+     * - pending → cancelled: Tidak ada perubahan stok, tidak ada journal
+     * - cancelled → paid  : Potong stok kembali + Journal
      */
     public function changeStatus(Invoice $invoice, string $newStatus): void
     {
@@ -32,7 +32,7 @@ class InvoiceStatusService
             // 1. Process stock mutations
             $this->processStockMutation($invoice, $oldStatus, $newStatus);
 
-            // 2. Generate accounting journal (placeholder)
+            // 2. Generate accounting journal
             $this->generateAccountingJournal($invoice, $oldStatus, $newStatus);
 
             // 3. Update status
@@ -58,8 +58,8 @@ class InvoiceStatusService
             $shouldDecrementStock = true;
         }
 
-        // Dari paid → cancelled/refunded: kembalikan stok
-        if ($oldStatus === 'paid' && in_array($newStatus, ['cancelled', 'refunded'])) {
+        // Dari paid → any other status (pending/cancelled): kembalikan stok
+        if ($oldStatus === 'paid' && $newStatus !== 'paid') {
             $shouldIncrementStock = true;
         }
 
@@ -99,34 +99,23 @@ class InvoiceStatusService
     }
 
     /**
-     * Placeholder: Generate Jurnal Umum otomatis.
-     * 
-     * TODO (Sprint berikutnya):
-     * - paid    → Pengakuan Piutang/Kas, Penjualan, dan HPP
-     * - refunded → Reverse entries (Retur Penjualan)
-     * 
-     * @param Invoice $invoice   Invoice yang statusnya berubah
-     * @param string  $oldStatus Status lama
-     * @param string  $newStatus Status baru
+     * Generate Jurnal Umum otomatis berdasarkan perubahan status invoice.
+     *
+     * - non-paid → paid: Debit Kas & Bank, Kredit Pendapatan Penjualan
+     * - paid → cancelled/refunded: Reversal (Debit Pendapatan, Kredit Kas)
      */
     protected function generateAccountingJournal(Invoice $invoice, string $oldStatus, string $newStatus): void
     {
-        // TODO: Implement accounting journal generation
-        // 
-        // Contoh implementasi:
-        // if ($newStatus === 'paid') {
-        //     JournalEntry::create([
-        //         'date'        => now(),
-        //         'description' => "Penjualan Invoice #{$invoice->invoice_number}",
-        //         'entries'     => [
-        //             ['account' => 'Piutang Usaha',  'debit' => $invoice->grand_total, 'credit' => 0],
-        //             ['account' => 'Penjualan',      'debit' => 0, 'credit' => $invoice->grand_total],
-        //         ],
-        //     ]);
-        // }
-        //
-        // if ($newStatus === 'refunded' && $oldStatus === 'paid') {
-        //     // Reverse the journal entry
-        // }
+        $accountingService = app(AccountingService::class);
+
+        // Invoice becomes PAID → create revenue journal
+        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
+            $accountingService->createInvoicePaidJournal($invoice);
+        }
+
+        // PAID invoice goes to any other status → create reversal journal
+        if ($oldStatus === 'paid' && $newStatus !== 'paid') {
+            $accountingService->createInvoiceReversalJournal($invoice, $newStatus);
+        }
     }
 }

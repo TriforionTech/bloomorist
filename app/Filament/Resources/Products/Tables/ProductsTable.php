@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products\Tables;
 use App\Filament\Resources\Products\ProductResource;
 use App\Models\InvoiceItem;
 use App\Models\StockMovement;
+use App\Services\AccountingService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -294,6 +295,15 @@ class ProductsTable
                             } else {
                                 $record->decrement('stok', $data['quantity']);
                             }
+
+                            // Auto-create accounting journal for stock movement
+                            app(AccountingService::class)->createStockMovementJournal(
+                                type: $data['type'],
+                                quantity: (int) $data['quantity'],
+                                unitCost: (int) ($record->harga_beli ?? 0),
+                                productName: $record->nama,
+                                notes: $data['notes'] ?? null,
+                            );
                         });
 
                         Notification::make()

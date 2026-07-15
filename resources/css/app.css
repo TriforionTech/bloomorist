@@ -30,3 +30,11 @@
     font-weight: bold;
     text-transform: uppercase;
 }
+
+/* ─── Fix: Repeater dropdown clipping (Select inside Repeater) ─── */
+.fi-fo-repeater .fi-fo-repeater-item {
+    overflow: visible !important;
+}
+.fi-fo-repeater .fi-fo-repeater-items {
+    overflow: visible !important;
+}

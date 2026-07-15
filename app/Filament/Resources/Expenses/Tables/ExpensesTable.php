@@ -47,9 +47,20 @@ class ExpensesTable
                     ->badge()
                     ->color('info'),
             ])
+            ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
-                EditAction::make()->hiddenLabel(),
-                DeleteAction::make()->hiddenLabel(),
+                EditAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->icon('heroicon-o-pencil-square'),
+                DeleteAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->icon('heroicon-o-trash')
+                    ->modalHeading('Hapus Expense')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus expense ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalSubmitActionLabel('Ya, Hapus')
+                    ->modalCancelActionLabel('Batal'),
             ]);
     }
 }

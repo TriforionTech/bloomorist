@@ -30,7 +30,8 @@ class InvoicesTable
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['boxItem', 'wrappingItem', 'customer.membership'])
                 ->withSum('regularItems', 'normal_price')
-                ->withCount('regularItems'))
+                ->withCount('regularItems')
+                ->withSum('regularItems', 'quantity'))
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
@@ -59,6 +60,13 @@ class InvoicesTable
                     ->alignCenter()
                     ->badge()
                     ->color('gray'),
+
+                TextColumn::make('regular_items_sum_quantity')
+                    ->label('QTY')
+                    ->sortable()
+                    ->alignCenter()
+                    ->badge()
+                    ->color('info'),
 
                 TextColumn::make('regular_items_sum_normal_price')
                     ->label('SUBTOTAL')
@@ -126,14 +134,12 @@ class InvoicesTable
                         'pending'   => 'warning',
                         'paid'      => 'success',
                         'cancelled' => 'danger',
-                        'refunded'  => 'info',
                         default     => 'primary',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'pending'   => '🕒 PENDING',
                         'paid'      => '✅ PAID',
                         'cancelled' => '❌ CANCELLED',
-                        'refunded'  => '↩️ REFUNDED',
                         default     => strtoupper($state),
                     }),
             ])
@@ -143,7 +149,6 @@ class InvoicesTable
                         'pending'   => '🕒 Pending',
                         'paid'      => '✅ Paid',
                         'cancelled' => '❌ Cancelled',
-                        'refunded'  => '↩️ Refunded',
                     ])
                     ->searchable(),
                 SelectFilter::make('customer_type')
@@ -213,7 +218,6 @@ class InvoicesTable
                                 'pending'   => '🕒 Pending',
                                 'paid'      => '✅ Paid',
                                 'cancelled' => '❌ Cancelled',
-                                'refunded'  => '↩️ Refunded',
                             ])->except([$record->status])->toArray())
                             ->required()
                             ->native(false),
@@ -279,7 +283,6 @@ class InvoicesTable
                                     'pending'   => '🕒 Pending',
                                     'paid'      => '✅ Paid',
                                     'cancelled' => '❌ Cancelled',
-                                    'refunded'  => '↩️ Refunded',
                                 ])
                                 ->required()
                                 ->native(false),

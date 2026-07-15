@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ChartOfAccount;
 use App\Models\Expense;
 use App\Models\GeneralJournal;
+use App\Models\Invoice;
 use App\Models\JournalItem;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -71,6 +72,180 @@ class AccountingService
                 'debit'      => 0,
                 'kredit'     => $expense->nominal,
             ]);
+
+            return $journal;
+        });
+    }
+
+    /**
+     * Create journal entries when an invoice is marked as PAID.
+     * Debit:  1010 Kas & Bank       (grand_total)
+     * Kredit: 4010 Pendapatan Penjualan (grand_total)
+     */
+    public function createInvoicePaidJournal(Invoice $invoice): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($invoice) {
+            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
+            $coaPendapatan = ChartOfAccount::where('kode_akun', '4010')->first();
+
+            // Gracefully skip if COA accounts aren't set up yet
+            if (!$coaKas || !$coaPendapatan) {
+                return null;
+            }
+
+            $amount = (int) $invoice->grand_total;
+
+            $journal = GeneralJournal::create([
+                'no_bukti'     => $this->generateNoBukti('INV'),
+                'keterangan'   => "Penjualan Invoice #{$invoice->invoice_number}",
+                'reference_id' => $invoice->id,
+                'source_type'  => 'INVOICE',
+            ]);
+
+            // Debit: Kas & Bank
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaKas->id,
+                'kode_coa'   => $coaKas->kode_akun,
+                'debit'      => $amount,
+                'kredit'     => 0,
+            ]);
+
+            // Kredit: Pendapatan Penjualan
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaPendapatan->id,
+                'kode_coa'   => $coaPendapatan->kode_akun,
+                'debit'      => 0,
+                'kredit'     => $amount,
+            ]);
+
+            return $journal;
+        });
+    }
+
+    /**
+     * Create reversal journal when a PAID invoice is cancelled or refunded.
+     * Reverses the paid journal:
+     * Debit:  4010 Pendapatan Penjualan (grand_total)
+     * Kredit: 1010 Kas & Bank           (grand_total)
+     */
+    public function createInvoiceReversalJournal(Invoice $invoice, string $reason = 'cancelled'): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($invoice, $reason) {
+            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
+            $coaPendapatan = ChartOfAccount::where('kode_akun', '4010')->first();
+
+            if (!$coaKas || !$coaPendapatan) {
+                return null;
+            }
+
+            $amount = (int) $invoice->grand_total;
+            $label  = $reason === 'refunded' ? 'Refund' : 'Pembatalan';
+
+            $journal = GeneralJournal::create([
+                'no_bukti'     => $this->generateNoBukti('REV'),
+                'keterangan'   => "{$label} Invoice #{$invoice->invoice_number}",
+                'reference_id' => $invoice->id,
+                'source_type'  => 'INVOICE',
+            ]);
+
+            // Debit: Pendapatan Penjualan (reverse)
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaPendapatan->id,
+                'kode_coa'   => $coaPendapatan->kode_akun,
+                'debit'      => $amount,
+                'kredit'     => 0,
+            ]);
+
+            // Kredit: Kas & Bank (reverse)
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaKas->id,
+                'kode_coa'   => $coaKas->kode_akun,
+                'debit'      => 0,
+                'kredit'     => $amount,
+            ]);
+
+            return $journal;
+        });
+    }
+
+    /**
+     * Create journal entries for a manual stock adjustment.
+     * Stock In:  Debit 1030 Persediaan, Kredit 1010 Kas & Bank
+     * Stock Out: Debit 5010 Beban Operasional, Kredit 1030 Persediaan
+     */
+    public function createStockMovementJournal(
+        string $type,
+        int $quantity,
+        int $unitCost,
+        string $productName,
+        ?string $notes = null
+    ): ?GeneralJournal {
+        return DB::transaction(function () use ($type, $quantity, $unitCost, $productName, $notes) {
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1030')->first();
+            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
+            $coaBeban      = ChartOfAccount::where('kode_akun', '5010')->first();
+
+            if (!$coaPersediaan || !$coaKas || !$coaBeban) {
+                return null;
+            }
+
+            $amount = $quantity * $unitCost;
+
+            if ($amount <= 0) {
+                return null;
+            }
+
+            $prefix = $type === 'in' ? 'STK-IN' : 'STK-OUT';
+            $label  = $type === 'in' ? 'Stock In' : 'Stock Out';
+            $description = "{$label}: {$productName} ({$quantity} unit)";
+            if ($notes) {
+                $description .= " — {$notes}";
+            }
+
+            $journal = GeneralJournal::create([
+                'no_bukti'     => $this->generateNoBukti($prefix),
+                'keterangan'   => $description,
+                'reference_id' => null,
+                'source_type'  => 'STOCK',
+            ]);
+
+            if ($type === 'in') {
+                // Stock In: Debit Persediaan, Kredit Kas
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaPersediaan->id,
+                    'kode_coa'   => $coaPersediaan->kode_akun,
+                    'debit'      => $amount,
+                    'kredit'     => 0,
+                ]);
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaKas->id,
+                    'kode_coa'   => $coaKas->kode_akun,
+                    'debit'      => 0,
+                    'kredit'     => $amount,
+                ]);
+            } else {
+                // Stock Out: Debit Beban Operasional, Kredit Persediaan
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaBeban->id,
+                    'kode_coa'   => $coaBeban->kode_akun,
+                    'debit'      => $amount,
+                    'kredit'     => 0,
+                ]);
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaPersediaan->id,
+                    'kode_coa'   => $coaPersediaan->kode_akun,
+                    'debit'      => 0,
+                    'kredit'     => $amount,
+                ]);
+            }
 
             return $journal;
         });
