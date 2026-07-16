@@ -14,6 +14,77 @@ use Illuminate\Support\Facades\DB;
 class AccountingService
 {
     /**
+     * Create journal entries for stock adjustments (Spoilage / Damages / Corrections).
+     * Debit: 5060 Beban Kerusakan Barang (Spoilage/Shrinkage Expense) [for loss]
+     * Kredit: 1030 Persediaan Barang (Inventory)
+     * Note: If stock is added (in), the journal is reversed.
+     */
+    public function createStockAdjustmentJournal(\App\Models\Product $product, int $quantity, string $type, string $notes = ''): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($product, $quantity, $type, $notes) {
+            // Find or create COA for Persediaan Barang
+            $coaPersediaan = ChartOfAccount::firstOrCreate(
+                ['kode_akun' => '1030'],
+                ['nama_akun' => 'Persediaan Barang', 'kategori' => 'Aset', 'saldo_normal' => 'Debit']
+            );
+
+            // Find or create COA for Beban Kerusakan
+            $coaBeban = ChartOfAccount::firstOrCreate(
+                ['kode_akun' => '5060'],
+                ['nama_akun' => 'Beban Kerusakan Barang', 'kategori' => 'Beban', 'saldo_normal' => 'Debit']
+            );
+
+            $amount = (int) ($product->harga_beli * $quantity);
+
+            if ($amount <= 0) return null;
+
+            $journal = GeneralJournal::create([
+                'no_bukti'     => $this->generateNoBukti('ADJ'),
+                'keterangan'   => "Penyesuaian Stok ({$type}) - {$product->nama} - {$notes}",
+                'reference_id' => $product->id,
+                'source_type'  => 'STOCK_ADJUSTMENT',
+            ]);
+
+            if ($type === 'loss' || $type === 'out') {
+                // Barang Hilang/Rusak: Debit Beban, Kredit Persediaan
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaBeban->id,
+                    'kode_coa'   => $coaBeban->kode_akun,
+                    'debit'      => $amount,
+                    'kredit'     => 0,
+                ]);
+
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaPersediaan->id,
+                    'kode_coa'   => $coaPersediaan->kode_akun,
+                    'debit'      => 0,
+                    'kredit'     => $amount,
+                ]);
+            } else {
+                // Barang Masuk (Opname Plus): Debit Persediaan, Kredit Beban (koreksi beban)
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaPersediaan->id,
+                    'kode_coa'   => $coaPersediaan->kode_akun,
+                    'debit'      => $amount,
+                    'kredit'     => 0,
+                ]);
+
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id'     => $coaBeban->id,
+                    'kode_coa'   => $coaBeban->kode_akun,
+                    'debit'      => 0,
+                    'kredit'     => $amount,
+                ]);
+            }
+
+            return $journal;
+        });
+    }
+    /**
      * Generate an auto-incrementing journal number.
      * Format: {prefix}-{YYYY}-{sequence}
      * Example: JU-2026-0001

@@ -271,8 +271,8 @@ class ProductsTable
                         Select::make('type')
                             ->label('Jenis Transaksi')
                             ->options([
-                                'in' => 'Stock In',
-                                'out' => 'Stock Out',
+                                'in' => 'Stock In (Masuk/Koreksi)',
+                                'out' => 'Stock Out (Rusak/Hilang)',
                             ])
                             ->required()
                             ->native(false),
@@ -289,41 +289,53 @@ class ProductsTable
                             ])
                             ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0))),
                         Textarea::make('notes')
-                            ->label('Catatan')
+                            ->label('Catatan Alasan')
                             ->required()
-                            ->placeholder('Catatan untuk stock adjustment')
+                            ->placeholder('Misal: 2 bunga layu tidak layak jual')
                             ->rows(3),
                     ])
                     ->action(function (array $data, $record) {
-                        DB::transaction(function () use ($data, $record) {
+                        $qty = (int) $data['quantity'];
+                        $type = $data['type'];
+
+                        if ($type === 'out' && $record->stok < $qty) {
+                            Notification::make()
+                                ->title('Stok Tidak Cukup')
+                                ->body("Tidak bisa mengurangi stok sebanyak {$qty}. Stok saat ini hanya {$record->stok}.")
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        DB::transaction(function () use ($data, $record, $qty, $type) {
                             StockMovement::create([
                                 'product_id' => $record->id,
-                                'type' => $data['type'],
-                                'quantity' => $data['quantity'],
-                                'notes' => $data['notes'],
+                                'type' => $type,
+                                'quantity' => $qty,
+                                'notes' => 'Manual Adj: ' . $data['notes'],
                                 'user_id' => Filament::auth()->id(),
+                                'reference_id' => 'ADJ-' . time(),
                             ]);
 
-                            if ($data['type'] === 'in') {
-                                $record->increment('stok', $data['quantity']);
+                            if ($type === 'in') {
+                                $record->increment('stok', $qty);
                             } else {
-                                $record->decrement('stok', $data['quantity']);
+                                $record->decrement('stok', $qty);
                             }
 
-                            // Auto-create accounting journal for stock movement
-                            app(AccountingService::class)->createStockMovementJournal(
-                                type: $data['type'],
-                                quantity: (int) $data['quantity'],
-                                unitCost: (int) ($record->harga_beli ?? 0),
-                                productName: $record->nama,
-                                notes: $data['notes'] ?? null,
+                            // Auto-create accounting journal for stock adjustment
+                            app(AccountingService::class)->createStockAdjustmentJournal(
+                                product: $record,
+                                quantity: $qty,
+                                type: $type,
+                                notes: $data['notes'] ?? ''
                             );
                         });
 
                         Notification::make()
                             ->success()
                             ->title('Stock Updated')
-                            ->body("Stock {$data['type']} of {$data['quantity']} unit(s) has been recorded.")
+                            ->body("Stok {$record->nama} telah disesuaikan.")
                             ->send();
                     }),
                 ActionGroup::make([
