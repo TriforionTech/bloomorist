@@ -66,6 +66,10 @@ class InvoiceStatusService
         if ($shouldDecrementStock) {
             foreach ($items as $item) {
                 if ($item->product) {
+                    if ($item->product->stok < $item->quantity) {
+                        throw new \Exception("Stok tidak mencukupi untuk produk: {$item->product->nama}. Stok saat ini: {$item->product->stok}, dibutuhkan: {$item->quantity}.");
+                    }
+
                     $item->product->decrement('stok', $item->quantity);
 
                     StockMovement::create([

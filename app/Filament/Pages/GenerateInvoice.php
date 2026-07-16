@@ -1148,50 +1148,75 @@ class GenerateInvoice extends Page implements HasSchemas
                 ];
 
                 // === BRANCHING: CREATE vs EDIT ===
-                if ($this->isEditMode()) {
-                    // EDIT MODE: Update existing invoice
-                    $invoice = Invoice::findOrFail($this->invoiceId);
+                try {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($invoiceData, $itemsData, $invoiceNumber) {
+                        if ($this->isEditMode()) {
+                            // EDIT MODE: Update existing invoice
+                            $invoice = Invoice::findOrFail($this->invoiceId);
+                            
+                            $wasPaid = $invoice->status === 'paid';
+
+                            if ($wasPaid) {
+                                // Revert stock from old items before modifying them
+                                \App\Models\Invoice::handleStatusChange($invoice, 'pending');
+                            }
+
+                            // Update invoice data (status tidak diubah di form edit ini)
+                            $invoice->update($invoiceData);
+
+                            // Delete old items dan insert ulang (strategy paling aman)
+                            $invoice->items()->delete();
+                            foreach ($itemsData as $itemData) {
+                                $invoice->items()->create($itemData);
+                            }
+
+                            $invoice->load('items');
+                            
+                            if ($wasPaid) {
+                                // Deduct stock again based on the newly inserted items
+                                \App\Models\Invoice::handleStatusChange($invoice, 'paid');
+                            }
+
+                            $invoice->save();
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Invoice berhasil diperbarui!')
+                                ->body("Invoice #{$invoiceNumber} telah diperbarui.")
+                                ->success()
+                                ->send();
+                        } else {
+                            // CREATE MODE: Create new invoice
+                            $invoiceData['status'] = 'pending';
+                            $invoice = Invoice::create($invoiceData);
+
+                            foreach ($itemsData as $itemData) {
+                                $invoice->items()->create($itemData);
+                            }
+
+                            $invoice->load('items');
+                            $invoice->save();
+
+                            // reset form setelah berhasil simpan
+                            $this->getSchema('invoiceForm')->fill();
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Invoice berhasil disimpan!')
+                                ->body("Invoice #{$invoiceNumber} telah tersimpan ke database dengan status pending.")
+                                ->success()
+                                ->send();
+                        }
+                    });
+
+                    return redirect(InvoiceResource::getUrl('index'));
+                } catch (\Exception $e) {
+                    \Filament\Notifications\Notification::make()
+                        ->title('Gagal menyimpan invoice')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
                     
-                    // Update invoice data (status tidak diubah saat edit)
-                    $invoice->update($invoiceData);
-
-                    // Delete old items dan insert ulang (strategy paling aman)
-                    $invoice->items()->delete();
-                    foreach ($itemsData as $itemData) {
-                        $invoice->items()->create($itemData);
-                    }
-
-                    $invoice->load('items');
-                    $invoice->save();
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('Invoice berhasil diperbarui!')
-                        ->body("Invoice #{$invoiceNumber} telah diperbarui.")
-                        ->success()
-                        ->send();
-                } else {
-                    // CREATE MODE: Create new invoice
-                    $invoiceData['status'] = 'pending';
-                    $invoice = Invoice::create($invoiceData);
-
-                    foreach ($itemsData as $itemData) {
-                        $invoice->items()->create($itemData);
-                    }
-
-                    $invoice->load('items');
-                    $invoice->save();
-
-                    // reset form setelah berhasil simpan
-                    $this->getSchema('invoiceForm')->fill();
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('Invoice berhasil disimpan!')
-                        ->body("Invoice #{$invoiceNumber} telah tersimpan ke database dengan status pending.")
-                        ->success()
-                        ->send();
+                    return null; // Return null to stay on the page
                 }
-
-                return redirect(InvoiceResource::getUrl('index'));
             });
     }
 

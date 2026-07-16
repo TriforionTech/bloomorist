@@ -48,6 +48,17 @@ class InvoiceObserver
     }
 
     /**
+     * Handle the Invoice "deleting" event.
+     */
+    public function deleting(Invoice $invoice): void
+    {
+        // Jika invoice dihapus padahal statusnya paid, kembalikan stoknya terlebih dahulu
+        if ($invoice->status === 'paid') {
+            \App\Models\Invoice::handleStatusChange($invoice, 'cancelled');
+        }
+    }
+
+    /**
      * Handle the Invoice "deleted" event.
      */
     public function deleted(Invoice $invoice): void

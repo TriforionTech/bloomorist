@@ -223,13 +223,21 @@ class InvoicesTable
                             ->native(false),
                     ])
                     ->action(function (Invoice $record, array $data) {
-                        Invoice::handleStatusChange($record, $data['new_status']);
+                        try {
+                            Invoice::handleStatusChange($record, $data['new_status']);
 
-                        Notification::make()
-                            ->title('Status berhasil diubah')
-                            ->body("Invoice #{$record->invoice_number} → " . strtoupper($data['new_status']))
-                            ->success()
-                            ->send();
+                            Notification::make()
+                                ->title('Status berhasil diubah')
+                                ->body("Invoice #{$record->invoice_number} → " . strtoupper($data['new_status']))
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Gagal mengubah status')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
                 Action::make('downloadPdf')
                         ->hiddenLabel()
@@ -289,19 +297,36 @@ class InvoicesTable
                         ])
                         ->action(function (Collection $records, array $data) {
                             $updated = 0;
+                            $failed = 0;
+                            $errorMessages = [];
 
                             foreach ($records as $record) {
                                 if ($record->status !== $data['new_status']) {
-                                    Invoice::handleStatusChange($record, $data['new_status']);
-                                    $updated++;
+                                    try {
+                                        Invoice::handleStatusChange($record, $data['new_status']);
+                                        $updated++;
+                                    } catch (\Exception $e) {
+                                        $failed++;
+                                        $errorMessages[] = "Invoice #{$record->invoice_number}: " . $e->getMessage();
+                                    }
                                 }
                             }
 
-                            Notification::make()
-                                ->title("{$updated} invoice berhasil diupdate")
-                                ->body("{$updated} invoice telah diubah statusnya menjadi " . strtoupper($data['new_status']) . ".")
-                                ->success()
-                                ->send();
+                            if ($updated > 0) {
+                                Notification::make()
+                                    ->title("{$updated} invoice berhasil diupdate")
+                                    ->body("{$updated} invoice telah diubah statusnya menjadi " . strtoupper($data['new_status']) . ".")
+                                    ->success()
+                                    ->send();
+                            }
+
+                            if ($failed > 0) {
+                                Notification::make()
+                                    ->title("{$failed} invoice gagal diupdate")
+                                    ->body(implode('<br>', $errorMessages))
+                                    ->danger()
+                                    ->send();
+                            }
                         })
                         ->deselectRecordsAfterCompletion(),
 
