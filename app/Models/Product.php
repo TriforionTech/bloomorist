@@ -38,4 +38,9 @@ class Product extends Model
     {
         return $this->hasMany(StockMovement::class, 'product_id');
     }
+
+    public function invoiceItems(): HasMany
+    {
+        return $this->hasMany(InvoiceItem::class, 'product_id');
+    }
 }

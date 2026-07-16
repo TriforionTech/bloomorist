@@ -34,8 +34,15 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            // Default: hanya tampilkan produk aktif
-            ->modifyQueryUsing(fn (Builder $query) => $query->where('is_active', true))
+            // Default: hanya tampilkan produk aktif dan hitung stok yang dibooking
+            ->modifyQueryUsing(function (Builder $query) {
+                $query->where('is_active', true)
+                      ->withSum(['invoiceItems as booked_stock' => function ($q) {
+                          $q->whereHas('invoice', function ($q2) {
+                              $q2->where('status', 'pending');
+                          });
+                      }], 'quantity');
+            })
             ->defaultSort('sku', 'asc')
             ->columns([
                 TextColumn::make('no')
@@ -109,14 +116,21 @@ class ProductsTable
                     ->suffix('%')
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('stok')
-                    ->label('STOCK')
+                    ->label('REAL STOCK')
+                    ->sortable(),
+                TextColumn::make('booked_stock')
+                    ->label('BOOKED')
+                    ->state(fn ($record) => $record->booked_stock ?? 0)
+                    ->color('warning'),
+                TextColumn::make('available_stock')
+                    ->label('AVAILABLE')
+                    ->state(fn ($record) => $record->stok - ($record->booked_stock ?? 0))
                     ->badge()
                     ->color(fn ($state) => match (true) {
                         $state <= 10 => 'danger',
                         $state <= 30 => 'warning',
                         default => 'success',
-                    })
-                    ->sortable(),
+                    }),
                 TextColumn::make('created_at')
                     ->label('CREATED AT')
                     ->date('d M Y H:i')
