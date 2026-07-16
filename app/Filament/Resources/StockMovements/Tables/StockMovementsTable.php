@@ -80,6 +80,7 @@ class StockMovementsTable
                     ]),
                 Filter::make('time_preset')
                     ->label('Time Range')
+                    ->default(['preset' => 'today'])
                     ->schema([
                         \Filament\Forms\Components\Select::make('preset')
                             ->label('Quick Filter')
@@ -89,6 +90,7 @@ class StockMovementsTable
                                 'this_month' => 'This Month',
                                 'last_month' => 'Last Month',
                             ])
+                            ->default('today')
                             ->placeholder('All Time')
                             ->native(false),
                     ])
