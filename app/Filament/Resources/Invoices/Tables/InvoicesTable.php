@@ -25,6 +25,25 @@ use Filament\Support\Enums\Size;
 
 class InvoicesTable
 {
+    /**
+     * Transisi status yang diizinkan berdasarkan status saat ini.
+     * Sesuai strict state machine di InvoiceStatusService.
+     */
+    private static function getAllowedTransitions(string $currentStatus): array
+    {
+        return match ($currentStatus) {
+            'pending'   => [
+                'paid'      => '✅ Paid',
+                'cancelled' => '❌ Cancelled',
+            ],
+            'paid'      => [
+                'cancelled' => '❌ Cancelled',
+            ],
+            'cancelled' => [], // Final — tidak ada transisi yang diperbolehkan
+            default     => [],
+        };
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -32,6 +51,7 @@ class InvoicesTable
                 ->withSum('regularItems', 'normal_price')
                 ->withCount('regularItems')
                 ->withSum('regularItems', 'quantity'))
+            ->recordUrl(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id . ($record->isEditable() ? '' : '&view=1'))
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
@@ -166,11 +186,11 @@ class InvoicesTable
                             'sm' => 2,
                         ])->schema([
                             DatePicker::make('issued_from')
-                                ->label('Issued From')
+                                ->label('Issued')
                                 ->native(false)
                                 ->displayFormat('d M Y'),
                             DatePicker::make('issued_until')
-                                ->label('Issued Until')
+                                ->label('Due')
                                 ->native(false)
                                 ->displayFormat('d M Y'),
                         ]),
@@ -201,12 +221,18 @@ class InvoicesTable
             ->defaultSort('created_at', 'desc')
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
+                // ─── Change Status ───────────────────────────────────────
                 Action::make('changeStatus')
                     ->hiddenLabel()
                     ->icon('heroicon-o-arrow-path')
-                    ->color('info')
+                    ->color(fn (Invoice $record): string => $record->isCancelled() ? 'gray' : 'info')
                     ->size('xl')
-                    ->tooltip('Update invoice status')
+                    ->tooltip(fn (Invoice $record): string => match (true) {
+                        $record->isCancelled() => 'Status Cancelled bersifat final dan tidak dapat diubah',
+                        $record->isPaid()      => 'Ubah status (hanya bisa ke Cancelled)',
+                        default                => 'Ubah status invoice',
+                    })
+                    ->disabled(fn (Invoice $record): bool => $record->isCancelled())
                     ->modalHeading('Ubah Status Invoice')
                     ->modalDescription(fn (Invoice $record) => "Invoice #{$record->invoice_number} — Status saat ini: " . strtoupper($record->status))
                     ->modalSubmitActionLabel('Ya, Ubah Status')
@@ -214,11 +240,7 @@ class InvoicesTable
                     ->schema([
                         Select::make('new_status')
                             ->label('Status Baru')
-                            ->options(fn (Invoice $record) => collect([
-                                'pending'   => '🕒 Pending',
-                                'paid'      => '✅ Paid',
-                                'cancelled' => '❌ Cancelled',
-                            ])->except([$record->status])->toArray())
+                            ->options(fn (Invoice $record) => self::getAllowedTransitions($record->status))
                             ->required()
                             ->native(false),
                     ])
@@ -239,35 +261,69 @@ class InvoicesTable
                                 ->send();
                         }
                     }),
+
+                // ─── Download PDF ────────────────────────────────────────
                 Action::make('downloadPdf')
                         ->hiddenLabel()
                         ->icon('heroicon-o-document-arrow-down')
                         ->color('success')
                         ->size('xl')
                         ->url(fn (Invoice $record) => route('invoice.download', $record))
-                        // ->openUrlInNewTab()
                         ->tooltip('Download PDF'),
+
+                // ─── Edit, View & Delete (Grouped) ─────────────────────────────
                 ActionGroup::make([
+                    Action::make('view')
+                        ->hiddenLabel()
+                        ->icon('heroicon-o-eye')
+                        ->color('primary')
+                        ->size('xl')
+                        ->tooltip('Lihat detail invoice')
+                        ->url(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id . '&view=1'),
+
                     Action::make('edit')
                         ->hiddenLabel()
                         ->icon('heroicon-o-pencil-square')
-                        ->color('warning')
+                        ->color(fn (Invoice $record): string => $record->isEditable() ? 'warning' : 'gray')
                         ->size('xl')
-                        ->url(fn (Invoice $record) => GenerateInvoice::getUrl() . '?invoice=' . $record->id),
-                        // ->tooltip('Edit invoice'),
-                    
+                        ->tooltip(fn (Invoice $record): string => $record->isEditable()
+                            ? 'Edit invoice'
+                            : 'Invoice ' . strtoupper($record->status) . ' tidak dapat diedit')
+                        ->disabled(fn (Invoice $record): bool => ! $record->isEditable())
+                        ->url(fn (Invoice $record) => $record->isEditable()
+                            ? GenerateInvoice::getUrl() . '?invoice=' . $record->id
+                            : null),
+
                     Action::make('delete')
-                    ->hiddenLabel()
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->size('xl')
-                    ->requiresConfirmation()
-                    ->modalHeading('Hapus Invoice')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus invoice ini? Tindakan ini tidak dapat dibatalkan.')
-                    ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal')
-                    ->action(fn (Invoice $record) => $record->delete()),
-                    // ->tooltip('Delete invoice'), 
+                        ->hiddenLabel()
+                        ->icon('heroicon-o-trash')
+                        ->color(fn (Invoice $record): string => $record->isDeletable() ? 'danger' : 'gray')
+                        ->size('xl')
+                        ->tooltip(fn (Invoice $record): string => $record->isDeletable()
+                            ? 'Hapus invoice'
+                            : 'Invoice ' . strtoupper($record->status) . ' tidak dapat dihapus')
+                        ->disabled(fn (Invoice $record): bool => ! $record->isDeletable())
+                        ->requiresConfirmation()
+                        ->modalHeading('Hapus Invoice')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus invoice ini? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal')
+                        ->action(function (Invoice $record) {
+                            try {
+                                $record->delete();
+
+                                Notification::make()
+                                    ->title('Invoice berhasil dihapus')
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Gagal menghapus invoice')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
                 ])
                 ->icon('heroicon-m-ellipsis-horizontal')
                 ->color('gray')
@@ -276,19 +332,19 @@ class InvoicesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    // ─── Bulk Change Status ──────────────────────────────
                     BulkAction::make('changeStatus')
                         ->label('Update status')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
                         ->modalHeading('Ubah Status Invoice Terpilih')
-                        ->modalDescription('Pilih status baru untuk semua invoice yang dicentang. Invoice yang sudah memiliki status yang sama akan diabaikan.')
+                        ->modalDescription('Pilih status baru. Hanya transisi yang valid yang akan diproses, invoice lainnya akan diskip.')
                         ->modalSubmitActionLabel('Ya, Ubah Status')
                         ->modalCancelActionLabel('Batal')
                         ->schema([
                             Select::make('new_status')
                                 ->label('Status Baru')
                                 ->options([
-                                    'pending'   => '🕒 Pending',
                                     'paid'      => '✅ Paid',
                                     'cancelled' => '❌ Cancelled',
                                 ])
@@ -297,18 +353,30 @@ class InvoicesTable
                         ])
                         ->action(function (Collection $records, array $data) {
                             $updated = 0;
+                            $skipped = 0;
                             $failed = 0;
                             $errorMessages = [];
 
                             foreach ($records as $record) {
-                                if ($record->status !== $data['new_status']) {
-                                    try {
-                                        Invoice::handleStatusChange($record, $data['new_status']);
-                                        $updated++;
-                                    } catch (\Exception $e) {
-                                        $failed++;
-                                        $errorMessages[] = "Invoice #{$record->invoice_number}: " . $e->getMessage();
-                                    }
+                                // Skip jika status sama
+                                if ($record->status === $data['new_status']) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                // Cek apakah transisi diizinkan
+                                $allowed = self::getAllowedTransitions($record->status);
+                                if (! array_key_exists($data['new_status'], $allowed)) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                try {
+                                    Invoice::handleStatusChange($record, $data['new_status']);
+                                    $updated++;
+                                } catch (\Exception $e) {
+                                    $failed++;
+                                    $errorMessages[] = "Invoice #{$record->invoice_number}: " . $e->getMessage();
                                 }
                             }
 
@@ -317,6 +385,14 @@ class InvoicesTable
                                     ->title("{$updated} invoice berhasil diupdate")
                                     ->body("{$updated} invoice telah diubah statusnya menjadi " . strtoupper($data['new_status']) . ".")
                                     ->success()
+                                    ->send();
+                            }
+
+                            if ($skipped > 0) {
+                                Notification::make()
+                                    ->title("{$skipped} invoice diskip")
+                                    ->body('Beberapa invoice diskip karena transisi status tidak valid.')
+                                    ->warning()
                                     ->send();
                             }
 
@@ -330,11 +406,49 @@ class InvoicesTable
                         })
                         ->deselectRecordsAfterCompletion(),
 
-                    DeleteBulkAction::make()
+                    // ─── Bulk Delete (hanya pending) ─────────────────────
+                    BulkAction::make('bulkDelete')
+                        ->label('Delete selected')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
                         ->modalHeading('Hapus Invoice Terpilih')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus semua invoice yang dipilih? Tindakan ini tidak dapat dibatalkan.')
-                        ->modalSubmitActionLabel('Ya, Hapus Semua')
-                        ->modalCancelActionLabel('Batal'),
+                        ->modalDescription('Hanya invoice dengan status Pending yang akan dihapus. Invoice Paid dan Cancelled akan diskip.')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal')
+                        ->action(function (Collection $records) {
+                            $deleted = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $record) {
+                                if ($record->isDeletable()) {
+                                    try {
+                                        $record->delete();
+                                        $deleted++;
+                                    } catch (\Exception $e) {
+                                        $skipped++;
+                                    }
+                                } else {
+                                    $skipped++;
+                                }
+                            }
+
+                            if ($deleted > 0) {
+                                Notification::make()
+                                    ->title("{$deleted} invoice berhasil dihapus")
+                                    ->success()
+                                    ->send();
+                            }
+
+                            if ($skipped > 0) {
+                                Notification::make()
+                                    ->title("{$skipped} invoice diskip")
+                                    ->body('Invoice Paid dan Cancelled tidak dapat dihapus.')
+                                    ->warning()
+                                    ->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }

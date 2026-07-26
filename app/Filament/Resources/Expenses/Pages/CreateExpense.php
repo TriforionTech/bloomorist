@@ -3,8 +3,6 @@
 namespace App\Filament\Resources\Expenses\Pages;
 
 use App\Filament\Resources\Expenses\ExpenseResource;
-use App\Services\AccountingService;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateExpense extends CreateRecord
@@ -17,25 +15,15 @@ class CreateExpense extends CreateRecord
     }
 
     /**
-     * After expense is created, auto-generate the journal entry.
+     * Expense baru dibuat dengan status 'draft'.
+     * Jurnal TIDAK langsung dibuat — jurnal baru dibuat saat user
+     * melakukan action "Post Expense" di tabel.
+     *
+     * Ini sesuai prinsip ERP: Draft → Posted (dengan jurnal) → Void (dengan reversing journal).
      */
-    protected function afterCreate(): void
+    protected function mutateFormDataBeforeCreate(array $data): array
     {
-        try {
-            app(AccountingService::class)->createExpenseJournal($this->record);
-
-            Notification::make()
-                ->success()
-                ->title('Jurnal Otomatis Dibuat')
-                ->body('Jurnal pengeluaran telah dibuat secara otomatis.')
-                ->send();
-        } catch (\Throwable $e) {
-            Notification::make()
-                ->danger()
-                ->title('Gagal Membuat Jurnal')
-                ->body('Terjadi kesalahan saat membuat jurnal otomatis: ' . $e->getMessage())
-                ->persistent()
-                ->send();
-        }
+        $data['status'] = 'draft';
+        return $data;
     }
 }

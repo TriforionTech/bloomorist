@@ -50,8 +50,9 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public array $data = [];
 
-    // Edit mode properties
+    // Edit & View mode properties
     public ?int $invoiceId = null;
+    public bool $isViewMode = false;
 
     // Cache untuk mengurangi database queries
     protected array $productPriceCache = [];
@@ -59,27 +60,45 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public function mount(): void
     {
-        // Cek apakah ada query param 'invoice' untuk edit mode
+        // Cek apakah ada query param 'invoice' untuk edit mode atau view mode
         $this->invoiceId = request()->query('invoice') ? (int) request()->query('invoice') : null;
+        $this->isViewMode = request()->query('view') == '1';
 
-        if ($this->isEditMode()) {
+        if ($this->invoiceId !== null) {
+            $invoice = Invoice::find($this->invoiceId);
+
+            // Server-side guard: jika bukan view mode, hanya invoice Pending yang boleh diedit
+            if (! $this->isViewMode && $invoice && ! $invoice->isEditable()) {
+                \Filament\Notifications\Notification::make()
+                    ->title('Invoice tidak dapat diedit')
+                    ->body('Hanya invoice dengan status Pending yang dapat diedit.')
+                    ->danger()
+                    ->send();
+
+                $this->redirect(\App\Filament\Resources\Invoices\InvoiceResource::getUrl('index'));
+                return;
+            }
+
             $this->fillFormFromInvoice();
         } else {
             $this->getSchema('invoiceForm')->fill();
         }
     }
 
-    // === EDIT MODE HELPERS ===
+    // === EDIT & VIEW MODE HELPERS ===
 
     public function isEditMode(): bool
     {
-        return $this->invoiceId !== null;
+        return $this->invoiceId !== null && !$this->isViewMode;
     }
 
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
     {
-        if ($this->isEditMode()) {
+        if ($this->invoiceId !== null) {
             $invoice = Invoice::find($this->invoiceId);
+            if ($this->isViewMode) {
+                return 'View Invoice #' . ($invoice?->invoice_number ?? $this->invoiceId);
+            }
             return 'Edit Invoice #' . ($invoice?->invoice_number ?? $this->invoiceId);
         }
         return 'Create Invoice';
@@ -223,7 +242,7 @@ class GenerateInvoice extends Page implements HasSchemas
         if ($customerType === 'member') {
             if ($discountModeMember) {
                 // Prioritas 1: Custom diskon per produk untuk member jika toggle aktif
-                $diskonPersen = (float) ($get('item_discount') ?? 0);
+                $diskonPersen = (float) str_replace(',', '.', (string) ($get('item_discount') ?? 0));
             } else {
                 // Prioritas 2: Diskon default dari database membership
                 $diskonPersen = $membershipId ? $this->getMembershipDiscount($membershipId) : 0;
@@ -231,10 +250,10 @@ class GenerateInvoice extends Page implements HasSchemas
         } elseif ($customerType === 'non_member') {
             if ($discountModeNonMember === 'global') {
                 // Ambil dari global custom discount
-                $diskonPersen = (float) ($get('../../custom_discount') ?? 0);
+                $diskonPersen = (float) str_replace(',', '.', (string) ($get('../../custom_discount') ?? 0));
             } elseif ($discountModeNonMember === 'per_item') {
                 // Ambil dari diskon per baris item
-                $diskonPersen = (float) ($get('item_discount') ?? 0);
+                $diskonPersen = (float) str_replace(',', '.', (string) ($get('item_discount') ?? 0));
             }
         }
 
@@ -268,15 +287,15 @@ class GenerateInvoice extends Page implements HasSchemas
                 // Terapkan logika yang sama persis untuk iterasi array
                 if ($customerType === 'member') {
                     if ($discountModeMember) {
-                        $diskonPersen = (float) ($product['item_discount'] ?? 0);
+                        $diskonPersen = (float) str_replace(',', '.', (string) ($product['item_discount'] ?? 0));
                     } else {
                         $diskonPersen = $membershipId ? $this->getMembershipDiscount($membershipId) : 0;
                     }
                 } elseif ($customerType === 'non_member') {
                     if ($discountMode === 'global') {
-                        $diskonPersen = (float) ($globalCustomDiscount ?? 0);
+                        $diskonPersen = (float) str_replace(',', '.', (string) ($globalCustomDiscount ?? 0));
                     } elseif ($discountMode === 'per_item') {
-                        $diskonPersen = (float) ($product['item_discount'] ?? 0);
+                        $diskonPersen = (float) str_replace(',', '.', (string) ($product['item_discount'] ?? 0));
                     }
                 }
 
@@ -515,18 +534,20 @@ class GenerateInvoice extends Page implements HasSchemas
 
             TextInput::make('custom_discount')
                 ->label('Global Discount (%)')
-                ->numeric()
-                ->minValue(0)
-                ->maxValue(100)
                 ->extraInputAttributes([
-                    'min' => 0, 
-                    'max' => 100, 
-                    'oninput' => 'this.value = this.value.slice(0, 3);'
+                    'inputmode' => 'decimal',
+                    'oninput' => "
+                        this.value = this.value.replace(/[^0-9,]/g, '').replace(/(,.*?),(.*)/g, '$1$2');
+                        let val = parseFloat(this.value.replace(',', '.'));
+                        if (val > 100) this.value = '100';
+                    ",
                 ])
-                ->maxLength(3)
-                ->placeholder('Enter global discount for non-members')
+                ->maxLength(6)
+                ->placeholder('Contoh: 10 atau 10,5')
                 ->suffix('%')
-                ->live(onBlur: true) // Gunakan onBlur agar tidak terlalu sering me-render saat mengetik
+                ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
+                ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
+                ->live(onBlur: true)
                 ->required(fn (Get $get) => $get('discount_mode') === 'global')
                 ->visible(fn (Get $get) => !$this->isMember($get) && $get('discount_mode') === 'global')
                 ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),                        
@@ -622,20 +643,22 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
                         ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
 
-                    // field diskon per item
+                    // field diskon per item — mendukung format desimal Indonesia
                     TextInput::make('item_discount')
                         ->label('Disc (%)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->maxLength(3)
+                        ->maxLength(6)
                         ->extraInputAttributes([
-                            'min' => 0, 
-                            'max' => 100, 
-                            'oninput' => 'this.value = this.value.slice(0, 3);'
+                            'inputmode' => 'decimal',
+                            'oninput' => "
+                                this.value = this.value.replace(/[^0-9,]/g, '').replace(/(,.*?),(.*)/g, '$1$2');
+                                let val = parseFloat(this.value.replace(',', '.'));
+                                if (val > 100) this.value = '100';
+                            ",
                         ])
                         ->suffix('%')
                         ->default(0)
+                        ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
+                        ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
                         ->live(onBlur: true)
                         ->visible(
                             fn (Get $get) => 
@@ -865,6 +888,7 @@ class GenerateInvoice extends Page implements HasSchemas
     {
         return $schema
             ->statePath('data')
+            ->disabled($this->isViewMode)
             ->schema([
                 $this->setCustomerTypeSection(),
                 $this->setCustomerInformationSection(),
@@ -1036,7 +1060,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     $unitPrice = $cleanNumber($item['unit_price']);
                     $normalPrice = $cleanNumber($item['normal_price']);
                     $discountPrice = $cleanNumber($item['discount_price']);
-                    $itemDiscountPercent = (float) ($item['item_discount'] ?? 0);
+                    $itemDiscountPercent = (float) str_replace(',', '.', (string) ($item['item_discount'] ?? 0));
                     
                     $products[] = [
                         'name' => $productName,
@@ -1151,14 +1175,15 @@ class GenerateInvoice extends Page implements HasSchemas
                 try {
                     \Illuminate\Support\Facades\DB::transaction(function () use ($invoiceData, $itemsData, $invoiceNumber) {
                         if ($this->isEditMode()) {
-                            // EDIT MODE: Update existing invoice
+                            // EDIT MODE: Update existing invoice (hanya Pending)
                             $invoice = Invoice::findOrFail($this->invoiceId);
-                            
-                            $wasPaid = $invoice->status === 'paid';
 
-                            if ($wasPaid) {
-                                // Revert stock from old items before modifying them
-                                \App\Models\Invoice::handleStatusChange($invoice, 'pending');
+                            // Server-side guard: pastikan masih pending
+                            if (! $invoice->isEditable()) {
+                                throw new \RuntimeException(
+                                    'Invoice tidak dapat diedit karena statusnya sudah '
+                                    . strtoupper($invoice->status) . '.'
+                                );
                             }
 
                             // Update invoice data (status tidak diubah di form edit ini)
@@ -1171,12 +1196,6 @@ class GenerateInvoice extends Page implements HasSchemas
                             }
 
                             $invoice->load('items');
-                            
-                            if ($wasPaid) {
-                                // Deduct stock again based on the newly inserted items
-                                \App\Models\Invoice::handleStatusChange($invoice, 'paid');
-                            }
-
                             $invoice->save();
 
                             \Filament\Notifications\Notification::make()

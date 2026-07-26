@@ -112,10 +112,24 @@ class AccountingService
      * Create journal entries automatically from an Expense record.
      * Debit: COA Beban (expense->coa_id)
      * Kredit: COA Kas/Bank (expense->coa_kredit_id, user-selected)
+     *
+     * Idempotent: jika journal EXPENSE sudah ada untuk reference_id ini, skip.
      */
-    public function createExpenseJournal(Expense $expense): GeneralJournal
+    public function createExpenseJournal(Expense $expense): ?GeneralJournal
     {
         return DB::transaction(function () use ($expense) {
+            // Idempotency: cek apakah sudah pernah dibuat
+            $existing = GeneralJournal::where('reference_id', $expense->id)
+                ->where('source_type', 'EXPENSE')
+                ->whereNot(function ($q) {
+                    $q->where('keterangan', 'like', 'Pembatalan Expense:%');
+                })
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
             $coaBeban  = ChartOfAccount::findOrFail($expense->coa_id);
             $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
 
@@ -149,13 +163,71 @@ class AccountingService
     }
 
     /**
+     * Create reversing journal entry for a posted expense.
+     *
+     * TIDAK menghapus jurnal asli.
+     * Posisi Debit/Kredit dibalik sehingga saldo kembali netral.
+     *
+     * Debit:  COA Kas/Bank (sebelumnya di kredit)
+     * Kredit: COA Beban (sebelumnya di debit)
+     */
+    public function createExpenseReversalJournal(Expense $expense): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($expense) {
+            $coaBeban  = ChartOfAccount::findOrFail($expense->coa_id);
+            $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
+
+            $journal = GeneralJournal::create([
+                'no_bukti'     => $this->generateNoBukti('REV'),
+                'keterangan'   => "Pembatalan Expense: {$expense->keterangan}",
+                'reference_id' => $expense->id,
+                'source_type'  => 'EXPENSE',
+            ]);
+
+            // Debit: Akun Kas/Bank (reverse — sebelumnya di kredit)
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaKredit->id,
+                'kode_coa'   => $coaKredit->kode_akun,
+                'debit'      => $expense->nominal,
+                'kredit'     => 0,
+            ]);
+
+            // Kredit: Akun Beban (reverse — sebelumnya di debit)
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id'     => $coaBeban->id,
+                'kode_coa'   => $coaBeban->kode_akun,
+                'debit'      => 0,
+                'kredit'     => $expense->nominal,
+            ]);
+
+            return $journal;
+        });
+    }
+
+    /**
      * Create journal entries when an invoice is marked as PAID.
      * Debit:  1010 Kas & Bank       (grand_total)
      * Kredit: 4010 Pendapatan Penjualan (grand_total)
      */
+    /**
+     * Idempotent: jika journal INVOICE (non-reversal) sudah ada untuk
+     * reference_id ini, skip untuk mencegah duplicate posting.
+     */
     public function createInvoicePaidJournal(Invoice $invoice): ?GeneralJournal
     {
         return DB::transaction(function () use ($invoice) {
+            // Idempotency: cek apakah sudah pernah dibuat
+            $existing = GeneralJournal::where('reference_id', $invoice->id)
+                ->where('source_type', 'INVOICE')
+                ->where('keterangan', 'like', 'Penjualan Invoice%')
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
             $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
             $coaPendapatan = ChartOfAccount::where('kode_akun', '4010')->first();
 
@@ -212,11 +284,10 @@ class AccountingService
             }
 
             $amount = (int) $invoice->grand_total;
-            $label  = $reason === 'refunded' ? 'Refund' : 'Pembatalan';
 
             $journal = GeneralJournal::create([
                 'no_bukti'     => $this->generateNoBukti('REV'),
-                'keterangan'   => "{$label} Invoice #{$invoice->invoice_number}",
+                'keterangan'   => "Pembatalan Invoice #{$invoice->invoice_number}",
                 'reference_id' => $invoice->id,
                 'source_type'  => 'INVOICE',
             ]);

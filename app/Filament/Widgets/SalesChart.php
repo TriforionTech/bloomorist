@@ -13,23 +13,23 @@ use Filament\Support\RawJs;
 class SalesChart extends ChartWidget
 {
     protected static ?int $sort = 2;
-    protected ?string $heading = 'Grafik Penjualan';
+    protected ?string $heading = 'Sales Chart';
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $maxHeight = '500px';
     
     protected ?string $pollingInterval = null;
 
-    public ?string $filter = 'week';
+    public ?string $filter = 'month';
 
     protected function getFilters(): ?array
     {
         return [
-            'today' => 'Hari Ini',
-            'week'  => '7 Hari Terakhir',
-            'month' => 'Bulan Ini',
-            'year'  => 'Tahun Ini',
-            'all'   => 'Per Tahun',
+            'today' => 'Today',
+            'week'  => 'Last 7 Days',
+            'month' => 'This Month',
+            'year'  => 'This Year',
+            'all'   => 'Year by Year',
         ];
     }
 

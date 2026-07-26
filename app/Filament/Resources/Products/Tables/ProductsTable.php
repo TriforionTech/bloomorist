@@ -123,7 +123,7 @@ class ProductsTable
                     ->state(fn ($record) => $record->booked_stock ?? 0)
                     ->color('warning'),
                 TextColumn::make('available_stock')
-                    ->label('AVAILABLE')
+                    ->label('SYSTEM STOCK')
                     ->state(fn ($record) => $record->stok - ($record->booked_stock ?? 0))
                     ->badge()
                     ->color(fn ($state) => match (true) {
@@ -271,8 +271,8 @@ class ProductsTable
                         Select::make('type')
                             ->label('Jenis Transaksi')
                             ->options([
-                                'in' => 'Stock In (Masuk/Koreksi)',
-                                'out' => 'Stock Out (Rusak/Hilang)',
+                                'in' => 'Stock In (Masuk / Koreksi)',
+                                'out' => 'Stock Out (Rusak / Hilang)',
                             ])
                             ->required()
                             ->native(false),
