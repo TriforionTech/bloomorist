@@ -15,24 +15,28 @@ class AccountingService
 {
     /**
      * Create journal entries for stock adjustments (Spoilage / Damages / Corrections).
-     * Debit: 5060 Beban Kerusakan Barang (Spoilage/Shrinkage Expense) [for loss]
-     * Kredit: 1030 Persediaan Barang (Inventory)
-     * Note: If stock is added (in), the journal is reversed.
+     *
+     * Untuk kerugian stok (loss/out):
+     *   Debit:  5010 Beban Operasional (seluruh kerusakan/kerugian dibebankan ke operasional)
+     *   Kredit: 1030 Persediaan Barang
+     *
+     * Untuk koreksi positif stok (in):
+     *   Debit:  1030 Persediaan Barang
+     *   Kredit: 5010 Beban Operasional (koreksi / pembatalan beban)
      */
     public function createStockAdjustmentJournal(\App\Models\Product $product, int $quantity, string $type, string $notes = ''): ?GeneralJournal
     {
         return DB::transaction(function () use ($product, $quantity, $type, $notes) {
-            // Find or create COA for Persediaan Barang
-            $coaPersediaan = ChartOfAccount::firstOrCreate(
-                ['kode_akun' => '1030'],
-                ['nama_akun' => 'Persediaan Barang', 'kategori' => 'Aset', 'saldo_normal' => 'Debit']
-            );
+            // Find COA Persediaan Barang
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1030')->first();
 
-            // Find or create COA for Beban Kerusakan
-            $coaBeban = ChartOfAccount::firstOrCreate(
-                ['kode_akun' => '5060'],
-                ['nama_akun' => 'Beban Kerusakan Barang', 'kategori' => 'Beban', 'saldo_normal' => 'Debit']
-            );
+            // Find COA Beban Operasional (semua kerugian/kerusakan masuk beban operasional)
+            $coaBeban = ChartOfAccount::where('kode_akun', '5010')->first();
+
+            // Gracefully skip if COA accounts aren't set up yet
+            if (! $coaPersediaan || ! $coaBeban) {
+                return null;
+            }
 
             $amount = (int) ($product->harga_beli * $quantity);
 
@@ -46,7 +50,7 @@ class AccountingService
             ]);
 
             if ($type === 'loss' || $type === 'out') {
-                // Barang Hilang/Rusak: Debit Beban, Kredit Persediaan
+                // Barang Hilang/Rusak: Debit Beban Operasional, Kredit Persediaan
                 JournalItem::create([
                     'journal_id' => $journal->id,
                     'coa_id'     => $coaBeban->id,
@@ -63,7 +67,7 @@ class AccountingService
                     'kredit'     => $amount,
                 ]);
             } else {
-                // Barang Masuk (Opname Plus): Debit Persediaan, Kredit Beban (koreksi beban)
+                // Barang Masuk (Opname Plus): Debit Persediaan, Kredit Beban Operasional
                 JournalItem::create([
                     'journal_id' => $journal->id,
                     'coa_id'     => $coaPersediaan->id,
