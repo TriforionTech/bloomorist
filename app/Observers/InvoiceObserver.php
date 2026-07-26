@@ -48,6 +48,17 @@ class InvoiceObserver
     }
 
     /**
+     * Handle the Invoice "deleting" event.
+     *
+     * Invoice non-pending sekarang diblokir oleh model boot guard.
+     * Observer tidak perlu lagi memproses status change saat delete.
+     */
+    public function deleting(Invoice $invoice): void
+    {
+        //
+    }
+
+    /**
      * Handle the Invoice "deleted" event.
      */
     public function deleted(Invoice $invoice): void

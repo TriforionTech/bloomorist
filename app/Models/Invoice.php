@@ -35,6 +35,80 @@ class Invoice extends Model
         'due_date' => 'date',
     ];
 
+    // ─── Status Helpers ────────────────────────────────────────────
+
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === 'paid';
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
+    /**
+     * Invoice hanya bisa di-edit jika masih Pending.
+     */
+    public function isEditable(): bool
+    {
+        return $this->isPending();
+    }
+
+    /**
+     * Invoice hanya bisa di-delete (hard delete) jika masih Pending.
+     */
+    public function isDeletable(): bool
+    {
+        return $this->isPending();
+    }
+
+    // ─── Server-Side Immutability Guards ───────────────────────────
+
+    protected static function booted(): void
+    {
+        /**
+         * Guard: block updates on non-pending invoices.
+         *
+         * Exception: jika HANYA field 'status' yang berubah, izinkan
+         * karena itu berasal dari InvoiceStatusService yang sudah
+         * melakukan validasi state machine sendiri.
+         */
+        static::updating(function (Invoice $invoice) {
+            $dirty = $invoice->getDirty();
+
+            // Jika hanya status yang berubah → transisi via service, izinkan
+            if (count($dirty) === 1 && array_key_exists('status', $dirty)) {
+                return;
+            }
+
+            // Cek status ORIGINAL (sebelum perubahan)
+            if ($invoice->getOriginal('status') !== 'pending') {
+                throw new \RuntimeException(
+                    "Invoice #{$invoice->invoice_number} tidak dapat diedit karena statusnya sudah "
+                    . strtoupper($invoice->getOriginal('status')) . '.'
+                );
+            }
+        });
+
+        /**
+         * Guard: block deletes on non-pending invoices.
+         */
+        static::deleting(function (Invoice $invoice) {
+            if (! $invoice->isDeletable()) {
+                throw new \RuntimeException(
+                    "Invoice #{$invoice->invoice_number} tidak dapat dihapus karena statusnya sudah "
+                    . strtoupper($invoice->status) . '.'
+                );
+            }
+        });
+    }
+
     public function items()
     {
         return $this->hasMany(InvoiceItem::class, 'invoice_id');

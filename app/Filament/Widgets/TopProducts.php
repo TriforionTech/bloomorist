@@ -6,40 +6,56 @@ use App\Models\Product;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
+use App\Filament\Pages\ProductSalesReport;
+use Filament\Actions\Action;
 
 class TopProducts extends ChartWidget
 {
     protected static ?int $sort = 3;
-    protected ?string $heading = 'Top Selling Products';
+    protected ?string $heading = 'Top 10 Selling Products';
     protected ?string $description = 'Berdasarkan total qty terjual dari invoice lunas';
 
     protected int|string|array $columnSpan = 1;
 
-    protected ?string $maxHeight = '380px';
+    protected ?string $maxHeight = '340px';
 
-    protected ?string $pollingInterval = null;
+    public ?string $filter = 'month';
 
-    public ?string $filter = 'week';
+    // // ini kyknya gabisa > need review
+    // protected function getHeaderActions(): array
+    // {
+    //     return [
+    //         Action::make('viewReport')
+    //             ->label('View Full Report')
+    //             ->icon('heroicon-o-arrow-top-right-on-square')
+    //             ->color('gray')
+    //             ->size('sm')
+    //             ->url(fn (): string => ProductSalesReport::getUrl([
+    //                 'filter' => $this->filter,
+    //             ])),
+    //     ];
+    // }
 
     protected function getFilters(): ?array
     {
         return [
-            'today'  => 'Hari Ini',
-            'week'   => '7 Hari Terakhir',
-            'month'  => 'Bulan Ini',
-            'year'   => 'Tahun Ini',
-            'all'    => 'Semua Waktu',
+            'today'  => 'Today',
+            'week'   => 'Last 7 Days',
+            'month'  => 'This Month',
+            'year'   => 'This Year',
+            'all'    => 'All Time',
         ];
     }
 
     private function getDateRange(): array
     {
         return match ($this->filter) {
+            'today' => [now()->startOfDay(), now()->endOfDay()],
             'week'  => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
-            'month' => [now()->subDays(29)->startOfDay(), now()->endOfDay()],
-            'year'  => [now()->startOfYear(), now()->endOfDay()],
+            'month' => [now()->startOfMonth(), now()->endOfMonth()],
+            'year'  => [now()->startOfYear(), now()->endOfYear()],
             'all'   => [null, null],
-            default => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
+            default => [now()->startOfMonth(), now()->endOfMonth()],
         };
     }
 
@@ -54,23 +70,25 @@ class TopProducts extends ChartWidget
         $query = Product::query()
             ->select(
                 "{$productTable}.id",
-                "{$productTable}.nama",
-                DB::raw("SUM({$invoiceItemTable}.quantity) as total_sold")
+                "{$productTable}.nama"
             )
-            ->join($invoiceItemTable, "{$productTable}.id", '=', "{$invoiceItemTable}.product_id")
-            ->join($invoiceTable, "{$invoiceItemTable}.invoice_id", '=', "{$invoiceTable}.id")
-            ->where("{$invoiceTable}.status", 'paid')
-            ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping'])
+            ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping']);
+
+        if ($startDate && $endDate) {
+            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.created_at BETWEEN ? AND ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$startDate, $endDate]);
+        } else {
+            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold");
+        }
+
+        $query->leftJoin($invoiceItemTable, "{$productTable}.id", '=', "{$invoiceItemTable}.product_id")
+            ->leftJoin($invoiceTable, "{$invoiceItemTable}.invoice_id", '=', "{$invoiceTable}.id")
             ->groupBy(
                 "{$productTable}.id",
                 "{$productTable}.nama"
             )
             ->orderByDesc('total_sold')
+            ->orderBy("{$productTable}.nama")
             ->limit(10);
-        
-        if ($startDate && $endDate) {
-            $query->whereBetween("{$invoiceTable}.created_at", [$startDate, $endDate]);
-        }
 
         $results = $query->get();
 

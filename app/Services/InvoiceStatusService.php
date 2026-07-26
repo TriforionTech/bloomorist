@@ -3,21 +3,30 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\GeneralJournal;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceStatusService
 {
     /**
-     * Handle status change with DB::transaction wrapper.
-     * Semua operasi stok dan accounting di dalam satu transaksi.
+     * Allowed status transitions (state machine).
      *
-     * Rules:
-     * - pending → paid    : Potong stok (Sale) + Journal (Debit Kas, Kredit Pendapatan)
-     * - paid → cancelled  : Kembalikan stok (Return) + Reversal Journal
-     * - paid → pending    : Kembalikan stok (Return) + Reversal Journal
-     * - pending → cancelled: Tidak ada perubahan stok, tidak ada journal
-     * - cancelled → paid  : Potong stok kembali + Journal
+     * - pending → paid       : Potong stok + Journal penjualan
+     * - pending → cancelled  : Hanya ubah status (belum ada stok/journal)
+     * - paid → cancelled     : Kembalikan stok + Reversing Journal
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'pending'   => ['paid', 'cancelled'],
+        'paid'      => ['cancelled'],
+        'cancelled' => [], // Final — tidak bisa ke mana-mana
+    ];
+
+    /**
+     * Handle status change with strict state machine validation.
+     *
+     * Seluruh operasi (stok, journal, status update) di dalam
+     * satu DB::transaction + lockForUpdate() untuk race condition safety.
      */
     public function changeStatus(Invoice $invoice, string $newStatus): void
     {
@@ -28,7 +37,26 @@ class InvoiceStatusService
             return;
         }
 
+        // Validate allowed transition
+        $allowed = self::ALLOWED_TRANSITIONS[$oldStatus] ?? [];
+        if (! in_array($newStatus, $allowed, true)) {
+            throw new \RuntimeException(
+                "Transisi status dari " . strtoupper($oldStatus)
+                . " ke " . strtoupper($newStatus) . " tidak diperbolehkan."
+            );
+        }
+
         DB::transaction(function () use ($invoice, $oldStatus, $newStatus) {
+            // Lock record to prevent race condition
+            $invoice = Invoice::lockForUpdate()->findOrFail($invoice->id);
+
+            // Re-validate setelah lock (bisa saja berubah antara check dan lock)
+            if ($invoice->status !== $oldStatus) {
+                throw new \RuntimeException(
+                    "Status invoice telah berubah (race condition detected). Silakan coba lagi."
+                );
+            }
+
             // 1. Process stock mutations
             $this->processStockMutation($invoice, $oldStatus, $newStatus);
 
@@ -42,80 +70,84 @@ class InvoiceStatusService
 
     /**
      * Process stock mutation berdasarkan perubahan status invoice.
-     * Mencatat histori keluar/masuk barang (Kartu Stok) agar sinkron dengan Buku Besar.
+     *
+     * - pending → paid      : Potong stok (sale)
+     * - paid → cancelled    : Kembalikan stok (return/reversal)
+     * - pending → cancelled : TIDAK ada perubahan stok
      */
     protected function processStockMutation(Invoice $invoice, string $oldStatus, string $newStatus): void
     {
-        $items = $invoice->items()->with('product')->get();
         $userId = \Filament\Facades\Filament::auth()->id() ?? 1;
 
-        // Tentukan apakah perlu potong atau kembalikan stok
-        $shouldDecrementStock = false;
-        $shouldIncrementStock = false;
+        // Pending → Paid: potong stok
+        if ($oldStatus === 'pending' && $newStatus === 'paid') {
+            $items = $invoice->items()->with('product')->get();
 
-        // Dari status non-paid → paid: potong stok
-        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
-            $shouldDecrementStock = true;
-        }
-
-        // Dari paid → any other status (pending/cancelled): kembalikan stok
-        if ($oldStatus === 'paid' && $newStatus !== 'paid') {
-            $shouldIncrementStock = true;
-        }
-
-        if ($shouldDecrementStock) {
             foreach ($items as $item) {
                 if ($item->product) {
+                    if ($item->product->stok < $item->quantity) {
+                        throw new \RuntimeException(
+                            "Stok tidak mencukupi untuk produk: {$item->product->nama}. "
+                            . "Stok saat ini: {$item->product->stok}, dibutuhkan: {$item->quantity}."
+                        );
+                    }
+
                     $item->product->decrement('stok', $item->quantity);
 
                     StockMovement::create([
-                        'product_id' => $item->product->id,
-                        'type' => 'sale',
-                        'quantity' => $item->quantity,
+                        'product_id'   => $item->product->id,
+                        'type'         => 'sale',
+                        'quantity'     => $item->quantity,
                         'reference_id' => $invoice->invoice_number,
-                        'notes' => 'Auto: Invoice paid - ' . $invoice->invoice_number,
-                        'user_id' => $userId,
+                        'notes'        => 'Auto: Invoice paid - ' . $invoice->invoice_number,
+                        'user_id'      => $userId,
                     ]);
                 }
             }
         }
 
-        if ($shouldIncrementStock) {
+        // Paid → Cancelled: kembalikan stok
+        if ($oldStatus === 'paid' && $newStatus === 'cancelled') {
+            $items = $invoice->items()->with('product')->get();
+
             foreach ($items as $item) {
                 if ($item->product) {
                     $item->product->increment('stok', $item->quantity);
 
                     StockMovement::create([
-                        'product_id' => $item->product->id,
-                        'type' => 'return',
-                        'quantity' => $item->quantity,
+                        'product_id'   => $item->product->id,
+                        'type'         => 'return',
+                        'quantity'     => $item->quantity,
                         'reference_id' => $invoice->invoice_number,
-                        'notes' => 'Auto: Invoice ' . $newStatus . ' - ' . $invoice->invoice_number,
-                        'user_id' => $userId,
+                        'notes'        => 'Auto: Pembatalan Invoice #' . $invoice->invoice_number,
+                        'user_id'      => $userId,
                     ]);
                 }
             }
         }
+
+        // Pending → Cancelled: TIDAK ada perubahan stok (tidak pernah dipotong)
     }
 
     /**
-     * Generate Jurnal Umum otomatis berdasarkan perubahan status invoice.
+     * Generate Jurnal Umum otomatis berdasarkan perubahan status.
      *
-     * - non-paid → paid: Debit Kas & Bank, Kredit Pendapatan Penjualan
-     * - paid → cancelled/refunded: Reversal (Debit Pendapatan, Kredit Kas)
+     * - pending → paid      : Debit Kas, Kredit Pendapatan (idempotent)
+     * - paid → cancelled    : Reversing journal (Debit Pendapatan, Kredit Kas)
+     * - pending → cancelled : TIDAK ada journal
      */
     protected function generateAccountingJournal(Invoice $invoice, string $oldStatus, string $newStatus): void
     {
         $accountingService = app(AccountingService::class);
 
-        // Invoice becomes PAID → create revenue journal
-        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
+        // Pending → Paid: create revenue journal (idempotent)
+        if ($oldStatus === 'pending' && $newStatus === 'paid') {
             $accountingService->createInvoicePaidJournal($invoice);
         }
 
-        // PAID invoice goes to any other status → create reversal journal
-        if ($oldStatus === 'paid' && $newStatus !== 'paid') {
-            $accountingService->createInvoiceReversalJournal($invoice, $newStatus);
+        // Paid → Cancelled: create reversal journal
+        if ($oldStatus === 'paid' && $newStatus === 'cancelled') {
+            $accountingService->createInvoiceReversalJournal($invoice, 'cancelled');
         }
     }
 }
