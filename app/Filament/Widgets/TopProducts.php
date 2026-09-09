@@ -15,7 +15,11 @@ class TopProducts extends ChartWidget
     protected ?string $heading = 'Top 10 Selling Products';
     protected ?string $description = 'Berdasarkan total qty terjual dari invoice lunas';
 
-    protected int|string|array $columnSpan = 12;
+    protected int|string|array $columnSpan = [
+        'default' => 1,
+        'lg' => 12,
+        'xl' => 6,
+    ];
 
     protected ?string $maxHeight = '340px';
 

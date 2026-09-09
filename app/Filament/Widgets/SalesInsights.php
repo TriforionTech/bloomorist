@@ -12,22 +12,21 @@ use Livewire\Attributes\On;
 
 class SalesInsights extends BaseWidget
 {
-    public ?string $monthFilter = null;
+    public ?string $filter = 'month';
+    public ?string $startDate = null;
+    public ?string $endDate = null;
 
-    public function mount(): void
+    #[On('sales-chart-filter-updated')]
+    public function updateFilter($filter, $startDate = null, $endDate = null): void
     {
-        $this->monthFilter = now()->format('Y-m');
-    }
-
-    #[On('month-filter-updated')]
-    public function updateMonthFilter($month): void
-    {
-        $this->monthFilter = $month;
+        $this->filter = $filter;
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
     }
 
     protected static ?int $sort = 3;
     protected int|string|array $columnSpan = [
-        'default' => 12,
+        'default' => 1,
         'lg' => 12,
         'xl' => 4,
     ];
@@ -40,17 +39,58 @@ class SalesInsights extends BaseWidget
 
     protected function getStats(): array
     {
-        // --- Ambil bulan dari filter (atau default) ---
-        $monthFilter = $this->monthFilter ?? now()->format('Y-m');
-        $filterDate = Carbon::createFromFormat('Y-m', $monthFilter)->startOfMonth();
-        $startOfMonth = $filterDate->copy()->startOfMonth();
-        $endOfMonth   = $filterDate->copy()->endOfMonth();
+        $start = null;
+        $end = null;
+        $label = '';
+        $emptyCustom = false;
 
-        $monthLabel = $filterDate->translatedFormat('F Y');
+        if ($this->filter === 'today') {
+            $start = Carbon::today()->startOfDay();
+            $end = Carbon::today()->endOfDay();
+            $label = 'Hari Ini';
+        } elseif ($this->filter === 'week') {
+            $start = Carbon::today()->subDays(6)->startOfDay();
+            $end = Carbon::today()->endOfDay();
+            $label = '7 Hari Terakhir';
+        } elseif ($this->filter === 'month') {
+            $start = Carbon::now()->startOfMonth();
+            $end = Carbon::now()->endOfMonth();
+            $label = 'Bulan Ini';
+        } elseif ($this->filter === 'prev_month') {
+            $start = Carbon::now()->subMonth()->startOfMonth();
+            $end = Carbon::now()->subMonth()->endOfMonth();
+            $label = 'Bulan Sebelumnya';
+        } elseif ($this->filter === 'year') {
+            $start = Carbon::now()->startOfYear();
+            $end = Carbon::now()->endOfYear();
+            $label = 'Tahun Ini';
+        } elseif ($this->filter === 'all') {
+            $start = null;
+            $end = null;
+            $label = 'Semua Waktu';
+        } elseif ($this->filter === 'custom') {
+            if ($this->startDate && $this->endDate) {
+                $start = Carbon::parse($this->startDate)->startOfDay();
+                $end = Carbon::parse($this->endDate)->endOfDay();
+                $label = Carbon::parse($this->startDate)->format('d M') . ' - ' . Carbon::parse($this->endDate)->format('d M');
+            } else {
+                $emptyCustom = true;
+                $label = 'Pilih Tanggal';
+            }
+        } else {
+            // Default to month
+            $start = Carbon::now()->startOfMonth();
+            $end = Carbon::now()->endOfMonth();
+            $label = 'Bulan Ini';
+        }
 
         // ── Base query ──────────────────────────────────────────────────
-        $paidMonthInvoices = Invoice::where('status', 'paid')
-            ->whereBetween('issued_date', [$startOfMonth, $endOfMonth]);
+        $paidMonthInvoices = Invoice::where('status', 'paid');
+        if ($emptyCustom) {
+            $paidMonthInvoices->whereRaw('1 = 0');
+        } elseif ($start && $end) {
+            $paidMonthInvoices->whereBetween('issued_date', [$start, $end]);
+        }
 
         $totalRevenueMonth = (clone $paidMonthInvoices)->sum('grand_total');
         $totalOrdersMonth  = (clone $paidMonthInvoices)->count();
@@ -61,21 +101,32 @@ class SalesInsights extends BaseWidget
             : 0;
 
         // ── 2. Total Qty Produk Terjual Bulan Ini ────────────────────────
-        $totalQtySold = InvoiceItem::query()
+        $qtyQuery = InvoiceItem::query()
             ->join('bl_invoices_t', 'bl_invoice_items_t.invoice_id', '=', 'bl_invoices_t.id')
             ->where('bl_invoices_t.status', 'paid')
-            ->whereBetween('bl_invoices_t.issued_date', [$startOfMonth, $endOfMonth])
-            ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
-            ->sum('bl_invoice_items_t.quantity');
+            ->whereNotIn('snapshot_name', ['Box', 'Wrapping']);
+            
+        if ($emptyCustom) {
+            $qtyQuery->whereRaw('1 = 0');
+        } elseif ($start && $end) {
+            $qtyQuery->whereBetween('bl_invoices_t.issued_date', [$start, $end]);
+        }
+        $totalQtySold = $qtyQuery->sum('bl_invoice_items_t.quantity');
 
         // ── 3. Produk Penjualan Tertinggi Bulan Ini ──────────────────────
-        $topProduct = InvoiceItem::query()
+        $topProductQuery = InvoiceItem::query()
             ->select('snapshot_name', DB::raw('SUM(bl_invoice_items_t.quantity) as total_qty'))
             ->join('bl_invoices_t', 'bl_invoice_items_t.invoice_id', '=', 'bl_invoices_t.id')
             ->where('bl_invoices_t.status', 'paid')
-            ->whereBetween('bl_invoices_t.issued_date', [$startOfMonth, $endOfMonth])
-            ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
-            ->groupBy('snapshot_name')
+            ->whereNotIn('snapshot_name', ['Box', 'Wrapping']);
+            
+        if ($emptyCustom) {
+            $topProductQuery->whereRaw('1 = 0');
+        } elseif ($start && $end) {
+            $topProductQuery->whereBetween('bl_invoices_t.issued_date', [$start, $end]);
+        }
+            
+        $topProduct = $topProductQuery->groupBy('snapshot_name')
             ->orderByDesc('total_qty')
             ->first();
 
@@ -83,28 +134,37 @@ class SalesInsights extends BaseWidget
         $topProductQty  = $topProduct ? (int) $topProduct->total_qty : 0;
 
         // ── 4. % Invoice Paid dari Total Invoice (Bulan Ini) ────────────────────────
-        $totalInvoices = Invoice::whereBetween('issued_date', [$startOfMonth, $endOfMonth])->count();
-        $totalPaid     = Invoice::where('status', 'paid')
-            ->whereBetween('issued_date', [$startOfMonth, $endOfMonth])
-            ->count();
+        $totalInvoicesQuery = Invoice::query();
+        $totalPaidQuery = Invoice::where('status', 'paid');
+        
+        if ($emptyCustom) {
+            $totalInvoicesQuery->whereRaw('1 = 0');
+            $totalPaidQuery->whereRaw('1 = 0');
+        } elseif ($start && $end) {
+            $totalInvoicesQuery->whereBetween('issued_date', [$start, $end]);
+            $totalPaidQuery->whereBetween('issued_date', [$start, $end]);
+        }
+        
+        $totalInvoices = $totalInvoicesQuery->count();
+        $totalPaid = $totalPaidQuery->count();
         $paidPercent   = $totalInvoices > 0
             ? round(($totalPaid / $totalInvoices) * 100, 1)
             : 0;
 
         return [
-            Stat::make("AOV {$monthLabel}", 'Rp ' . number_format($aov, 0, ',', '.'))
+            Stat::make("AOV {$label}", 'Rp ' . number_format($aov, 0, ',', '.'))
                 ->description('Rata-rata nilai per order (paid)')
                 ->descriptionIcon('heroicon-m-calculator')
                 ->color('primary')
                 ->extraAttributes(['class' => 'fi-compact-stat']),
 
-            Stat::make("Produk Terjual {$monthLabel}", number_format($totalQtySold, 0, ',', '.') . ' pcs')
+            Stat::make("Produk Terjual {$label}", number_format($totalQtySold, 0, ',', '.') . ' pcs')
                 ->description('Total qty dari invoice lunas')
                 ->descriptionIcon('heroicon-m-shopping-bag')
                 ->color('success')
                 ->extraAttributes(['class' => 'fi-compact-stat']),
 
-            Stat::make("Produk Terlaris {$monthLabel}", $topProductName)
+            Stat::make("Produk Terlaris {$label}", $topProductName)
                 ->description("{$topProductQty} pcs terjual")
                 ->descriptionIcon('heroicon-m-star')
                 ->color('warning')

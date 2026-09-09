@@ -11,7 +11,10 @@ class Dashboard extends BaseDashboard
      */
     public function getColumns(): int | array
     {
-        return 12;
+        return [
+            'default' => 1,
+            'lg' => 12,
+        ];
     }
 
     public function getSubheading(): string | \Illuminate\Contracts\Support\Htmlable | null

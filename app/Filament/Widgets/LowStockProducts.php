@@ -11,7 +11,7 @@ class LowStockProducts extends BaseWidget
 {
     protected static ?int $sort = 6;
     protected int|string|array $columnSpan = [
-        'default' => 12,
+        'default' => 1,
         'lg' => 12,
         'xl' => 6,
     ];

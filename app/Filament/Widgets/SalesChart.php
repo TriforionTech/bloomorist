@@ -14,8 +14,9 @@ class SalesChart extends ChartWidget
 {
     protected static ?int $sort = 2;
     protected ?string $heading = 'Sales Chart';
+    protected string $view = 'filament.widgets.sales-chart';
     protected int|string|array $columnSpan = [
-        'default' => 12,
+        'default' => 1,
         'lg' => 12,
         'xl' => 8,
     ];
@@ -28,17 +29,44 @@ class SalesChart extends ChartWidget
     public ?string $startDate = null;
     public ?string $endDate = null;
 
+    public function updatedFilter()
+    {
+        $this->dispatchFilter();
+    }
+
+    public function updatedStartDate()
+    {
+        $this->dispatchFilter();
+    }
+
+    public function updatedEndDate()
+    {
+        $this->dispatchFilter();
+    }
+
+    private function dispatchFilter()
+    {
+        $this->dispatch('sales-chart-filter-updated', 
+            filter: $this->filter, 
+            startDate: $this->startDate, 
+            endDate: $this->endDate
+        );
+    }
+
     protected function getFilters(): ?array
     {
         return [
             'today'  => 'Today',
             'week'   => 'Last 7 Days',
             'month'  => 'This Month',
+            'prev_month' => 'Previous Month',
             'year'   => 'This Year',
             'all'    => 'Year by Year',
             'custom' => 'Custom',
         ];
     }
+
+
 
     /**
      * Ringkasan Revenue + Order ditampilkan di atas chart via description.
@@ -68,12 +96,10 @@ class SalesChart extends ChartWidget
 
         if ($this->filter === 'custom') {
             $html .= "
-                <div class='mt-3 flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 max-w-md'>
-                    <label class='text-sm font-medium text-gray-700 dark:text-gray-300'>Dari:</label>
-                    <input type='date' wire:model.live='startDate' class='text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500'>
-                    
-                    <label class='text-sm font-medium text-gray-700 dark:text-gray-300 ml-2'>Sampai:</label>
-                    <input type='date' wire:model.live='endDate' class='text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500'>
+                <div class='mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400'>
+                    <input type='date' wire:model.live='startDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
+                    <span class='text-gray-400 dark:text-gray-600'>-</span>
+                    <input type='date' wire:model.live='endDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
                 </div>
             ";
         }
@@ -101,18 +127,20 @@ class SalesChart extends ChartWidget
                 $data[]   = (float) ($results[$i] ?? 0);
             }
 
-        } elseif ($this->filter === 'month') {
+        } elseif ($this->filter === 'month' || $this->filter === 'prev_month') {
             $now = Carbon::now();
+            $targetMonth = $this->filter === 'prev_month' ? $now->copy()->subMonth() : $now->copy();
+            
             $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()])
+                ->whereBetween('issued_date', [$targetMonth->copy()->startOfMonth(), $targetMonth->copy()->endOfMonth()])
                 ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
                 ->groupBy('date')
                 ->pluck('total', 'date')
                 ->toArray();
 
-            $daysInMonth = $now->daysInMonth;
+            $daysInMonth = $targetMonth->daysInMonth;
             for ($i = 1; $i <= $daysInMonth; $i++) {
-                $dateString = $now->copy()->setDay($i)->format('Y-m-d');
+                $dateString = $targetMonth->copy()->setDay($i)->format('Y-m-d');
                 $labels[]   = $i;
                 $data[]     = (float) ($results[$dateString] ?? 0);
             }
@@ -250,6 +278,10 @@ class SalesChart extends ChartWidget
             'month' => $query->whereBetween('issued_date', [
                 Carbon::now()->startOfMonth(),
                 Carbon::now()->endOfMonth(),
+            ]),
+            'prev_month' => $query->whereBetween('issued_date', [
+                Carbon::now()->subMonth()->startOfMonth(),
+                Carbon::now()->subMonth()->endOfMonth(),
             ]),
             'year'  => $query->whereYear('issued_date', Carbon::now()->year),
             'all', 'custom' => null,

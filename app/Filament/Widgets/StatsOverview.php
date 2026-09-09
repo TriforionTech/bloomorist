@@ -16,7 +16,10 @@ class StatsOverview extends BaseWidget
     public ?string $monthFilter = null;
 
     protected static ?int $sort = 1;
-    protected int|string|array $columnSpan = 12;
+    protected int|string|array $columnSpan = [
+        'default' => 1,
+        'lg' => 12,
+    ];
 
     protected function getColumns(): int | array
     {
