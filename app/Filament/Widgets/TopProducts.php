@@ -11,11 +11,11 @@ use Filament\Actions\Action;
 
 class TopProducts extends ChartWidget
 {
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 4;
     protected ?string $heading = 'Top 10 Selling Products';
     protected ?string $description = 'Berdasarkan total qty terjual dari invoice lunas';
 
-    protected int|string|array $columnSpan = 1;
+    protected int|string|array $columnSpan = 12;
 
     protected ?string $maxHeight = '340px';
 

@@ -8,11 +8,20 @@ use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 
 class SalesInsights extends BaseWidget
 {
-    protected static ?int $sort = 4;
-    protected int|string|array $columnSpan = 1;
+    public ?string $monthFilter = null;
+
+    #[On('month-filter-updated')]
+    public function updateMonthFilter($month): void
+    {
+        $this->monthFilter = $month;
+    }
+
+    protected static ?int $sort = 3;
+    protected int|string|array $columnSpan = 4;
     protected ?string $heading = 'Sales Insights';
 
     protected function getColumns(): int | array | null
@@ -22,8 +31,13 @@ class SalesInsights extends BaseWidget
 
     protected function getStats(): array
     {
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth   = Carbon::now()->endOfMonth();
+        // --- Ambil bulan dari filter (atau default) ---
+        $monthFilter = $this->monthFilter ?? now()->format('Y-m');
+        $filterDate = Carbon::createFromFormat('Y-m', $monthFilter)->startOfMonth();
+        $startOfMonth = $filterDate->copy()->startOfMonth();
+        $endOfMonth   = $filterDate->copy()->endOfMonth();
+
+        $monthLabel = $filterDate->translatedFormat('F Y');
 
         // ── Base query ──────────────────────────────────────────────────
         $paidMonthInvoices = Invoice::where('status', 'paid')
@@ -67,25 +81,29 @@ class SalesInsights extends BaseWidget
             : 0;
 
         return [
-            Stat::make('AOV Bulan Ini', new \Illuminate\Support\HtmlString('<span class="text-xl sm:text-2xl font-bold">Rp ' . number_format($aov, 0, ',', '.') . '</span>'))
+            Stat::make("AOV {$monthLabel}", 'Rp ' . number_format($aov, 0, ',', '.'))
                 ->description('Rata-rata nilai per order (paid)')
                 ->descriptionIcon('heroicon-m-calculator')
-                ->color('primary'),
+                ->color('primary')
+                ->extraAttributes(['class' => 'fi-compact-stat']),
 
-            Stat::make('Produk Terjual Bulan Ini', new \Illuminate\Support\HtmlString('<span class="text-xl sm:text-2xl font-bold">' . number_format($totalQtySold, 0, ',', '.') . ' pcs</span>'))
+            Stat::make("Produk Terjual {$monthLabel}", number_format($totalQtySold, 0, ',', '.') . ' pcs')
                 ->description('Total qty dari invoice lunas')
                 ->descriptionIcon('heroicon-m-shopping-bag')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'fi-compact-stat']),
 
-            Stat::make('Produk Terlaris Bulan Ini', new \Illuminate\Support\HtmlString('<span class="text-xl sm:text-2xl font-bold">' . $topProductName . '</span>'))
+            Stat::make("Produk Terlaris {$monthLabel}", $topProductName)
                 ->description("{$topProductQty} pcs terjual")
                 ->descriptionIcon('heroicon-m-star')
-                ->color('warning'),
+                ->color('warning')
+                ->extraAttributes(['class' => 'fi-compact-stat']),
 
-            Stat::make('Invoice Paid', new \Illuminate\Support\HtmlString('<span class="text-xl sm:text-2xl font-bold">' . $paidPercent . '%</span>'))
+            Stat::make('Invoice Paid', $paidPercent . '%')
                 ->description("{$totalPaid} dari {$totalInvoices} invoice lunas")
                 ->descriptionIcon('heroicon-m-check-circle')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'fi-compact-stat']),
         ];
     }
 }

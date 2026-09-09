@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class TopCustomers extends BaseWidget
 {
-    protected static ?int $sort = 6;
-    protected int|string|array $columnSpan = 1;
+    protected static ?int $sort = 5;
+    protected int|string|array $columnSpan = 6;
 
     public string $timeRange = 'all';
 
@@ -85,9 +85,6 @@ class TopCustomers extends BaseWidget
                     ->limit(10)
             )
             ->defaultSort('total_spend', 'desc')
-            ->extraAttributes([
-                'class' => 'fi-fixed-table',
-            ])
             ->columns([
                 Tables\Columns\TextColumn::make('nama')
                     ->label('Nama Customer')

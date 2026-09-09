@@ -14,7 +14,7 @@ class SalesChart extends ChartWidget
 {
     protected static ?int $sort = 2;
     protected ?string $heading = 'Sales Chart';
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 8;
 
     protected ?string $maxHeight = '500px';
     

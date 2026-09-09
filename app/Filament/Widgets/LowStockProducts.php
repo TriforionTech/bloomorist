@@ -9,8 +9,8 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class LowStockProducts extends BaseWidget
 {
-    protected static ?int $sort = 5;
-    protected int|string|array $columnSpan = 1;
+    protected static ?int $sort = 6;
+    protected int|string|array $columnSpan = 6;
 
     public function table(Table $table): Table
     {
@@ -24,9 +24,6 @@ class LowStockProducts extends BaseWidget
                     ->limit(10)
             )
             ->defaultSort('stok', 'asc')
-            ->extraAttributes([
-                'class' => 'fi-fixed-table',
-            ])
             ->columns([
                 Tables\Columns\TextColumn::make('sku')
                     ->label('SKU')

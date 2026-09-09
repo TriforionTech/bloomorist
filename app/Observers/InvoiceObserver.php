@@ -13,16 +13,18 @@ class InvoiceObserver
      */
     public function saved(Invoice $invoice): void
     {
-        $subtotal = 0;
-        foreach ($invoice->items as $item) {
-            $subtotal += $item->discount_price;
-        }
+        // Reload items to get fresh data
+        $invoice->load('items');
 
+        // Subtotal = hanya produk reguler (tanpa Box & Wrapping)
+        $subtotal = $invoice->items
+            ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
+            ->sum('discount_price');
+
+        // Grand total = semua items (termasuk Box & Wrapping) + ongkir
+        $allItemsTotal = $invoice->items->sum('discount_price');
         $ongkir = (float) $invoice->ongkir;
-        $box_fee = (float) $invoice->box_fee;
-        $wrapping_fee = (float) $invoice->wrapping_fee;
-
-        $grand_total = $subtotal + $ongkir + $box_fee + $wrapping_fee;
+        $grand_total = $allItemsTotal + $ongkir;
 
         if ($invoice->subtotal != $subtotal || $invoice->grand_total != $grand_total) {
             $invoice->subtotal = $subtotal;
