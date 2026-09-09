@@ -87,19 +87,19 @@ class StatsOverview extends BaseWidget
         // --- Stok Menipis (< 10, hanya produk aktif) ---
         $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
 
-        // --- Simple HTML Navigation Filter < JUN > ---
-        $monthShort = $filterDate->translatedFormat('M'); // 3 huruf, misal "Sep"
+        // --- Simple HTML Navigation Filter < SEP 26 > ---
+        $monthLabel = strtoupper($filterDate->translatedFormat('M y')); // Misal "SEP 26"
         $isCurrentMonth = $filterDate->isSameMonth(Carbon::now());
         $nextButtonDisabled = $isCurrentMonth ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary-600 dark:hover:text-primary-400';
 
         $monthNavHtml = '
             <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                 <button wire:click.stop="previousMonth" class="transition hover:text-primary-600 dark:hover:text-primary-400">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
-                <span class="text-sm font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200">' . $monthShort . '</span>
+                <span class="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 w-12 text-center">' . $monthLabel . '</span>
                 <button wire:click.stop="nextMonth" class="transition ' . $nextButtonDisabled . '" ' . ($isCurrentMonth ? 'disabled' : '') . '>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </button>
             </div>
         ';

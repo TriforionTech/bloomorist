@@ -18,7 +18,7 @@ class TopProducts extends ChartWidget
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 12,
-        'xl' => 6,
+        'xl' => 12,
     ];
 
     protected ?string $maxHeight = '340px';

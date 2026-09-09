@@ -67,6 +67,7 @@
             @if ($pollingInterval = $this->getPollingInterval())
                 wire:poll.{{ $pollingInterval }}="updateChartData"
             @endif
+            class="overflow-x-auto w-full pb-2"
         >
             <div
                 x-load
@@ -84,6 +85,7 @@
                         ->class([
                             'fi-wi-chart-canvas-ctn',
                             'fi-wi-chart-canvas-ctn-no-aspect-ratio' => filled($maxHeight = $this->getMaxHeight()),
+                            'min-w-[700px] lg:min-w-0'
                         ])
                         ->style([
                             'max-height: ' . $maxHeight => filled($maxHeight),

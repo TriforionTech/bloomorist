@@ -19,6 +19,6 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): string | \Illuminate\Contracts\Support\Htmlable | null
     {
-        return 'Pantau ringkasan performa penjualan dan inventaris toko Anda.';
+        return 'Pantau ringkasan performa penjualan dan inventaris Bloomorist.';
     }
 }
