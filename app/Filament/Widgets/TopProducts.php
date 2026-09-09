@@ -13,7 +13,6 @@ class TopProducts extends ChartWidget
 {
     protected static ?int $sort = 4;
     protected ?string $heading = 'Top 10 Selling Products';
-    protected ?string $description = 'Berdasarkan total qty terjual dari invoice lunas';
 
     protected int|string|array $columnSpan = [
         'default' => 1,
@@ -24,6 +23,25 @@ class TopProducts extends ChartWidget
     protected ?string $maxHeight = '340px';
 
     public ?string $filter = 'month';
+    public ?string $startDate = null;
+    public ?string $endDate = null;
+
+    public function getDescription(): string|\Illuminate\Contracts\Support\Htmlable|null
+    {
+        $html = "Berdasarkan total qty terjual dari invoice lunas";
+
+        if ($this->filter === 'custom') {
+            $html .= "
+                <div class='mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400'>
+                    <input type='date' wire:model.live='startDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
+                    <span class='text-gray-400 dark:text-gray-600'>-</span>
+                    <input type='date' wire:model.live='endDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
+                </div>
+            ";
+        }
+
+        return new \Illuminate\Support\HtmlString($html);
+    }
 
     // // ini kyknya gabisa > need review
     // protected function getHeaderActions(): array
@@ -46,8 +64,10 @@ class TopProducts extends ChartWidget
             'today'  => 'Today',
             'week'   => 'Last 7 Days',
             'month'  => 'This Month',
+            'prev_month' => 'Previous Month',
             'year'   => 'This Year',
             'all'    => 'All Time',
+            'custom' => 'Custom',
         ];
     }
 
@@ -57,7 +77,11 @@ class TopProducts extends ChartWidget
             'today' => [now()->startOfDay(), now()->endOfDay()],
             'week'  => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
             'month' => [now()->startOfMonth(), now()->endOfMonth()],
+            'prev_month' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
             'year'  => [now()->startOfYear(), now()->endOfYear()],
+            'custom' => $this->startDate && $this->endDate 
+                ? [\Carbon\Carbon::parse($this->startDate)->startOfDay(), \Carbon\Carbon::parse($this->endDate)->endOfDay()] 
+                : [now()->startOfDay(), now()->startOfDay()->subSecond()],
             'all'   => [null, null],
             default => [now()->startOfMonth(), now()->endOfMonth()],
         };
