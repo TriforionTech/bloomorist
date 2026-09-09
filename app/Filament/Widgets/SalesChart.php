@@ -52,7 +52,6 @@ class SalesChart extends ChartWidget
                     <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$formatted}</div>
                 </div>
                 <div class='h-8 w-px bg-gray-200 dark:bg-gray-700'></div>
-                <br>
                 <div>
                     <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Total Order</span>
                     <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$totalOrders}</div>
@@ -70,7 +69,7 @@ class SalesChart extends ChartWidget
 
         if ($this->filter === 'today') {
             $results = (clone $baseQuery)
-                ->whereDate('issued_date', Carbon::today())
+                ->whereDate('created_at', Carbon::today())
                 ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
                 ->groupBy('hour')
                 ->pluck('total', 'hour')
@@ -82,16 +81,17 @@ class SalesChart extends ChartWidget
             }
 
         } elseif ($this->filter === 'month') {
+            $now = Carbon::now();
             $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
+                ->whereBetween('issued_date', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()])
                 ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
                 ->groupBy('date')
                 ->pluck('total', 'date')
                 ->toArray();
 
-            $daysInMonth = Carbon::now()->daysInMonth;
+            $daysInMonth = $now->daysInMonth;
             for ($i = 1; $i <= $daysInMonth; $i++) {
-                $dateString = Carbon::now()->setDay($i)->format('Y-m-d');
+                $dateString = $now->copy()->setDay($i)->format('Y-m-d');
                 $labels[]   = $i;
                 $data[]     = (float) ($results[$dateString] ?? 0);
             }
@@ -204,7 +204,7 @@ class SalesChart extends ChartWidget
     private function applyDateFilter(\Illuminate\Database\Eloquent\Builder $query): void
     {
         match ($this->filter) {
-            'today' => $query->whereDate('issued_date', Carbon::today()),
+            'today' => $query->whereDate('created_at', Carbon::today()),
             'month' => $query->whereBetween('issued_date', [
                 Carbon::now()->startOfMonth(),
                 Carbon::now()->endOfMonth(),

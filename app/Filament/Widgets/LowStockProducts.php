@@ -21,6 +21,7 @@ class LowStockProducts extends BaseWidget
                 Product::query()
                     ->where('is_active', true)
                     ->where('stok', '<', 10)
+                    ->orderBy('stok', 'asc')
                     ->limit(10)
             )
             ->defaultSort('stok', 'asc')

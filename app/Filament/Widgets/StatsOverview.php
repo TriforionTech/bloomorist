@@ -43,7 +43,7 @@ class StatsOverview extends BaseWidget
     public function nextMonth(): void
     {
         $date = Carbon::createFromFormat('Y-m', $this->monthFilter)->addMonth();
-        if ($date->startOfMonth()->lte(Carbon::now()->startOfMonth())) {
+        if ($date->copy()->startOfMonth()->lte(Carbon::now()->startOfMonth())) {
             $this->monthFilter = $date->format('Y-m');
             $this->dispatch('month-filter-updated', month: $this->monthFilter);
         }

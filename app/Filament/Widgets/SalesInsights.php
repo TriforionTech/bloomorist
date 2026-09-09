@@ -14,6 +14,11 @@ class SalesInsights extends BaseWidget
 {
     public ?string $monthFilter = null;
 
+    public function mount(): void
+    {
+        $this->monthFilter = now()->format('Y-m');
+    }
+
     #[On('month-filter-updated')]
     public function updateMonthFilter($month): void
     {
@@ -26,7 +31,7 @@ class SalesInsights extends BaseWidget
 
     protected function getColumns(): int | array | null
     {
-        return 2; // 2x2 grid di dalam half-width widget
+        return 1; // 1 kolom vertikal
     }
 
     protected function getStats(): array
@@ -73,9 +78,11 @@ class SalesInsights extends BaseWidget
         $topProductName = $topProduct ? $topProduct->snapshot_name : 'N/A';
         $topProductQty  = $topProduct ? (int) $topProduct->total_qty : 0;
 
-        // ── 4. % Invoice Paid dari Total Invoice ────────────────────────
-        $totalInvoices = Invoice::count();
-        $totalPaid     = Invoice::where('status', 'paid')->count();
+        // ── 4. % Invoice Paid dari Total Invoice (Bulan Ini) ────────────────────────
+        $totalInvoices = Invoice::whereBetween('issued_date', [$startOfMonth, $endOfMonth])->count();
+        $totalPaid     = Invoice::where('status', 'paid')
+            ->whereBetween('issued_date', [$startOfMonth, $endOfMonth])
+            ->count();
         $paidPercent   = $totalInvoices > 0
             ? round(($totalPaid / $totalInvoices) * 100, 1)
             : 0;

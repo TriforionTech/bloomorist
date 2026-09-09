@@ -69,7 +69,7 @@ class TopCustomers extends BaseWidget
                         $q->whereDate('bl_invoices_t.issued_date', Carbon::today())
                     )
                     ->when($this->timeRange === 'last_7', fn ($q) =>
-                        $q->whereDate('bl_invoices_t.issued_date', '>=', Carbon::now()->subDays(7))
+                        $q->whereDate('bl_invoices_t.issued_date', '>=', Carbon::now()->subDays(6))
                     )
                     ->when($this->timeRange === 'this_month', fn ($q) =>
                         $q->whereMonth('bl_invoices_t.issued_date', Carbon::now()->month)
@@ -82,6 +82,7 @@ class TopCustomers extends BaseWidget
                         'bl_customers_t.id',
                         'bl_customers_t.nama'
                     )
+                    ->orderByDesc('total_spend')
                     ->limit(10)
             )
             ->defaultSort('total_spend', 'desc')
