@@ -18,9 +18,15 @@ class StatsOverview extends BaseWidget
     protected static ?int $sort = 1;
     protected int|string|array $columnSpan = 12;
 
-    protected function getColumns(): int
+    protected function getColumns(): int | array
     {
-        return 5;
+        return [
+            'default' => 1,
+            'sm' => 2,
+            'md' => 3,
+            'lg' => 3,
+            'xl' => 5,
+        ];
     }
 
     public function mount(): void

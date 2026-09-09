@@ -26,7 +26,11 @@ class SalesInsights extends BaseWidget
     }
 
     protected static ?int $sort = 3;
-    protected int|string|array $columnSpan = 4;
+    protected int|string|array $columnSpan = [
+        'default' => 12,
+        'lg' => 12,
+        'xl' => 4,
+    ];
     protected ?string $heading = 'Sales Insights';
 
     protected function getColumns(): int | array | null

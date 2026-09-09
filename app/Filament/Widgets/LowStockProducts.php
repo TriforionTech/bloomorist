@@ -10,7 +10,11 @@ use Filament\Widgets\TableWidget as BaseWidget;
 class LowStockProducts extends BaseWidget
 {
     protected static ?int $sort = 6;
-    protected int|string|array $columnSpan = 6;
+    protected int|string|array $columnSpan = [
+        'default' => 12,
+        'lg' => 12,
+        'xl' => 6,
+    ];
 
     public function table(Table $table): Table
     {

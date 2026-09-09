@@ -13,7 +13,11 @@ use Illuminate\Support\Facades\DB;
 class TopCustomers extends BaseWidget
 {
     protected static ?int $sort = 5;
-    protected int|string|array $columnSpan = 6;
+    protected int|string|array $columnSpan = [
+        'default' => 12,
+        'lg' => 12,
+        'xl' => 6,
+    ];
 
     public string $timeRange = 'all';
 

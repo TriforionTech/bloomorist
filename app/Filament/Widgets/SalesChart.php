@@ -14,22 +14,29 @@ class SalesChart extends ChartWidget
 {
     protected static ?int $sort = 2;
     protected ?string $heading = 'Sales Chart';
-    protected int|string|array $columnSpan = 8;
+    protected int|string|array $columnSpan = [
+        'default' => 12,
+        'lg' => 12,
+        'xl' => 8,
+    ];
 
     protected ?string $maxHeight = '500px';
     
     protected ?string $pollingInterval = null;
 
     public ?string $filter = 'month';
+    public ?string $startDate = null;
+    public ?string $endDate = null;
 
     protected function getFilters(): ?array
     {
         return [
-            'today' => 'Today',
-            'week'  => 'Last 7 Days',
-            'month' => 'This Month',
-            'year'  => 'This Year',
-            'all'   => 'Year by Year',
+            'today'  => 'Today',
+            'week'   => 'Last 7 Days',
+            'month'  => 'This Month',
+            'year'   => 'This Year',
+            'all'    => 'Year by Year',
+            'custom' => 'Custom',
         ];
     }
 
@@ -45,7 +52,7 @@ class SalesChart extends ChartWidget
         $totalOrders  = (clone $query)->count();
         $formatted    = 'Rp ' . number_format($totalRevenue, 0, ',', '.');
 
-        return new HtmlString("
+        $html = "
             <div class='flex flex-wrap items-center gap-6 mt-1 mb-2'>
                 <div>
                     <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Revenue</span>
@@ -57,7 +64,21 @@ class SalesChart extends ChartWidget
                     <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$totalOrders}</div>
                 </div>
             </div>
-        ");
+        ";
+
+        if ($this->filter === 'custom') {
+            $html .= "
+                <div class='mt-3 flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 max-w-md'>
+                    <label class='text-sm font-medium text-gray-700 dark:text-gray-300'>Dari:</label>
+                    <input type='date' wire:model.live='startDate' class='text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500'>
+                    
+                    <label class='text-sm font-medium text-gray-700 dark:text-gray-300 ml-2'>Sampai:</label>
+                    <input type='date' wire:model.live='endDate' class='text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:border-primary-500 focus:ring-primary-500'>
+                </div>
+            ";
+        }
+
+        return new HtmlString($html);
     }
 
     protected function getData(): array
@@ -126,6 +147,27 @@ class SalesChart extends ChartWidget
                 $data[]   = (float) $total;
             }
 
+        } elseif ($this->filter === 'custom') {
+            if ($this->startDate && $this->endDate) {
+                $start = Carbon::parse($this->startDate)->startOfDay();
+                $end   = Carbon::parse($this->endDate)->endOfDay();
+                
+                $results = (clone $baseQuery)
+                    ->whereBetween('issued_date', [$start, $end])
+                    ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
+                    ->groupBy('date')
+                    ->pluck('total', 'date')
+                    ->toArray();
+
+                // Generate labels from start to end
+                $current = $start->copy();
+                while ($current->lte($end)) {
+                    $dateString = $current->format('Y-m-d');
+                    $labels[]   = $current->format('d M');
+                    $data[]     = (float) ($results[$dateString] ?? 0);
+                    $current->addDay();
+                }
+            }
         } else {
             // 7 hari terakhir
             $results = (clone $baseQuery)
@@ -210,11 +252,22 @@ class SalesChart extends ChartWidget
                 Carbon::now()->endOfMonth(),
             ]),
             'year'  => $query->whereYear('issued_date', Carbon::now()->year),
-            'all'   => null,
+            'all', 'custom' => null,
             default => $query->whereBetween('issued_date', [
                 Carbon::today()->subDays(6),
                 Carbon::today(),
             ]),
         };
+        
+        if ($this->filter === 'custom') {
+            if ($this->startDate && $this->endDate) {
+                $query->whereBetween('issued_date', [
+                    Carbon::parse($this->startDate)->startOfDay(),
+                    Carbon::parse($this->endDate)->endOfDay(),
+                ]);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
     }
 }
