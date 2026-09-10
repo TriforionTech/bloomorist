@@ -144,6 +144,10 @@ class AccountingService
                 'source_type'  => 'EXPENSE',
             ]);
 
+            // Sync journal date to expense date
+            $journal->created_at = $expense->created_at;
+            $journal->save(['timestamps' => false]);
+
             // Debit: Akun Beban
             JournalItem::create([
                 'journal_id' => $journal->id,
@@ -187,6 +191,10 @@ class AccountingService
                 'reference_id' => $expense->id,
                 'source_type'  => 'EXPENSE',
             ]);
+
+            // Sync journal date to expense date
+            $journal->created_at = $expense->created_at;
+            $journal->save(['timestamps' => false]);
 
             // Debit: Akun Kas/Bank (reverse — sebelumnya di kredit)
             JournalItem::create([
@@ -249,6 +257,10 @@ class AccountingService
                 'source_type'  => 'INVOICE',
             ]);
 
+            // Sync journal date to invoice date
+            $journal->created_at = $invoice->issued_date;
+            $journal->save(['timestamps' => false]);
+
             // Debit: Kas & Bank
             JournalItem::create([
                 'journal_id' => $journal->id,
@@ -295,6 +307,10 @@ class AccountingService
                 'reference_id' => $invoice->id,
                 'source_type'  => 'INVOICE',
             ]);
+
+            // Sync journal date to invoice date
+            $journal->created_at = $invoice->issued_date;
+            $journal->save(['timestamps' => false]);
 
             // Debit: Pendapatan Penjualan (reverse)
             JournalItem::create([
