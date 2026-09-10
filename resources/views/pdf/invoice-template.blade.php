@@ -52,13 +52,12 @@
                     <div>{{ $customer['country'] }}</div>
                     <div class="contact-info">{{ $customer['email'] }}</div>
                     <div>{{ $customer['phone_number'] }}</div>
-                    @if($customer['membership'] !== '-')
-                        <div>
-                            {{ $customer['membership'] }} Membership
-                        </div>
-                     @else
-                        <div>Non-Membership</div>
-                    @endif
+                    <div class="customer-type-badge font-medium" style="margin-top: 4px; color: #4b5563;">
+                        {{ $customer['customer_type_label'] ?? '' }}
+                        @if(!empty($customer['membership']))
+                            - {{ $customer['membership'] }}
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>

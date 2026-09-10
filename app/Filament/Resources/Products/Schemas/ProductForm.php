@@ -6,6 +6,8 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -42,35 +44,73 @@ class ProductForm
                     ->required()
                     ->native(false),
 
-                TextInput::make('harga_beli')
-                    ->label('Purchase Price')
-                    ->placeholder('Enter purchase price')
-                    ->required()
-                    ->prefix('Rp')
-                    ->maxLength(13)
-                    ->extraInputAttributes([
-                        'inputmode' => 'numeric',
-                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
-                    ])
-                    ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
-                    ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                    ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
-                    ->dehydrated(),
+                Section::make('Pricing')
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('harga_beli')
+                            ->label('Purchase Price (Cost)')
+                            ->placeholder('Enter purchase price')
+                            ->required()
+                            ->prefix('Rp')
+                            ->maxLength(13)
+                            ->extraInputAttributes([
+                                'inputmode' => 'numeric',
+                                'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                            ])
+                            ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                            ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
+                            ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                            ->dehydrated(),
 
-                TextInput::make('harga_jual')
-                    ->label('Selling Price')
-                    ->placeholder('Enter selling price')
-                    ->required()
-                    ->prefix('Rp')
-                    ->maxLength(13)
-                    ->extraInputAttributes([
-                        'inputmode' => 'numeric',
-                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
-                    ])
-                    ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
-                    ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                    ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
-                    ->dehydrated(),
+                        Grid::make(3)->schema([
+                            TextInput::make('harga_jual')
+                                ->label('Selling Price (Toko / Default)')
+                                ->placeholder('Enter store price')
+                                ->required()
+                                ->prefix('Rp')
+                                ->maxLength(13)
+                                ->extraInputAttributes([
+                                    'inputmode' => 'numeric',
+                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                                ])
+                                ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                                ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
+                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->dehydrated(),
+
+                            TextInput::make('harga_vendor')
+                                ->label('Selling Price (Vendor)')
+                                ->placeholder('Enter vendor price')
+                                ->required()
+                                ->default(0)
+                                ->prefix('Rp')
+                                ->maxLength(13)
+                                ->extraInputAttributes([
+                                    'inputmode' => 'numeric',
+                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                                ])
+                                ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                                ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
+                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->dehydrated(),
+
+                            TextInput::make('harga_dekor')
+                                ->label('Selling Price (Dekor)')
+                                ->placeholder('Enter decor price')
+                                ->required()
+                                ->default(0)
+                                ->prefix('Rp')
+                                ->maxLength(13)
+                                ->extraInputAttributes([
+                                    'inputmode' => 'numeric',
+                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');let v=this.value;this.value=v.replace(/\\B(?=(\\d{3})+(?!\\d))/g,'.');",
+                                ])
+                                ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
+                                ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
+                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->dehydrated(),
+                        ]),
+                    ]),
 
                 TextInput::make('stok')
                     ->label('Stock')

@@ -34,6 +34,7 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->heading(view('filament.products.price-tier-selector'))
             // Default: hanya tampilkan produk aktif dan hitung stok yang dibooking
             ->modifyQueryUsing(function (Builder $query) {
                 $query->where('is_active', true)
@@ -89,29 +90,70 @@ class ProductsTable
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('harga_jual')
-                    ->label('SELLING PRICE')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
-                    ->sortable(),
-                TextColumn::make('margin')
-                    ->label('MARGIN')
-                    ->state(function ($record) {
-                        return $record->harga_jual - $record->harga_beli;
+                    ->label(function ($livewire) {
+                        return match($livewire->priceTier ?? 'toko') {
+                            'vendor' => 'VENDOR PRICE',
+                            'dekor'  => 'DECOR PRICE',
+                            default  => 'STORE PRICE',
+                        };
+                    })
+                    ->state(function ($record, $livewire) {
+                        return match($livewire->priceTier ?? 'toko') {
+                            'vendor' => $record->harga_vendor,
+                            'dekor'  => $record->harga_dekor,
+                            default  => $record->harga_jual,
+                        };
                     })
                     ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
-                    ->sortable()
+                    ->sortable(query: function (Builder $query, string $direction, $livewire) {
+                        $column = match($livewire->priceTier ?? 'toko') {
+                            'vendor' => 'harga_vendor',
+                            'dekor'  => 'harga_dekor',
+                            default  => 'harga_jual',
+                        };
+                        return $query->orderBy($column, $direction);
+                    }),
+                TextColumn::make('margin')
+                    ->label('MARGIN')
+                    ->state(function ($record, $livewire) {
+                        $sellingPrice = match($livewire->priceTier ?? 'toko') {
+                            'vendor' => $record->harga_vendor,
+                            'dekor'  => $record->harga_dekor,
+                            default  => $record->harga_jual,
+                        };
+                        return $sellingPrice - $record->harga_beli;
+                    })
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->sortable(query: function (Builder $query, string $direction, $livewire) {
+                        $column = match($livewire->priceTier ?? 'toko') {
+                            'vendor' => 'harga_vendor',
+                            'dekor'  => 'harga_dekor',
+                            default  => 'harga_jual',
+                        };
+                        // Sort by expression: (harga - harga_beli)
+                        return $query->orderByRaw("({$column} - harga_beli) {$direction}");
+                    })
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('margin_percent')
                     ->label('MARKUP')
-                    ->sortable()
-                    ->state(function ($record) {
+                    ->state(function ($record, $livewire) {
                         if ($record->harga_beli <= 0) {
                             return 0;
                         }
-
-                        return round(
-                            (($record->harga_jual - $record->harga_beli)
-                            / $record->harga_beli) * 100
-                        );
+                        $sellingPrice = match($livewire->priceTier ?? 'toko') {
+                            'vendor' => $record->harga_vendor,
+                            'dekor'  => $record->harga_dekor,
+                            default  => $record->harga_jual,
+                        };
+                        return round((($sellingPrice - $record->harga_beli) / $record->harga_beli) * 100);
+                    })
+                    ->sortable(query: function (Builder $query, string $direction, $livewire) {
+                        $column = match($livewire->priceTier ?? 'toko') {
+                            'vendor' => 'harga_vendor',
+                            'dekor'  => 'harga_dekor',
+                            default  => 'harga_jual',
+                        };
+                        return $query->orderByRaw("(({$column} - harga_beli) / NULLIF(harga_beli, 0)) {$direction}");
                     })
                     ->suffix('%')
                     ->toggleable(isToggledHiddenByDefault: false),

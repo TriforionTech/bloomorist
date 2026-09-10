@@ -172,12 +172,18 @@ class GenerateInvoice extends Page implements HasSchemas
 
      
     // Helper method untuk get product price dengan cache
-    protected function getProductPrice(int $productId): float
+    protected function getProductPrice(int $productId, string $customerType = 'member'): float
     {
-        if (!isset($this->productPriceCache[$productId])) {
-            $this->productPriceCache[$productId] = Product::whereKey($productId)->value('harga_jual') ?? 0;
+        $cacheKey = "{$productId}_{$customerType}";
+        if (!isset($this->productPriceCache[$cacheKey])) {
+            $column = match($customerType) {
+                'vendor' => 'harga_vendor',
+                'dekor'  => 'harga_dekor',
+                default  => 'harga_jual',
+            };
+            $this->productPriceCache[$cacheKey] = Product::whereKey($productId)->value($column) ?? 0;
         }
-        return $this->productPriceCache[$productId];
+        return $this->productPriceCache[$cacheKey];
     }
 
     // Helper method untuk get membership discount dengan cache
@@ -226,8 +232,8 @@ class GenerateInvoice extends Page implements HasSchemas
             return;
         }
 
-        // ambil harga produk dari cache
-        $price = $this->getProductPrice($productId);
+        // ambil harga produk dari cache (sesuai tier kustomer)
+        $price = $this->getProductPrice($productId, $customerType);
         
         // harga 1 produk
         $set('unit_price', Number::format($price, locale: 'id'));
@@ -247,7 +253,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 // Prioritas 2: Diskon default dari database membership
                 $diskonPersen = $membershipId ? $this->getMembershipDiscount($membershipId) : 0;
             }
-        } elseif ($customerType === 'non_member') {
+        } elseif ($customerType !== 'member') {
             if ($discountModeNonMember === 'global') {
                 // Ambil dari global custom discount
                 $diskonPersen = (float) str_replace(',', '.', (string) ($get('../../custom_discount') ?? 0));
@@ -279,7 +285,7 @@ class GenerateInvoice extends Page implements HasSchemas
             $quantity = (int) ($product['quantity'] ?? 1);
             
             if ($productId) {
-                $price = $this->getProductPrice($productId);
+                $price = $this->getProductPrice($productId, $customerType);
                 $normal = $price * $quantity;
                 
                 $diskonPersen = 0;
@@ -291,7 +297,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     } else {
                         $diskonPersen = $membershipId ? $this->getMembershipDiscount($membershipId) : 0;
                     }
-                } elseif ($customerType === 'non_member') {
+                } elseif ($customerType !== 'member') {
                     if ($discountMode === 'global') {
                         $diskonPersen = (float) str_replace(',', '.', (string) ($globalCustomDiscount ?? 0));
                     } elseif ($discountMode === 'per_item') {
@@ -315,14 +321,15 @@ class GenerateInvoice extends Page implements HasSchemas
         ->icon('heroicon-o-user-circle')
         ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
         ->schema([
-            Radio::make('customer_type')
+            Select::make('customer_type')
                 ->label('Select Customer Type')
                 ->options([
-                    'member' => 'Member',
-                    'non_member' => 'Non-Member',
+                    'member' => 'Toko (Member)',
+                    'non_member' => 'Toko (Non-Member)',
+                    'vendor' => 'Vendor',
+                    'dekor' => 'Dekorator',
                 ])
                 ->default('member')
-                ->inline()
                 ->live()                            
                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
                 $set('member_id', null);
@@ -662,7 +669,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->live(onBlur: true)
                         ->visible(
                             fn (Get $get) => 
-                            $get('../../discount_mode') === 'per_item' && $get('../../customer_type') === 'non_member' || 
+                            $get('../../discount_mode') === 'per_item' && $get('../../customer_type') !== 'member' || 
                             $get('../../discount_mode_member') && $get('../../customer_type') === 'member')
                         ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
 

@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListProducts extends ListRecords
 {
+    public string $priceTier = 'toko';
+
     protected static string $resource = ProductResource::class;
 
     protected function getHeaderActions(): array

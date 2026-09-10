@@ -19,7 +19,13 @@ class InvoiceController extends Controller
             'country' => $invoice->customer->negara ?? 'Indonesia',
             'email' => $invoice->customer->email ?? '-',
             'phone_number' => $invoice->customer->nomor_hp ?? '-',
-            'membership' => $invoice->customer->membership->nama ?? ($invoice->customer_type === 'member' ? 'Member' : '-'),
+            'membership' => $invoice->customer->membership->nama ?? null,
+            'customer_type_label' => match($invoice->customer_type) {
+                'vendor' => 'Vendor',
+                'dekor'  => 'Dekorator',
+                'member' => 'Toko (Member)',
+                default  => 'Toko (Non-Member)',
+            },
         ];
 
         $hasDiscount = false;
