@@ -65,9 +65,10 @@ class FinancialReports extends Page implements HasSchemas
                     Select::make('incomeFilter')
                         ->label('Periode')
                         ->options([
-                            'bulan_ini' => 'Bulan Ini',
-                            'tahun_ini' => 'Tahun Ini',
-                            'custom'    => 'Custom Range',
+                            'bulan_ini'  => 'Bulan Ini',
+                            'bulan_lalu' => 'Bulan Lalu',
+                            'tahun_ini'  => 'Tahun Ini',
+                            'custom'     => 'Custom Range',
                         ])
                         ->native(false)
                         ->live(),
@@ -134,9 +135,10 @@ class FinancialReports extends Page implements HasSchemas
     private function getIncomeDateRange(): array
     {
         return match ($this->incomeFilter) {
-            'bulan_ini' => [now()->startOfMonth(), now()->endOfMonth()],
-            'tahun_ini' => [now()->startOfYear(), now()->endOfYear()],
-            'custom'    => [
+            'bulan_ini'  => [now()->startOfMonth(), now()->endOfMonth()],
+            'bulan_lalu' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
+            'tahun_ini'  => [now()->startOfYear(), now()->endOfYear()],
+            'custom'     => [
                 $this->incomeStartDate ? Carbon::parse($this->incomeStartDate) : now()->startOfMonth(),
                 $this->incomeEndDate ? Carbon::parse($this->incomeEndDate) : now()->endOfMonth(),
             ],
@@ -159,7 +161,7 @@ class FinancialReports extends Page implements HasSchemas
 
         return response()->streamDownload(
             fn () => print($pdf->output()),
-            'laporan-laba-rugi-' . now()->format('Y-m-d') . '.pdf'
+            'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.pdf'
         );
     }
 
@@ -202,7 +204,7 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['', 'LABA/RUGI BERSIH', $data['laba_rugi']]);
 
             fclose($handle);
-        }, 'laporan-laba-rugi-' . now()->format('Y-m-d') . '.csv');
+        }, 'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.csv');
     }
 
     /**
