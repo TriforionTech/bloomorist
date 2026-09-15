@@ -49,8 +49,9 @@ class ProductSalesReport extends Page implements HasTable
                     ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping'])
             )
             ->modifyQueryUsing(function (Builder $query) use ($invoiceTable, $invoiceItemTable) {
-                // Get filter state safely, defaulting to 'month'
-                $filterState = $this->getTableFilterState('date_filter') ?? [];
+                // Read directly from the Livewire component's public property to ensure we have the live, un-cached state
+                $filterState = $this->tableFilters['date_filter'] ?? [];
+                
                 $preset = $filterState['filter_preset'] ?? request()->query('filter', 'month');
                 
                 $startDate = null;
@@ -64,6 +65,7 @@ class ProductSalesReport extends Page implements HasTable
                         'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
                         'week'  => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
                         'month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
+                        'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
                         'year'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfYear()],
                         'all'   => [$startDate, $endDate] = [null, null],
                         default => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
@@ -109,14 +111,16 @@ class ProductSalesReport extends Page implements HasTable
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
-                    ->rowIndex(),
+                    ->rowIndex()
+                    ->visibleFrom('md'),
                 TextColumn::make('nama')
                     ->label('PRODUCT')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->wrap(),
                 TextColumn::make('total_sold')
-                    ->label('QTY SOLD')
+                    ->label('QTY')
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->orderBy('total_sold', $direction)->orderBy('nama', 'asc');
                     })
@@ -143,20 +147,25 @@ class ProductSalesReport extends Page implements HasTable
                                 'today' => 'Today',
                                 'week'  => 'Last 7 Days',
                                 'month' => 'This Month',
+                                'previous_month' => 'Previous Month',
                                 'year'  => 'This Year',
                                 'all'   => 'All Time',
+                                'custom' => 'Custom Range',
                             ])
-                            ->default(fn () => request()->query('filter', 'month')),
+                            ->default(fn () => request()->query('filter', 'month'))
+                            ->live(),
                         Grid::make(2)
                             ->schema([
                                 DatePicker::make('date_from')
                                     ->label('From')
                                     ->displayFormat('d M Y')
-                                    ->native(false),
+                                    ->native(false)
+                                    ->live(), // Added live to fix responsiveness
                                 DatePicker::make('date_until')
                                     ->label('Until')
                                     ->displayFormat('d M Y')
-                                    ->native(false),
+                                    ->native(false)
+                                    ->live(), // Added live to fix responsiveness
                             ])
                             ->visible(fn (Get $get) => $get('filter_preset') === 'custom'),
                     ])
@@ -178,17 +187,18 @@ class ProductSalesReport extends Page implements HasTable
                                 'today' => 'Today',
                                 'week' => 'Last 7 Days',
                                 'month' => 'This Month',
+                                'previous_month' => 'Previous Month',
                                 'year' => 'This Year',
                                 'all' => 'All Time',
+                                'custom' => 'Custom Range',
                                 default => 'This Month'
                             };
                         }
                         return $indicators;
                     })
             ])
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filtersTriggerAction(
-                fn (Action $action) => $action->label('Filter Period'),
+                fn (Action $action) => $action->label('Filter Period')->extraAttributes(['class' => 'mr-3 sm:mr-0']),
             );
     }
 }

@@ -4,7 +4,11 @@ namespace App\Filament\Widgets;
 
 use App\Models\Customer;
 use Carbon\Carbon;
-use Filament\Actions\Action;
+use Filament\Tables\Filters\Filter;
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\DatePicker;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -19,46 +23,13 @@ class TopCustomers extends BaseWidget
         'xl' => 6,
     ];
 
-    public string $timeRange = 'all';
-
-    protected function getTableHeaderActions(): array
-    {
-        return [
-            Action::make('filterTime')
-                ->label(match ($this->timeRange) {
-                    'today'      => 'Today',
-                    'last_7'     => 'Last 7 Days',
-                    'this_month' => 'This Month',
-                    'this_year'  => 'This Year',
-                    default      => 'All Time',
-                })
-                ->icon('heroicon-o-funnel')
-                ->color('gray')
-                ->size('sm')
-                ->action(function () {
-                    $this->timeRange = match ($this->timeRange) {
-                        'all'        => 'today',
-                        'today'      => 'last_7',
-                        'last_7'     => 'this_month',
-                        'this_month' => 'this_year',
-                        'this_year'  => 'all',
-                        default      => 'all',
-                    };
-                }),
-        ];
-    }
+    // Empty out the leftover code
 
     public function table(Table $table): Table
     {
         return $table
             ->heading('Top Customers')
-            ->description(match ($this->timeRange) {
-                'today'      => 'Top 10 customer — Hari Ini',
-                'last_7'     => 'Top 10 customer — 7 Hari Terakhir',
-                'this_month' => 'Top 10 customer — Bulan Ini',
-                'this_year'  => 'Top 10 customer — Tahun Ini',
-                default      => 'Top 10 customer — Semua Waktu',
-            })
+            ->description('Top 10 Customers')
             ->query(
                 Customer::query()
                     ->select(
@@ -69,19 +40,8 @@ class TopCustomers extends BaseWidget
                     )
                     ->join('bl_invoices_t', 'bl_customers_t.id', '=', 'bl_invoices_t.customer_id')
                     ->where('bl_invoices_t.status', 'paid')
-                    ->when($this->timeRange === 'today', fn ($q) =>
-                        $q->whereDate('bl_invoices_t.issued_date', Carbon::today())
-                    )
-                    ->when($this->timeRange === 'last_7', fn ($q) =>
-                        $q->whereDate('bl_invoices_t.issued_date', '>=', Carbon::now()->subDays(6))
-                    )
-                    ->when($this->timeRange === 'this_month', fn ($q) =>
-                        $q->whereMonth('bl_invoices_t.issued_date', Carbon::now()->month)
-                           ->whereYear('bl_invoices_t.issued_date', Carbon::now()->year)
-                    )
-                    ->when($this->timeRange === 'this_year', fn ($q) =>
-                        $q->whereYear('bl_invoices_t.issued_date', Carbon::now()->year)
-                    )
+
+
                     ->groupBy(
                         'bl_customers_t.id',
                         'bl_customers_t.nama'
@@ -109,6 +69,62 @@ class TopCustomers extends BaseWidget
                     ->weight('bold')
                     ->color('success')
                     ->sortable(),
+            ])
+                        ->filters([
+                Filter::make('date_filter')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('filter_preset')
+                            ->label('Filter By')
+                            ->options([
+                                'today' => 'Today',
+                                'last_7'  => 'Last 7 Days',
+                                'this_month' => 'This Month',
+                                'previous_month' => 'Previous Month',
+                                'this_year'  => 'This Year',
+                                'all'   => 'All Time',
+                                'custom' => 'Custom Range',
+                            ])
+                            ->default('all')
+                            ->live(),
+                        Grid::make(2)
+                            ->schema([
+                                DatePicker::make('date_from')
+                                    ->label('From')
+                                    ->displayFormat('d M Y')
+                                    ->native(false)
+                                    ->live(),
+                                DatePicker::make('date_until')
+                                    ->label('Until')
+                                    ->displayFormat('d M Y')
+                                    ->native(false)
+                                    ->live(),
+                            ])
+                            ->visible(fn (Get $get) => $get('filter_preset') === 'custom'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        $preset = $data['filter_preset'] ?? 'all';
+                        $startDate = null;
+                        $endDate = null;
+
+                        if ($preset === 'custom' && !empty($data['date_from']) && !empty($data['date_until'])) {
+                            $startDate = Carbon::parse($data['date_from'])->startOfDay();
+                            $endDate = Carbon::parse($data['date_until'])->endOfDay();
+                        } else {
+                            match ($preset) {
+                                'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
+                                'last_7'  => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
+                                'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
+                                'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
+                                'this_year'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfYear()],
+                                'all'   => [$startDate, $endDate] = [null, null],
+                                default => [$startDate, $endDate] = [null, null],
+                            };
+                        }
+
+                        if ($startDate && $endDate) {
+                            $query->whereBetween('bl_invoices_t.issued_date', [$startDate, $endDate]);
+                        }
+                    })
             ])
             ->paginated(false);
     }

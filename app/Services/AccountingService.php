@@ -28,10 +28,10 @@ class AccountingService
     {
         return DB::transaction(function () use ($product, $quantity, $type, $notes) {
             // Find COA Persediaan Barang
-            $coaPersediaan = ChartOfAccount::where('kode_akun', '1030')->first();
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first();
 
             // Find COA Beban Operasional (semua kerugian/kerusakan masuk beban operasional)
-            $coaBeban = ChartOfAccount::where('kode_akun', '5010')->first();
+            $coaBeban = ChartOfAccount::where('kode_akun', '6106')->first();
 
             // Gracefully skip if COA accounts aren't set up yet
             if (! $coaPersediaan || ! $coaBeban) {
@@ -240,8 +240,8 @@ class AccountingService
                 return $existing;
             }
 
-            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
-            $coaPendapatan = ChartOfAccount::where('kode_akun', '4010')->first();
+            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
+            $coaPendapatan = ChartOfAccount::where('kode_akun', '4101')->first();
 
             // Gracefully skip if COA accounts aren't set up yet
             if (!$coaKas || !$coaPendapatan) {
@@ -292,8 +292,8 @@ class AccountingService
     public function createInvoiceReversalJournal(Invoice $invoice, string $reason = 'cancelled'): ?GeneralJournal
     {
         return DB::transaction(function () use ($invoice, $reason) {
-            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
-            $coaPendapatan = ChartOfAccount::where('kode_akun', '4010')->first();
+            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
+            $coaPendapatan = ChartOfAccount::where('kode_akun', '4101')->first();
 
             if (!$coaKas || !$coaPendapatan) {
                 return null;
@@ -347,9 +347,9 @@ class AccountingService
         ?string $notes = null
     ): ?GeneralJournal {
         return DB::transaction(function () use ($type, $quantity, $unitCost, $productName, $notes) {
-            $coaPersediaan = ChartOfAccount::where('kode_akun', '1030')->first();
-            $coaKas        = ChartOfAccount::where('kode_akun', '1010')->first();
-            $coaBeban      = ChartOfAccount::where('kode_akun', '5010')->first();
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first();
+            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
+            $coaBeban      = ChartOfAccount::where('kode_akun', '6106')->first();
 
             if (!$coaPersediaan || !$coaKas || !$coaBeban) {
                 return null;
