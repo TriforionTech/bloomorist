@@ -1,13 +1,34 @@
 # Dokumentasi Teknis: Sistem Financial Report (Excel → Laravel + Filament)
 
 **Sumber analisis:** `LAPORAN_KEUANGAN_AGUSTUS.xlsx` — PT Bigatri Indoflora Pacific (Bloomorist)
-**Tujuan dokumen:** Menerjemahkan seluruh logika, rumus, dan alur perhitungan yang ada di workbook Excel menjadi spesifikasi teknis yang bisa langsung diimplementasikan sebagai fitur *Financial Report* di sistem Laravel + Filament, lengkap dengan skema database, alur kalkulasi, dan roadmap pengembangan bertahap (milestone).
+**Tujuan dokumen:** Menjadi spesifikasi dan catatan implementasi sistem akuntansi Laravel + Filament yang mempertahankan struktur, nama sheet, dan logika workbook Excel, sekaligus mendokumentasikan penyempurnaan yang sudah diterapkan.
+
+> **Status implementasi (16 September 2026):** Milestone utama 1–7 sudah diimplementasikan dan divalidasi. Alur invoice berbayar → mutasi stok → Jurnal Umum → Neraca Saldo → Laba Rugi/Neraca/Arus Kas → health check → Tutup Periode sudah berhasil diuji lintas periode. Seluruh data simulasi September dan Oktober 2026 telah dihapus; periode historis yang tersisa adalah Agustus 2026.
+
+### Istilah resmi dan nama menu
+
+Nama berikut mengikuti sheet Excel dan dipakai sebagai istilah pengguna di aplikasi:
+
+| Sheet Excel | Menu/fitur Filament |
+|---|---|
+| Dashboard | Dashboard |
+| Penyusutan Peralatan | Penyusutan Peralatan |
+| Daftar Akun | Daftar Akun |
+| Jurnal Umum | Jurnal Umum |
+| Buku Besar | Buku Besar |
+| Neraca Saldo | Neraca Saldo |
+| Laba Rugi | Tab Laba Rugi pada Financial Report |
+| Neraca | Tab Neraca pada Financial Report |
+| Arus Kas | Tab Arus Kas pada Financial Report |
+| Data Bulanan | Monthly Summary/tren pada Dashboard |
+
+Seluruh menu akuntansi berada langsung dalam satu grup navigasi **Accounting & Finances**. **Financial Report** adalah halaman terpadu dengan tiga tab: **Laba Rugi**, **Neraca**, dan **Arus Kas**. Menu Arus Kas standalone dan Report Templates tidak ditampilkan di navigasi karena fungsinya sudah tercakup atau bersifat konfigurasi internal.
 
 ---
 
 ## 1. Ringkasan Sistem Sumber
 
-Workbook terdiri dari 10 sheet yang saling terhubung lewat rumus. Ini pada dasarnya adalah **mesin akuntansi double-entry manual** dengan metode persediaan periodik (physical/periodic inventory). Urutan ketergantungan datanya seperti ini:
+Workbook terdiri dari 10 sheet yang saling terhubung lewat rumus. Implementasi aplikasi mempertahankan model **double-entry** dengan metode persediaan periodik (*physical/periodic inventory*). Urutan ketergantungan datanya seperti ini:
 
 ```mermaid
 flowchart TD
@@ -19,7 +40,7 @@ flowchart TD
     LR --> NR
     JU --> AK[Arus Kas\n(Direct Method Cash Flow)]
     NS --> AK
-    PP[Penyusutan Peralatan\n(Depreciation Schedule)] -.manual posting.-> JU
+    PP[Penyusutan Peralatan\n(Depreciation Schedule)] --> JU
     LR --> DB[Dashboard]
     NS --> DB
     NR --> DB
@@ -30,11 +51,11 @@ flowchart TD
 **Poin penting arsitektur sumber:**
 1. **Jurnal Umum adalah satu-satunya sumber transaksi.** Semua laporan lain (Buku Besar, Neraca Saldo, Laba Rugi, Neraca, Arus Kas) adalah hasil turunan (derived/computed), bukan input manual.
 2. **Neraca Saldo dihitung ulang penuh dari Jurnal Umum** tiap kali dibuka (`SUMIFS` per kode akun), tidak disimpan sebagai snapshot.
-3. **Penyusutan Peralatan adalah worksheet bantu**, hasilnya di-posting **manual** sebagai satu baris jurnal di akhir bulan (debit *Beban Penyusutan*, kredit *Akumulasi Penyusutan*) — lihat detail di §9.
+3. **Penyusutan Peralatan adalah modul perhitungan dan posting jurnal.** `DepreciationService` menghitung penyusutan garis lurus, melindungi dari posting ganda, dan mendukung *catch-up depreciation*; hasil posting masuk ke Jurnal Umum sebagai debit *Beban Penyusutan* dan kredit *Akumulasi Penyusutan* — lihat detail di §10.
 4. **Persediaan akhir (stock opname) adalah input manual per periode**, bukan hasil hitung otomatis dari jurnal — ini adalah karakteristik metode persediaan periodik.
 5. Ada 3 formula validasi bawaan (balance check) yang harus direplikasi sebagai *system health check*: keseimbangan Neraca Saldo, keseimbangan Neraca, dan kecocokan saldo kas Arus Kas vs Neraca Saldo.
 
-Di Laravel/Filament, prinsip yang sama dipertahankan: **jangan simpan angka laporan**, cukup simpan transaksi (Jurnal Umum), lalu semua laporan dihitung on-the-fly via query (dengan caching read-model opsional untuk performa di periode yang sudah *closed*).
+Di Laravel/Filament, prinsip yang sama dipertahankan: **jangan simpan angka laporan sebagai sumber kebenaran**. Transaksi disimpan di Jurnal Umum, lalu laporan dihitung melalui service. `monthly_summaries` hanya merupakan read-model untuk periode yang sudah ditutup dan tidak menggantikan jurnal.
 
 ---
 
@@ -52,12 +73,10 @@ erDiagram
 
     ACCOUNTS {
         bigint id PK
-        string code UK "1101, 4101, dst"
-        string name
-        string category "Aktiva Lancar, Beban Operasional, dst"
-        enum normal_balance "debit|credit"
-        boolean is_contra "true utk akun kontra"
-        boolean is_active
+        string kode_akun UK "1101, 4101, dst"
+        string nama_akun
+        string kategori "Aktiva Lancar, Beban Operasional, dst"
+        string saldo_normal "Debit|Kredit"
     }
 
     ACCOUNTING_PERIODS {
@@ -73,22 +92,20 @@ erDiagram
 
     JOURNAL_ENTRIES {
         bigint id PK
-        bigint accounting_period_id FK
-        date entry_date
-        string reference_no "No. Bukti (nullable)"
-        string description "Keterangan"
-        string source_type "manual|depreciation|closing|system"
-        bigint created_by FK
-        timestamp posted_at
+        date tanggal
+        string no_bukti "No. Bukti"
+        string keterangan
+        bigint reference_id FK "opsional, sumber transaksi"
+        string source_type "MANUAL|INVOICE|DEPRECIATION|CLOSING|STOCK_ADJUSTMENT"
     }
 
     JOURNAL_ENTRY_LINES {
         bigint id PK
-        bigint journal_entry_id FK
-        bigint account_id FK
+        bigint journal_id FK
+        bigint coa_id FK
+        string kode_coa
         decimal debit "default 0"
-        decimal credit "default 0"
-        smallint line_no
+        decimal kredit "default 0"
     }
 
     FIXED_ASSETS {
@@ -106,7 +123,7 @@ erDiagram
     FIXED_ASSET_DEPRECIATIONS {
         bigint id PK
         bigint fixed_asset_id FK
-        bigint accounting_period_id FK
+
         decimal monthly_depreciation
         decimal accumulated_depreciation
         decimal net_book_value
@@ -116,9 +133,10 @@ erDiagram
 
 **Catatan desain penting (perbaikan dari kelemahan versi Excel):**
 
-- **`journal_entry_lines.journal_entry_id`** menggantikan trik pencocokan "lawan akun" via `INDEX/MATCH` berdasarkan tanggal+keterangan yang sama (rapuh jika ada 2 transaksi beda akun tapi kebetulan tanggal & keterangan identik). Di Laravel, "akun lawan" untuk satu baris tinggal `->journalEntry->lines->where('id','!=',$this->id)`.
-- Field `is_contra` pada tabel `accounts` menggantikan logika hardcode tanda plus/minus yang tersebar di rumus Excel (`=-(...)`) — dijelaskan lebih lanjut di §6–7.
-- Rentang baris hardcode Excel (`$F$6:$F$909` vs `$F$6:$F$2564` — beberapa formula Arus Kas di file sumber tidak konsisten rentangnya, kemungkinan bug peninggalan saat sheet diperluas) **tidak relevan lagi** karena query Laravel selalu `WHERE accounting_period_id = ?`, otomatis mencakup semua baris tanpa batas row.
+- **`journal_id`** menggantikan trik pencocokan "akun lawan" via `INDEX/MATCH` berdasarkan tanggal+keterangan yang sama. Relasi item jurnal menjadi sumber hubungan transaksi yang eksplisit.
+- Kategori akun memakai kategori Excel secara langsung: `Aktiva Lancar`, `Aktiva Tetap`, `Aktiva Tetap (Kontra)`, `Kewajiban Lancar`, `Modal`, `Modal (Kontra)`, `Pendapatan`, `Pendapatan (Kontra)`, `Pendapatan Lain-Lain`, `Beban Pokok Penjualan`, `Beban Pokok Penjualan (Kontra)`, dan `Beban Operasional`.
+- Saldo kontra tidak disimpan sebagai flag terpisah; arah saldo ditentukan oleh `saldo_normal` dan kategori kontra saat laporan Neraca/Laba Rugi dihitung.
+- Rentang baris hardcode Excel (`$F$6:$F$909` vs `$F$6:$F$2564`) **tidak relevan lagi**. Aplikasi memfilter Jurnal Umum berdasarkan tanggal `AccountingPeriod`, sehingga semua baris periode ikut dihitung tanpa batas baris Excel.
 
 ---
 
@@ -163,14 +181,14 @@ Seeder awal berdasarkan COA yang ada di file sumber:
 | 6109 | Beban Akomodasi | Beban Operasional | Debit | |
 | 6110 | Beban Pesangon | Beban Operasional | Debit | |
 
-**Filament Resource:** `AccountResource` — CRUD sederhana, kolom `code` unik, `category` sebagai select dari daftar kategori tetap (atau tabel `account_categories` terpisah jika ingin lebih fleksibel), `normal_balance` sebagai radio/select `debit`/`credit`.
+**Filament Resource:** `ChartOfAccountResource` — ditampilkan sebagai menu **Daftar Akun**, dengan `kode_akun` unik, `kategori` mengikuti kategori Excel, dan `saldo_normal` Debit/Kredit.
 
 ---
 
 ## 4. Modul 2 — Transaksi: Jurnal Umum (General Journal)
 
 ### 4.1 Struktur asli vs struktur baru
-Di Excel, satu transaksi = 2 baris terpisah (baris debit & baris kredit) yang dihubungkan lewat kesamaan tanggal + keterangan. Di Laravel, satu transaksi = **1 record `journal_entries`** dengan **N baris `journal_entry_lines`** (minimal 2 baris, mendukung *compound entry* / jurnal majemuk jika suatu saat dibutuhkan).
+Di Excel, satu transaksi = 2 baris terpisah (baris debit & baris kredit) yang dihubungkan lewat kesamaan tanggal + keterangan. Di aplikasi, satu transaksi = **1 record `bl_general_journals_t`** (`GeneralJournal`) dengan **N baris `bl_journal_items_t`** (`JournalItem`) (minimal 2 baris, mendukung jurnal majemuk).
 
 ### 4.2 Aturan validasi wajib (menggantikan kolom bantu Excel: `Urutan/Akun`, `Kunci Pencarian`, `Kode Akun Lawan`)
 Semua kolom bantu I, J, K, L di sheet Jurnal Umum sumber (`COUNTIF`, `INDEX/MATCH` berbasis tanggal+keterangan) **tidak perlu direplikasi**, karena relasi `journal_entry_id` sudah menyelesaikan masalah yang coba dipecahkan kolom-kolom itu. Yang perlu dijaga hanyalah:
@@ -178,9 +196,13 @@ Semua kolom bantu I, J, K, L di sheet Jurnal Umum sumber (`COUNTIF`, `INDEX/MATC
 - **Rule 1 — Balance check:** `SUM(lines.debit) === SUM(lines.credit)` untuk satu `journal_entry_id`. Wajib ditolak jika tidak sama (`0` toleransi, gunakan integer/cent-based decimal untuk hindari floating point error).
 - **Rule 2 — Setiap baris hanya boleh diisi salah satu:** `debit > 0 XOR credit > 0` (tidak boleh dua-duanya nol, tidak boleh dua-duanya terisi).
 - **Rule 3 — Minimal 2 baris per entry.**
-- **Rule 4 — Tanggal entry harus berada dalam rentang `accounting_period` yang sedang aktif** dan periode tersebut berstatus `open`.
+- **Rule 4 — Tanggal entry harus berada dalam rentang `AccountingPeriod` yang sedang aktif** dan periode tersebut berstatus `open`. Periode ditentukan dari tanggal jurnal, bukan foreign key periode pada setiap jurnal.
 
-### 4.3 Contoh Service (`JournalEntryService`)
+### 4.3 Implementasi aplikasi
+
+Jurnal manual memakai `GeneralJournalResource` dan validasi double-entry. Jurnal otomatis juga memakai tabel yang sama dengan `source_type` yang membedakan asal transaksi, antara lain `INVOICE`, `DEPRECIATION`, `CLOSING`, dan `STOCK_ADJUSTMENT`. Invoice berstatus `pending` yang berubah menjadi `paid` diproses oleh `InvoiceStatusService` dalam satu transaksi database: total invoice dihitung ulang, stok dikurangi, jurnal penjualan dibuat, lalu status diubah menjadi `paid`.
+
+Contoh service generik berikut tetap menjadi aturan desain:
 
 ```php
 class JournalEntryService
@@ -210,7 +232,7 @@ class JournalEntryService
 }
 ```
 
-**Filament Resource:** `JournalEntryResource` dengan `Repeater` untuk baris jurnal (mirroring pola "invoice line items"), plus live validation total debit = total kredit ditampilkan real-time di form (pakai `afterStateUpdated` pada Repeater untuk hitung ulang total).
+**Filament Resource:** `GeneralJournalResource` dengan `Repeater` untuk baris jurnal. Menu tampil sebagai **Jurnal Umum**.
 
 ---
 
@@ -261,7 +283,7 @@ public function getLedger(int $accountId, int $periodId): Collection
 > ORDER BY je.entry_date, je.id;
 > ```
 
-**Filament:** halaman custom (Filament Page, bukan Resource) dengan filter dropdown pilih akun + periode, tabel hasil `getLedger()`, saldo akhir ditampilkan di footer.
+**Filament:** `BukuBesar` adalah halaman custom dengan filter **Accounting Period**, bukan input tanggal mulai dan tanggal selesai manual. Saldo akhir ditampilkan di footer.
 
 ---
 
@@ -312,7 +334,7 @@ foreach (Account::all() as $account) {
 ### 6.3 Input manual: Persediaan Akhir (Stock Opname)
 Di file sumber, baris terakhir Neraca Saldo (`1104 - Persediaan Bunga (Akhir) - Memo, hasil stock opname`) **bukan hasil SUMIFS**, melainkan angka yang diketik manual tiap periode (hasil hitung fisik gudang). Ini **wajib** menjadi field input manual di level `accounting_periods.closing_inventory_value`, **bukan** dihitung dari jurnal. Field ini dipakai khusus untuk perhitungan HPP di §7.2 — nilai akun `1104` yang berasal dari saldo jurnal (SUMIFS biasa) tetap dipakai sebagai **Persediaan Awal**.
 
-**Filament:** field `closing_inventory_value` cukup diisi via form edit `AccountingPeriod` (atau widget khusus "Tutup Buku Bulan Ini" yang meminta nilai stock opname sebelum laporan Laba Rugi bisa difinalisasi).
+**Filament:** field `closing_inventory_value` diisi melalui form `AccountingPeriod`. Proses **Tutup Periode** menolak periode jika nilai stock opname belum diisi.
 
 **Validasi bawaan (replikasi cek Excel `B40`):**
 ```php
@@ -369,7 +391,7 @@ Schema::create('report_line_templates', function (Blueprint $table) {
 });
 ```
 
-Dengan pendekatan ini, `IncomeStatementService` cukup:
+Dengan pendekatan ini, aturan laporan dapat dikonfigurasi; implementasi laporan saat ini tetap berada di `AccountingService`:
 ```php
 public function generate(int $periodId): array
 {
@@ -395,7 +417,7 @@ public function generate(int $periodId): array
 
 Ini membuat penambahan akun baru di masa depan **tidak perlu deploy kode baru** — cukup tambah baris di `report_line_templates` lewat Filament (buat `ReportLineTemplateResource` khusus admin/akuntan senior).
 
-> Jika tim ingin mulai simpel dulu (MVP), boleh hardcode dulu sesuai tabel §7.1 langsung di `IncomeStatementService`, lalu refactor ke `report_line_templates` di Milestone 5 (lihat roadmap §14).
+> Implementasi saat ini menggunakan `AccountingService` sebagai service laporan utama. `ReportLineTemplateResource` tersedia sebagai konfigurasi internal dan tidak ditampilkan sebagai menu operasional.
 
 ---
 
@@ -409,24 +431,19 @@ Ini membuat penambahan akun baru di masa depan **tidak perlu deploy kode baru** 
 
 **TOTAL AKTIVA** = Total Aktiva Lancar + Total Aktiva Tetap
 
-**KEWAJIBAN:** Hutang Dagang (2101) → **Total Kewajiban**
-*(catatan: akun 1112 "Uang Muka Pembelian Tanah" & 2102 "Uang Muka Penjualan" ada di COA tapi tidak muncul di baris Neraca sheet sumber — lihat temuan §12)*
+**KEWAJIBAN:** seluruh akun kategori **Kewajiban Lancar**, termasuk Hutang Dagang (2101) dan Uang Muka Penjualan (2102) → **Total Kewajiban**.
 
 **MODAL:**
-- Modal Pemilik Awal (3101, saldo dari jurnal)
-- **+** Laba Bersih Periode Berjalan (diambil langsung dari hasil Laba Rugi §7, bukan dihitung ulang)
-- **–** Prive (3102, kontra)
-- = **Total Modal (Akhir)**
+- seluruh akun kategori **Modal** dan **Modal (Kontra)**;
+- **+** laba ditahan/laba-rugi kumulatif sampai tanggal laporan;
+- akun kontra seperti Prive (3102) mengurangi modal.
 
 **TOTAL KEWAJIBAN + MODAL** = Total Kewajiban + Total Modal — **harus sama dengan Total Aktiva** (balance check).
 
-### 8.2 Penting: Neraca *ekuitas periode berjalan* penting untuk konteks multi-bulan
-Karena setiap bulan adalah satu `accounting_period` terpisah, `Modal Pemilik (Awal)` bulan berjalan **secara akuntansi seharusnya** = saldo modal akhir bulan sebelumnya (setelah laba bersih & prive ditutup/di-roll-forward). Workbook sumber hanya mencakup 1 bulan sehingga tidak terlihat mekanisme roll-forward-nya secara eksplisit. **Di Laravel, ini wajib didesain secara sadar** — dua opsi:
+### 8.2 Implementasi multi-periode dan tutup buku
+Setiap bulan direpresentasikan sebagai `AccountingPeriod`. Laporan menggunakan saldo jurnal sampai tanggal akhir periode, lalu menambahkan laba-rugi kumulatif sebagai laba ditahan. `closing_inventory_value` menggantikan saldo akun persediaan akhir untuk tujuan Laba Rugi dan Neraca. Saat **Tutup Periode**, `PeriodClosingService` wajib meloloskan tiga pemeriksaan: Neraca Saldo, Neraca, dan Arus Kas. Setelah berhasil, periode menjadi `closed` dan tidak dapat menerima jurnal baru.
 
-- **Opsi A (disarankan, replikasi metode workbook):** Modal Pemilik tetap dihitung dari saldo jurnal akun 3101 murni (asumsi tiap bulan ada jurnal "tutup buku" yang memindahkan laba bersih bulan lalu ke Modal Pemilik). Sistem harus punya fitur **"Tutup Periode"** yang otomatis membuat jurnal penutup: debit/kredit Laba Rugi periode berjalan ke akun 3101, dan reset akun-akun nominal (4xxx, 5xxx, 6xxx) — persis seperti siklus akuntansi manual, closing entries.
-- **Opsi B (lebih sederhana untuk MVP):** `Modal Pemilik (Awal)` = saldo modal akhir dari periode sebelumnya (`accounting_periods` terurut), dihitung terus menerus (running), tanpa jurnal penutup eksplisit. Laba bersih tiap bulan otomatis "menempel" sebagai penambah modal berjalan.
-
-> **Rekomendasi:** mulai dengan **Opsi B** untuk MVP (lebih simpel, tidak perlu logic jurnal penutup), lalu evaluasi Opsi A jika user butuh audit trail siklus akuntansi formal (closing entries) di kemudian hari.
+`ClosingEntryService` tersedia untuk kebutuhan jurnal penutup formal, tetapi bukan langkah otomatis dari `PeriodClosingService`. Dengan demikian, penutupan periode operasional tidak mengubah histori jurnal dan tetap dapat diaudit.
 
 ---
 
@@ -473,20 +490,22 @@ Artinya: **cari semua baris jurnal yang salah satu sisinya adalah Kas/Bank, dan 
 **Kenaikan (Penurunan) Kas Bersih** = Total Operasi + Total Investasi + Total Pendanaan
 **Saldo Kas Akhir** = Saldo Kas Awal Periode + Kenaikan Bersih
 
-### 9.3 Terjemahan ke Eloquent
+### 9.3 Implementasi aplikasi
 
-Karena Laravel punya `journal_entry_id` sebagai relasi asli (tidak perlu trik pencocokan tanggal+keterangan), query "akun lawan" jadi jauh lebih sederhana:
+Karena aplikasi memiliki `journal_id` sebagai relasi asli (tidak perlu trik pencocokan tanggal+keterangan), query "akun lawan" menjadi jauh lebih sederhana. `CashFlowService` menggunakan akun kas `1101`, `1102`, dan `1010` untuk kompatibilitas dengan COA lama, lalu memfilter tanggal jurnal berdasarkan `AccountingPeriod`.
 
 ```php
-public function cashFlowLine(array $counterAccountCodes, int $periodId): float
+public function cashFlowLine(AccountingPeriod $period, array $patterns): float
 {
-    // Ambil semua journal_entry_line yang akunnya Kas(1101)/Bank(1102)
+    // Ambil semua journal item yang akunnya Kas(1101)/Bank(1102)
     // DAN dalam journal_entry yang sama ada baris lain dgn kode akun sesuai pattern target.
     $kasBankIds = Account::whereIn('code', ['1101', '1102'])->pluck('id');
 
     $lines = JournalEntryLine::query()
         ->whereIn('account_id', $kasBankIds)
-        ->whereHas('journalEntry', fn ($q) => $q->where('accounting_period_id', $periodId))
+        ->whereHas('journal', fn ($q) => $q
+            ->whereDate('tanggal', '>=', $period->start_date)
+            ->whereDate('tanggal', '<=', $period->end_date))
         ->whereHas('journalEntry.lines.account', function ($q) use ($counterAccountCodes) {
             $q->where(function ($qq) use ($counterAccountCodes) {
                 foreach ($counterAccountCodes as $pattern) {
@@ -514,7 +533,7 @@ public function cashFlowLine(array $counterAccountCodes, int $periodId): float
 ### 9.4 Validasi bawaan (replikasi cek Excel `C36`)
 ```php
 $endingCash = $operatingTotal + $investingTotal + $financingTotal + $openingCash;
-$tbCash = $trialBalance['1101']->debit + $trialBalance['1102']->debit; // saldo Kas+Bank dari Neraca Saldo
+$tbCash = $cashBalanceAtPeriodEnd; // saldo Kas+Bank dari jurnal sampai akhir periode
 if (round($endingCash - $tbCash) !== 0) {
     // flag: "Arus Kas tidak cocok dengan saldo Kas+Bank di Neraca Saldo — cek jurnal"
 }
@@ -583,7 +602,7 @@ public function postMonthlyDepreciation(AccountingPeriod $period): JournalEntry
 
 Dengan formula `amountToPost = akumulasi_periode_ini − akumulasi_periode_lalu`, sistem **otomatis benar** baik untuk kondisi catch-up pertama kali (akumulasi_periode_lalu = 0) maupun kondisi normal bulan-bulan berikutnya (selisihnya otomatis jadi penyusutan bulan berjalan saja, ≈ jumlah `monthly` semua aset).
 
-**Filament:** `FixedAssetResource` untuk CRUD aset (nama, tanggal beli, harga perolehan, umur ekonomis), + tombol aksi "Posting Penyusutan Bulan Ini" di halaman `AccountingPeriod` yang memanggil `postMonthlyDepreciation()` — tampilkan preview jumlah sebelum konfirmasi posting (mencegah dobel posting; validasi: tolak jika periode ini sudah pernah ada jurnal `source_type = 'depreciation'`).
+**Filament:** `FixedAssetResource` ditampilkan dengan nama menu **Penyusutan Peralatan**. Resource ini mengelola aset, sedangkan `DepreciationService` menghitung dan mem-posting penyusutan ke Jurnal Umum. Posting ganda untuk periode yang sama ditolak.
 
 ---
 
@@ -591,8 +610,8 @@ Dengan formula `amountToPost = akumulasi_periode_ini − akumulasi_periode_lalu`
 
 Kedua sheet ini murni agregasi baca-saja (read-only rollup), tidak ada logika baru:
 
-- **Dashboard**: 4 KPI card (Total Penjualan, Total Beban, Laba Bersih, Kas & Bank) + ringkasan Laba Rugi + ringkasan Neraca → semua tinggal panggil `IncomeStatementService`, `BalanceSheetService`, `TrialBalanceService` untuk periode aktif.
-- **Data Bulanan**: satu baris per bulan (Penjualan Bersih, HPP, Laba Kotor, Beban Operasional, Laba Bersih, Kas & Bank Akhir) → untuk grafik tren. Karena tiap bulan = 1 `accounting_period`, ini tinggal loop semua periode yang `status = closed` dan panggil service yang sama, lalu simpan hasilnya di cache/tabel ringkasan (`monthly_summaries`) supaya grafik tidak perlu hitung ulang tiap load (terutama kalau periode sudah closed = datanya immutable).
+- **Dashboard**: KPI dan grafik memanggil service laporan; tren membaca `monthly_summaries` untuk periode tertutup dan menghitung langsung dari laporan bila periode masih terbuka.
+- **Data Bulanan**: satu baris per periode tertutup (Penjualan Bersih, HPP, Laba Kotor, Beban Operasional, Laba Bersih, Kas & Bank Akhir). Ringkasan dibuat langsung oleh `PeriodClosingService` ketika periode berhasil ditutup.
 
 ```php
 Schema::create('monthly_summaries', function (Blueprint $table) {
@@ -607,9 +626,9 @@ Schema::create('monthly_summaries', function (Blueprint $table) {
     $table->timestamp('generated_at');
 });
 ```
-Diisi otomatis via event listener saat periode di-*close* (`AccountingPeriodClosed` event → `GenerateMonthlySummary` listener).
+Diisi otomatis di dalam transaksi `PeriodClosingService::close()`, sehingga periode tidak dapat berstatus `closed` tanpa ringkasan bulanan yang sesuai.
 
-**Filament:** Dashboard page bawaan Filament dengan `Widget` kartu KPI (`StatsOverviewWidget`) + `ChartWidget` (line chart) yang query dari `monthly_summaries`.
+**Filament:** Dashboard memakai widget KPI dan `MonthlyTrendChartWidget`. Halaman utama laporan memakai `FinancialReports` dengan tab Laba Rugi, Neraca, dan Arus Kas.
 
 ---
 
@@ -632,41 +651,35 @@ Poin-poin ini **wajib** diperhatikan saat migrasi supaya sistem baru tidak mewar
 ```
 app/
   Models/
-    Account.php
+    ChartOfAccount.php
     AccountingPeriod.php
-    JournalEntry.php
-    JournalEntryLine.php
+    GeneralJournal.php
+    JournalItem.php
     FixedAsset.php
     FixedAssetDepreciation.php
     ReportLineTemplate.php
     MonthlySummary.php
   Services/
-    Accounting/
-      JournalEntryService.php
-      TrialBalanceService.php
-      GeneralLedgerService.php
-      IncomeStatementService.php
-      BalanceSheetService.php
-      CashFlowService.php
-      DepreciationService.php
-      PeriodClosingService.php
-      FinancialHealthCheckService.php   // 3 validasi balance check §6.3, §8, §9.4
+    AccountingService.php                // Laba Rugi, Neraca, Buku Besar
+    TrialBalanceService.php
+    CashFlowService.php
+    DepreciationService.php
+    InvoiceStatusService.php             // status invoice, stok, jurnal penjualan
+    PeriodClosingService.php
+    FinancialHealthCheckService.php      // 3 validasi balance check
   Filament/
     Resources/
-      AccountResource.php
-      JournalEntryResource.php
+      ChartOfAccountResource.php         // menu Daftar Akun
+      GeneralJournalResource.php         // menu Jurnal Umum
       FixedAssetResource.php
       AccountingPeriodResource.php
       ReportLineTemplateResource.php     // opsional, milestone lanjutan
     Pages/
-      GeneralLedgerPage.php
-      TrialBalancePage.php
-      IncomeStatementPage.php
-      BalanceSheetPage.php
-      CashFlowPage.php
-      Dashboard.php (override widget)
+      BukuBesar.php
+      NeracaSaldo.php
+      FinancialReports.php               // Laba Rugi, Neraca, Arus Kas
+      ArusKas.php                        // tersedia, navigasi disembunyikan
     Widgets/
-      FinancialKpiWidget.php
       MonthlyTrendChartWidget.php
   Events/
     AccountingPeriodClosed.php
@@ -680,58 +693,58 @@ app/
 
 > Prinsip: setiap milestone menghasilkan fitur yang **bisa dipakai/diuji secara mandiri**, urut berdasarkan ketergantungan data (sesuai diagram §1).
 
-### Milestone 1 — Fondasi & Master Data
+### Milestone 1 — Fondasi & Master Data — SELESAI
 - Migrasi tabel: `accounts`, `accounting_periods`.
 - Seeder Chart of Accounts (tabel §3), dengan koreksi temuan §12 (poin 2, 3).
-- `AccountResource` & `AccountingPeriodResource` di Filament (CRUD + status open/closed).
+- `ChartOfAccountResource` (menu Daftar Akun) & `AccountingPeriodResource` di Filament (CRUD + status open/closed).
 - **Definition of done:** admin bisa kelola daftar akun dan buka/tutup periode akuntansi.
 
-### Milestone 2 — Jurnal Umum & Validasi Double-Entry
+### Milestone 2 — Jurnal Umum & Validasi Double-Entry — SELESAI
 - Migrasi `journal_entries`, `journal_entry_lines`.
-- `JournalEntryService` dengan validasi balance (§4.2).
-- `JournalEntryResource` dengan Repeater form + live balance indicator.
+- `GeneralJournalResource` dengan validasi balance (§4.2).
+- `InvoiceStatusService` untuk transaksi invoice otomatis (stok + jurnal).
 - Unit test: entry tidak seimbang harus ditolak; entry di periode `closed` harus ditolak.
 - **Definition of done:** user bisa input transaksi harian secara double-entry, sistem menolak entry yang timpang.
 
-### Milestone 3 — Buku Besar & Neraca Saldo
+### Milestone 3 — Buku Besar & Neraca Saldo — SELESAI
 - `TrialBalanceService`, `GeneralLedgerService` (§5, §6).
-- Halaman Filament: `TrialBalancePage`, `GeneralLedgerPage` (filter akun & periode).
+- Halaman Filament: `NeracaSaldo` dan `BukuBesar` (Buku Besar memakai filter Accounting Period).
 - `FinancialHealthCheckService` — cek keseimbangan Neraca Saldo (§6.3).
 - **Definition of done:** dari sekian jurnal yang diinput, sistem bisa menampilkan buku besar per akun dan neraca saldo yang otomatis balance.
 
-### Milestone 4 — Laporan Laba Rugi & Neraca
-- `IncomeStatementService` (mulai hardcode sesuai §7.1, sesuai catatan MVP).
+### Milestone 4 — Laporan Laba Rugi & Neraca — SELESAI
+- `AccountingService::getIncomeStatement()` dengan HPP periodik dan stock opname.
 - Field `closing_inventory_value` di `AccountingPeriod` + validasi wajib diisi sebelum tutup periode.
-- `BalanceSheetService` (§8) + keputusan Opsi A/B untuk roll-forward modal (disarankan mulai Opsi B).
+- `AccountingService::getBalanceSheet()` dengan grouping kategori Excel dan laba ditahan.
 - Halaman `IncomeStatementPage`, `BalanceSheetPage` + cek keseimbangan Neraca (§8, balance check).
 - **Definition of done:** Laba Rugi dan Neraca bulan berjalan bisa digenerate otomatis dan seimbang (Aktiva = Kewajiban + Modal).
 
-### Milestone 5 — Aset Tetap & Penyusutan
+### Milestone 5 — Aset Tetap & Penyusutan — SELESAI
 - Migrasi `fixed_assets`, `fixed_asset_depreciations`.
 - `DepreciationService` + `postMonthlyDepreciation()` dengan aturan catch-up (§10.3) — **ini krusial, jangan lewatkan logic selisih akumulasi**.
 - `FixedAssetResource` + aksi "Posting Penyusutan Bulan Ini" di halaman periode.
 - **Definition of done:** input daftar aset tetap sekali, sistem otomatis hitung & posting jurnal penyusutan tiap bulan dengan jumlah yang benar (bukan dobel-hitung akumulasi).
 
-### Milestone 6 — Laporan Arus Kas
+### Milestone 6 — Laporan Arus Kas — SELESAI
 - `CashFlowService` dengan logic pengelompokan akun lawan + wildcard (§9.1–§9.3).
-- Halaman `CashFlowPage` (3 seksi: Operasi/Investasi/Pendanaan).
+- Tab Arus Kas pada `FinancialReports` (3 seksi: Operasi/Investasi/Pendanaan).
 - Tambahkan cek kecocokan saldo kas (§9.4) ke `FinancialHealthCheckService`.
 - **Definition of done:** Arus Kas metode langsung ter-generate dan saldo akhirnya cocok dengan saldo Kas+Bank di Neraca Saldo.
 
-### Milestone 7 — Dashboard, Rekap Bulanan & Multi-Periode
+### Milestone 7 — Dashboard, Rekap Bulanan & Multi-Periode — SELESAI
 - Migrasi `monthly_summaries` + event `AccountingPeriodClosed` → listener generate rekap.
 - `FinancialKpiWidget`, `MonthlyTrendChartWidget` di Filament Dashboard.
 - Fitur "Tutup Periode" resmi: validasi semua health check §6.3/§8/§9.4 harus lolos + stock opname terisi, baru periode boleh dikunci (`status = closed`, tidak bisa diedit lagi).
 - **Definition of done:** dashboard menampilkan tren multi-bulan, dan data periode yang sudah ditutup terkunci dari perubahan.
 
 ### Milestone 8 (Lanjutan/Opsional) — Report Line Template Engine
-- Migrasi `report_line_templates`, refactor `IncomeStatementService`/`BalanceSheetService` dari hardcode (§7.1) ke data-driven (§7.2), sekaligus menyelesaikan temuan §12 poin 4 (Neraca otomatis mencakup akun baru).
-- `ReportLineTemplateResource` (khusus role akuntan/admin).
-- **Definition of done:** menambah akun baru di COA otomatis muncul di laporan yang relevan tanpa deploy kode baru.
+- `ReportLineTemplateResource` tersedia untuk konfigurasi internal; refactor penuh ke data-driven tetap opsional karena aturan periodik saat ini ditangani `AccountingService`.
+- `ReportLineTemplateResource` tersedia sebagai konfigurasi internal dan disembunyikan dari navigasi operasional.
+- **Status:** engine template sudah tersedia untuk konfigurasi baris laporan; pengembangan lanjutan hanya diperlukan bila seluruh perhitungan laporan akan dipindahkan dari aturan periodik di `AccountingService` ke konfigurasi data-driven.
 
-### Milestone 9 (Lanjutan/Opsional) — Audit Trail & Jurnal Penutup Formal
-- Jika bisnis butuh siklus akuntansi formal (Opsi A di §8.2): jurnal penutup otomatis, reset akun nominal per tahun buku.
-- Log audit (siapa input/edit/hapus jurnal, kapan) — penting karena ini data keuangan.
+### Milestone 9 (Lanjutan/Opsional) — Audit Trail & Jurnal Penutup Formal — SEBAGIAN SELESAI
+- Audit trail sudah tersedia untuk aktivitas akuntansi.
+- `ClosingEntryService` sudah tersedia untuk jurnal penutup formal jika dibutuhkan; proses Tutup Periode operasional tetap memakai health check tanpa otomatis membuat jurnal penutup.
 
 ---
 
@@ -740,9 +753,9 @@ app/
 | Sheet & Sel (contoh) | Formula Excel | Logic Laravel Pengganti |
 |---|---|---|
 | Neraca Saldo `C6` | `MAX(0,SUMIFS(F,D,kode)-SUMIFS(G,D,kode))` | `TrialBalanceService::trialBalanceRow()` §6.2 |
-| Laba Rugi `C8` | `=C6+C7` (Penjualan+Retur) | `report_line_templates` subtotal, atau hardcode §7.1 |
-| Laba Rugi `C18` | Barang Tersedia Dijual + Persediaan Akhir(–) | `IncomeStatementService::calculateCogs()` §7.1–7.2 |
-| Neraca `C20` | `=-('Neraca Saldo'!C10+D10)` | `sign = -1` pada akun kontra 1106 §7.2/§8.1 |
+| Laba Rugi `C8` | `=C6+C7` (Penjualan+Retur) | aturan periodik di `AccountingService::getIncomeStatement()` |
+| Laba Rugi `C18` | Barang Tersedia Dijual + Persediaan Akhir(–) | perhitungan HPP di `AccountingService::getIncomeStatement()` |
+| Neraca `C20` | `=-('Neraca Saldo'!C10+D10)` | kategori kontra dikurangi di `AccountingService::getBalanceSheet()` |
 | Neraca `B38` | `IF(ROUND(C23-C35,0)=0,...)` | `FinancialHealthCheckService::checkBalanceSheet()` |
 | Arus Kas `D6` | `SUMIFS` 4x dgn Kode Akun Lawan | `CashFlowService::cashFlowLine()` §9.3 |
 | Arus Kas `A9` = `"51*"` | wildcard SUMIFS | `LIKE 'REPLACE(*,%)'` pada query §9.3 |
@@ -753,4 +766,6 @@ app/
 
 ---
 
-**Ringkasan alur kerja pengembangan:** ikuti Milestone 1 → 7 secara berurutan untuk mendapatkan sistem Financial Report yang fungsional penuh (setara kemampuan workbook Excel sumber), lalu Milestone 8–9 adalah peningkatan kualitas/skalabilitas jangka panjang. Setiap service (`TrialBalanceService`, `IncomeStatementService`, dst.) didesain independen dan hanya bergantung pada `JournalEntryLine` sebagai satu-satunya sumber data mentah — konsisten dengan prinsip sumber (§1) bahwa **jurnal adalah kebenaran tunggal (single source of truth)**, semua laporan lain adalah proyeksi/turunan darinya.
+**Ringkasan status:** sistem operasional setara workbook Excel sudah tersedia pada Milestone 1–7. Uji integrasi manual September dan Oktober berhasil membuktikan alur invoice, stok, jurnal, laporan, rekonsiliasi, dan tutup periode; seluruh data uji kemudian dibersihkan. Test suite saat ini berisi **19 test dengan 58 assertion** yang lulus.
+
+Setiap service (`TrialBalanceService`, `AccountingService`, `CashFlowService`, dan lainnya) tetap bergantung pada Jurnal Umum sebagai **single source of truth**. `MonthlySummary` hanya ringkasan periode tertutup, sedangkan `AccountingPeriod` menentukan batas tanggal, saldo awal kas, nilai persediaan akhir, dan status open/closed.
