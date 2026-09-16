@@ -517,21 +517,21 @@ class AccountingService
      */
     public function getIncomeStatement(Carbon $start, Carbon $end): array
     {
-        $pendapatan = $this->getAccountGroupTotals('Pendapatan', $start, $end);
-        $beban = $this->getAccountGroupTotals('Beban', $start, $end);
+        $pendapatan = $this->getAccountGroupTotals('Pendapatan', $start, $end, true);
+        $beban = $this->getAccountGroupTotals('Beban', $start, $end, true);
         $totalPendapatan = $pendapatan->sum('saldo');
         $totalBeban = $beban->sum('saldo');
 
-        $sales = $this->accountBalanceByCode('4101', $start, $end);
-        $salesReturns = $this->accountBalanceByCode('4102', $start, $end);
-        $interestIncome = $this->accountBalanceByCode('4103', $start, $end);
-        $otherIncome = $this->accountBalanceByCode('4104', $start, $end);
+        $sales = $this->accountBalanceByCode('4101', $start, $end, true);
+        $salesReturns = $this->accountBalanceByCode('4102', $start, $end, true);
+        $interestIncome = $this->accountBalanceByCode('4103', $start, $end, true);
+        $otherIncome = $this->accountBalanceByCode('4104', $start, $end, true);
         $hasPeriodicAccounts = ChartOfAccount::whereIn('kode_akun', ['4101', '4102', '5101', '5102', '5103', '1104'])->exists();
 
         $netSales = $hasPeriodicAccounts ? $sales - $salesReturns : $totalPendapatan;
-        $netPurchases = $this->accountBalanceByCode('5101', $start, $end)
-            - $this->accountBalanceByCode('5102', $start, $end);
-        $purchaseFreight = $this->accountBalanceByCode('5103', $start, $end);
+        $netPurchases = $this->accountBalanceByCode('5101', $start, $end, true)
+            - $this->accountBalanceByCode('5102', $start, $end, true);
+        $purchaseFreight = $this->accountBalanceByCode('5103', $start, $end, true);
         // Use the ledger balance of inventory up to the end date (Persediaan Buku).
         // This ensures any manual STK adjustments or initial capital journals placed mid-period
         // are properly absorbed into COGS, guaranteeing the Balance Sheet remains perfectly balanced.
@@ -543,8 +543,8 @@ class AccountingService
             : 0;
 
         $operatingExpenses = $hasPeriodicAccounts
-            ? $totalBeban - $this->accountBalanceByCode('5101', $start, $end)
-                + $this->accountBalanceByCode('5102', $start, $end)
+            ? $totalBeban - $this->accountBalanceByCode('5101', $start, $end, true)
+                + $this->accountBalanceByCode('5102', $start, $end, true)
                 - $purchaseFreight
             : $totalBeban;
         $grossProfit = $netSales - $cogs;
@@ -687,7 +687,7 @@ class AccountingService
         return $pendapatan->sum('saldo') - $beban->sum('saldo');
     }
 
-    private function accountBalanceByCode(string $code, Carbon $start, Carbon $end): float
+    private function accountBalanceByCode(string $code, ?Carbon $start, ?Carbon $end, bool $excludeClosing = false): float
     {
         $account = ChartOfAccount::where('kode_akun', $code)->first();
         if (!$account) {
@@ -695,9 +695,16 @@ class AccountingService
         }
 
         $totals = JournalItem::where('coa_id', $account->id)
-            ->whereHas('journal', function ($query) use ($start, $end) {
-                $query->whereDate('tanggal', '>=', $start->toDateString())
-                    ->whereDate('tanggal', '<=', $end->toDateString());
+            ->whereHas('journal', function ($query) use ($start, $end, $excludeClosing) {
+                if ($start) {
+                    $query->whereDate('tanggal', '>=', $start->toDateString());
+                }
+                if ($end) {
+                    $query->whereDate('tanggal', '<=', $end->toDateString());
+                }
+                if ($excludeClosing) {
+                    $query->where('source_type', '!=', 'CLOSING');
+                }
             })
             ->selectRaw('COALESCE(SUM(debit), 0) AS total_debit, COALESCE(SUM(kredit), 0) AS total_kredit')
             ->first();
@@ -736,7 +743,7 @@ class AccountingService
      * Get totals for all accounts in a category within a date range.
      * Each account's saldo is computed respecting its saldo_normal direction.
      */
-    private function getAccountGroupTotals(string $kategori, ?Carbon $start, ?Carbon $end): Collection
+    private function getAccountGroupTotals(string $kategori, ?Carbon $start, ?Carbon $end, bool $excludeClosing = false): Collection
     {
         $accounts = ChartOfAccount::query()
             ->when($kategori === 'Aset', fn ($query) => $query->where(function ($q) {
@@ -755,14 +762,17 @@ class AccountingService
             ->orderBy('kode_akun')
             ->get();
 
-        return $accounts->map(function ($account) use ($start, $end) {
+        return $accounts->map(function ($account) use ($start, $end, $excludeClosing) {
             $query = JournalItem::where('coa_id', $account->id)
-                ->whereHas('journal', function ($q) use ($start, $end) {
+                ->whereHas('journal', function ($q) use ($start, $end, $excludeClosing) {
                     if ($start) {
                         $q->where('tanggal', '>=', $start->toDateString());
                     }
                     if ($end) {
                         $q->where('tanggal', '<=', $end->toDateString());
+                    }
+                    if ($excludeClosing) {
+                        $q->where('source_type', '!=', 'CLOSING');
                     }
                 });
 
