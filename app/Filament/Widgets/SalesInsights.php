@@ -9,20 +9,12 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
+use Illuminate\Support\HtmlString;
 
 class SalesInsights extends BaseWidget
 {
-    public ?string $filter = 'month';
-    public ?string $startDate = null;
-    public ?string $endDate = null;
-
-    #[On('sales-chart-filter-updated')]
-    public function updateFilter($filter, $startDate = null, $endDate = null): void
-    {
-        $this->filter = $filter;
-        $this->startDate = $startDate;
-        $this->endDate = $endDate;
-    }
+    use \Filament\Widgets\Concerns\InteractsWithPageFilters;
+    use \App\Filament\Traits\ParsesGlobalFilters;
 
     protected static ?int $sort = 3;
     protected int|string|array $columnSpan = [
@@ -39,50 +31,23 @@ class SalesInsights extends BaseWidget
 
     protected function getStats(): array
     {
-        $start = null;
-        $end = null;
-        $label = '';
-        $emptyCustom = false;
+        [$start, $end, $preset] = $this->parseFilterDates();
+        $emptyCustom = ($preset === 'custom' && (!$start || !$end));
 
-        if ($this->filter === 'today') {
-            $start = Carbon::today()->startOfDay();
-            $end = Carbon::today()->endOfDay();
-            $label = 'Hari Ini';
-        } elseif ($this->filter === 'week') {
-            $start = Carbon::today()->subDays(6)->startOfDay();
-            $end = Carbon::today()->endOfDay();
-            $label = '7 Hari Terakhir';
-        } elseif ($this->filter === 'month') {
-            $start = Carbon::now()->startOfMonth();
-            $end = Carbon::now()->endOfMonth();
-            $label = 'Bulan Ini';
-        } elseif ($this->filter === 'prev_month') {
-            $start = Carbon::now()->subMonth()->startOfMonth();
-            $end = Carbon::now()->subMonth()->endOfMonth();
-            $label = 'Bulan Sebelumnya';
-        } elseif ($this->filter === 'year') {
-            $start = Carbon::now()->startOfYear();
-            $end = Carbon::now()->endOfYear();
-            $label = 'Tahun Ini';
-        } elseif ($this->filter === 'all') {
-            $start = null;
-            $end = null;
-            $label = 'Semua Waktu';
-        } elseif ($this->filter === 'custom') {
-            if ($this->startDate && $this->endDate) {
-                $start = Carbon::parse($this->startDate)->startOfDay();
-                $end = Carbon::parse($this->endDate)->endOfDay();
-                $label = Carbon::parse($this->startDate)->format('d M') . ' - ' . Carbon::parse($this->endDate)->format('d M');
-            } else {
-                $emptyCustom = true;
-                $label = 'Pilih Tanggal';
-            }
-        } else {
-            // Default to month
-            $start = Carbon::now()->startOfMonth();
-            $end = Carbon::now()->endOfMonth();
-            $label = 'Bulan Ini';
-        }
+        $label = match($preset) {
+            'yesterday' => 'Kemarin',
+            'last_7' => '7 Hari Terakhir',
+            'this_month' => 'Bulan Ini',
+            'previous_month' => 'Bulan Lalu',
+            'last_30' => '30 Hari Terakhir',
+            'last_90' => '3 Bulan Terakhir',
+            'last_180' => '6 Bulan Terakhir',
+            'ytd' => 'Tahun Ini',
+            'last_365' => '1 Tahun Terakhir',
+            'all' => 'Semua Waktu',
+            'custom' => $emptyCustom ? 'Pilih Tanggal' : ($start?->format('d M') . ' - ' . $end?->format('d M')),
+            default => 'Bulan Ini',
+        };
 
         // ── Base query ──────────────────────────────────────────────────
         $paidMonthInvoices = Invoice::where('status', 'paid');
@@ -152,29 +117,25 @@ class SalesInsights extends BaseWidget
             : 0;
 
         return [
-            Stat::make("AOV {$label}", 'Rp ' . number_format($aov, 0, ',', '.'))
+            Stat::make("AOV {$label}", new HtmlString('<span class="text-lg font-bold">Rp ' . number_format($aov, 0, ',', '.') . '</span>'))
                 ->description('Rata-rata nilai per order (paid)')
                 ->descriptionIcon('heroicon-m-calculator')
-                ->color('primary')
-                ->extraAttributes(['class' => 'fi-compact-stat']),
+                ->color('primary'),
 
-            Stat::make("Produk Terjual {$label}", number_format($totalQtySold, 0, ',', '.') . ' pcs')
+            Stat::make("Produk Terjual {$label}", new HtmlString('<span class="text-lg font-bold">' . number_format($totalQtySold, 0, ',', '.') . ' pcs</span>'))
                 ->description('Total qty dari invoice lunas')
                 ->descriptionIcon('heroicon-m-shopping-bag')
-                ->color('success')
-                ->extraAttributes(['class' => 'fi-compact-stat']),
+                ->color('success'),
 
-            Stat::make("Produk Terlaris {$label}", $topProductName)
+            Stat::make("Produk Terlaris {$label}", new HtmlString('<span class="text-lg font-bold">' . $topProductName . '</span>'))
                 ->description("{$topProductQty} pcs terjual")
                 ->descriptionIcon('heroicon-m-star')
-                ->color('warning')
-                ->extraAttributes(['class' => 'fi-compact-stat']),
+                ->color('warning'),
 
-            Stat::make('Invoice Paid', $paidPercent . '%')
+            Stat::make('Invoice Paid', new HtmlString('<span class="text-lg font-bold">' . $paidPercent . '%</span>'))
                 ->description("{$totalPaid} dari {$totalInvoices} invoice lunas")
                 ->descriptionIcon('heroicon-m-check-circle')
-                ->color('success')
-                ->extraAttributes(['class' => 'fi-compact-stat']),
+                ->color('success'),
         ];
     }
 }

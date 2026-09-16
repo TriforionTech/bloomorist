@@ -12,9 +12,14 @@ use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use App\Filament\Traits\ParsesGlobalFilters;
 
 class TopProducts extends ChartWidget
 {
+    use InteractsWithPageFilters;
+    use ParsesGlobalFilters;
+
     protected static ?int $sort = 4;
     protected ?string $heading = 'Top 10 Selling Products';
 
@@ -26,69 +31,10 @@ class TopProducts extends ChartWidget
 
     protected ?string $maxHeight = '340px';
 
-    public ?string $filter = 'month';
-    public ?string $startDate = null;
-    public ?string $endDate = null;
-
     public function getDescription(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         $html = "Berdasarkan total qty terjual dari invoice lunas";
-
-        if ($this->filter === 'custom') {
-            $html .= "
-                <div class='mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400'>
-                    <input type='date' wire:model.live='startDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
-                    <span class='text-gray-400 dark:text-gray-600'>-</span>
-                    <input type='date' wire:model.live='endDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
-                </div>
-            ";
-        }
-
         return new \Illuminate\Support\HtmlString($html);
-    }
-
-    // // ini kyknya gabisa > need review
-    // protected function getHeaderActions(): array
-    // {
-    //     return [
-    //         Action::make('viewReport')
-    //             ->label('View Full Report')
-    //             ->icon('heroicon-o-arrow-top-right-on-square')
-    //             ->color('gray')
-    //             ->size('sm')
-    //             ->url(fn (): string => ProductSalesReport::getUrl([
-    //                 'filter' => $this->filter,
-    //             ])),
-    //     ];
-    // }
-
-    protected function getFilters(): ?array
-    {
-        return [
-            'today'  => 'Today',
-            'week'   => 'Last 7 Days',
-            'month'  => 'This Month',
-            'prev_month' => 'Previous Month',
-            'year'   => 'This Year',
-            'all'    => 'All Time',
-            'custom' => 'Custom',
-        ];
-    }
-
-    private function getDateRange(): array
-    {
-        return match ($this->filter) {
-            'today' => [now()->startOfDay(), now()->endOfDay()],
-            'week'  => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
-            'month' => [now()->startOfMonth(), now()->endOfMonth()],
-            'prev_month' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-            'year'  => [now()->startOfYear(), now()->endOfYear()],
-            'custom' => $this->startDate && $this->endDate 
-                ? [\Carbon\Carbon::parse($this->startDate)->startOfDay(), \Carbon\Carbon::parse($this->endDate)->endOfDay()] 
-                : [now()->startOfDay(), now()->startOfDay()->subSecond()],
-            'all'   => [null, null],
-            default => [now()->startOfMonth(), now()->endOfMonth()],
-        };
     }
 
     protected function getData(): array
@@ -97,7 +43,7 @@ class TopProducts extends ChartWidget
         $invoiceItemTable = 'bl_invoice_items_t';
         $invoiceTable     = 'bl_invoices_t';
 
-        [$startDate, $endDate] = $this->getDateRange();
+        [$startDate, $endDate] = $this->parseFilterDates();
 
         $query = Product::query()
             ->select(

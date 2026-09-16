@@ -9,9 +9,14 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Filament\Support\RawJs;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use App\Filament\Traits\ParsesGlobalFilters;
 
 class SalesChart extends ChartWidget
 {
+    use InteractsWithPageFilters;
+    use ParsesGlobalFilters;
+
     protected static ?int $sort = 2;
     protected ?string $heading = 'Sales Chart';
     protected string $view = 'filament.widgets.sales-chart';
@@ -24,49 +29,6 @@ class SalesChart extends ChartWidget
     protected ?string $maxHeight = '500px';
     
     protected ?string $pollingInterval = null;
-
-    public ?string $filter = 'month';
-    public ?string $startDate = null;
-    public ?string $endDate = null;
-
-    public function updatedFilter()
-    {
-        $this->dispatchFilter();
-    }
-
-    public function updatedStartDate()
-    {
-        $this->dispatchFilter();
-    }
-
-    public function updatedEndDate()
-    {
-        $this->dispatchFilter();
-    }
-
-    private function dispatchFilter()
-    {
-        $this->dispatch('sales-chart-filter-updated', 
-            filter: $this->filter, 
-            startDate: $this->startDate, 
-            endDate: $this->endDate
-        );
-    }
-
-    protected function getFilters(): ?array
-    {
-        return [
-            'today'  => 'Today',
-            'week'   => 'Last 7 Days',
-            'month'  => 'This Month',
-            'prev_month' => 'Previous Month',
-            'year'   => 'This Year',
-            'all'    => 'Year by Year',
-            'custom' => 'Custom',
-        ];
-    }
-
-
 
     /**
      * Ringkasan Revenue + Order ditampilkan di atas chart via description.
@@ -94,16 +56,6 @@ class SalesChart extends ChartWidget
             </div>
         ";
 
-        if ($this->filter === 'custom') {
-            $html .= "
-                <div class='mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400'>
-                    <input type='date' wire:model.live='startDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
-                    <span class='text-gray-400 dark:text-gray-600'>-</span>
-                    <input type='date' wire:model.live='endDate' style='border:none; background:transparent; padding:0; box-shadow:none;' class='text-sm font-semibold text-primary-600 dark:text-primary-400 focus:ring-0 cursor-pointer'>
-                </div>
-            ";
-        }
-
         return new HtmlString($html);
     }
 
@@ -113,53 +65,16 @@ class SalesChart extends ChartWidget
         $data   = [];
 
         $baseQuery = Invoice::where('status', 'paid');
+        [$startDate, $endDate, $preset] = $this->parseFilterDates();
 
-        if ($this->filter === 'today') {
-            $results = (clone $baseQuery)
-                ->whereDate('created_at', Carbon::today())
-                ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('hour')
-                ->pluck('total', 'hour')
-                ->toArray();
+        \Illuminate\Support\Facades\Log::info("SalesChart getData called", [
+            'preset' => $preset,
+            'startDate' => $startDate ? $startDate->toDateString() : null,
+            'endDate' => $endDate ? $endDate->toDateString() : null,
+        ]);
 
-            for ($i = 8; $i <= 22; $i++) {
-                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
-                $data[]   = (float) ($results[$i] ?? 0);
-            }
-
-        } elseif ($this->filter === 'month' || $this->filter === 'prev_month') {
-            $now = Carbon::now();
-            $targetMonth = $this->filter === 'prev_month' ? $now->copy()->subMonth() : $now->copy();
-            
-            $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [$targetMonth->copy()->startOfMonth(), $targetMonth->copy()->endOfMonth()])
-                ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('date')
-                ->pluck('total', 'date')
-                ->toArray();
-
-            $daysInMonth = $targetMonth->daysInMonth;
-            for ($i = 1; $i <= $daysInMonth; $i++) {
-                $dateString = $targetMonth->copy()->setDay($i)->format('Y-m-d');
-                $labels[]   = $i;
-                $data[]     = (float) ($results[$dateString] ?? 0);
-            }
-
-        } elseif ($this->filter === 'year') {
-            $results = (clone $baseQuery)
-                ->whereYear('issued_date', Carbon::now()->year)
-                ->select(DB::raw('MONTH(issued_date) as month'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('month')
-                ->pluck('total', 'month')
-                ->toArray();
-
-            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-            foreach ($months as $index => $month) {
-                $labels[] = $month;
-                $data[]   = (float) ($results[$index + 1] ?? 0);
-            }
-
-        } elseif ($this->filter === 'all') {
+        // Ensure we always have a start and end date for chart plotting unless it's 'all'
+        if ($preset === 'all' || (!$startDate && !$endDate)) {
             $results = (clone $baseQuery)
                 ->select(
                     DB::raw('YEAR(issued_date) as year'),
@@ -174,41 +89,59 @@ class SalesChart extends ChartWidget
                 $labels[] = (string) $year;
                 $data[]   = (float) $total;
             }
+        } elseif ($preset === 'ytd' || $preset === 'last_365') {
+            $results = (clone $baseQuery)
+                ->whereBetween('issued_date', [$startDate, $endDate])
+                ->select(DB::raw('MONTH(issued_date) as month'), DB::raw('YEAR(issued_date) as year'), DB::raw('SUM(grand_total) as total'))
+                ->groupBy('year', 'month')
+                ->orderBy('year')
+                ->orderBy('month')
+                ->get();
 
-        } elseif ($this->filter === 'custom') {
-            if ($this->startDate && $this->endDate) {
-                $start = Carbon::parse($this->startDate)->startOfDay();
-                $end   = Carbon::parse($this->endDate)->endOfDay();
-                
-                $results = (clone $baseQuery)
-                    ->whereBetween('issued_date', [$start, $end])
-                    ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
-                    ->groupBy('date')
-                    ->pluck('total', 'date')
-                    ->toArray();
+            $monthsMap = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
+            
+            $current = $startDate->copy()->startOfMonth();
+            $endMonth = $endDate->copy()->startOfMonth();
+            
+            while ($current->lte($endMonth)) {
+                $y = $current->year;
+                $m = $current->month;
+                $found = $results->first(fn($r) => $r->year == $y && $r->month == $m);
+                $labels[] = $monthsMap[$m] . ($preset === 'last_365' ? " '" . substr($y, 2) : '');
+                $data[]   = $found ? (float) $found->total : 0;
+                $current->addMonth();
+            }
 
-                // Generate labels from start to end
-                $current = $start->copy();
-                while ($current->lte($end)) {
-                    $dateString = $current->format('Y-m-d');
-                    $labels[]   = $current->format('d M');
-                    $data[]     = (float) ($results[$dateString] ?? 0);
-                    $current->addDay();
-                }
+        } elseif ($preset === 'yesterday') {
+            $results = (clone $baseQuery)
+                ->whereDate('issued_date', $startDate)
+                ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
+                ->groupBy('hour')
+                ->pluck('total', 'hour')
+                ->toArray();
+
+            for ($i = 8; $i <= 22; $i++) {
+                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
+                $data[]   = (float) ($results[$i] ?? 0);
             }
         } else {
-            // 7 hari terakhir
+            // Treat as daily ranges (last_7, this_month, prev_month, last_30, last_90, last_180, custom)
             $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [Carbon::today()->subDays(6), Carbon::today()])
+                ->whereBetween('issued_date', [$startDate, $endDate])
                 ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
                 ->groupBy('date')
                 ->pluck('total', 'date')
                 ->toArray();
 
-            for ($i = 6; $i >= 0; $i--) {
-                $dateString = Carbon::today()->subDays($i)->format('Y-m-d');
-                $labels[]   = Carbon::today()->subDays($i)->format('d M');
+            $current = $startDate->copy();
+            
+            // If the range is huge (e.g. last_180), grouping by week might be better, but let's stick to daily for now
+            // or just plot every day. Chart.js handles large datasets well.
+            while ($current->lte($endDate)) {
+                $dateString = $current->format('Y-m-d');
+                $labels[]   = $current->format('d M');
                 $data[]     = (float) ($results[$dateString] ?? 0);
+                $current->addDay();
             }
         }
 
@@ -247,6 +180,11 @@ class SalesChart extends ChartWidget
                     }
                 },
                 scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 15
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         ticks: {
@@ -273,33 +211,10 @@ class SalesChart extends ChartWidget
      */
     private function applyDateFilter(\Illuminate\Database\Eloquent\Builder $query): void
     {
-        match ($this->filter) {
-            'today' => $query->whereDate('created_at', Carbon::today()),
-            'month' => $query->whereBetween('issued_date', [
-                Carbon::now()->startOfMonth(),
-                Carbon::now()->endOfMonth(),
-            ]),
-            'prev_month' => $query->whereBetween('issued_date', [
-                Carbon::now()->subMonth()->startOfMonth(),
-                Carbon::now()->subMonth()->endOfMonth(),
-            ]),
-            'year'  => $query->whereYear('issued_date', Carbon::now()->year),
-            'all', 'custom' => null,
-            default => $query->whereBetween('issued_date', [
-                Carbon::today()->subDays(6),
-                Carbon::today(),
-            ]),
-        };
-        
-        if ($this->filter === 'custom') {
-            if ($this->startDate && $this->endDate) {
-                $query->whereBetween('issued_date', [
-                    Carbon::parse($this->startDate)->startOfDay(),
-                    Carbon::parse($this->endDate)->endOfDay(),
-                ]);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+        [$startDate, $endDate, $preset] = $this->parseFilterDates();
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('issued_date', [$startDate, $endDate]);
         }
     }
 }
