@@ -37,7 +37,7 @@ class ExpenseForm
                 ->label('Akun Beban (Debit)')
                 ->required()
                 ->options(
-                    ChartOfAccount::where('kategori', 'Beban')
+                    ChartOfAccount::where('kategori', 'like', 'Beban%')
                         ->orderBy('kode_akun')
                         ->get()
                         ->mapWithKeys(fn ($coa) => [
@@ -52,7 +52,7 @@ class ExpenseForm
                 ->label('Akun Kas/Bank (Kredit)')
                 ->required()
                 ->options(
-                    ChartOfAccount::whereIn('kategori', ['Aset'])
+                    ChartOfAccount::whereIn('kategori', ['Aktiva Lancar'])
                         ->orderBy('kode_akun')
                         ->get()
                         ->mapWithKeys(fn ($coa) => [
