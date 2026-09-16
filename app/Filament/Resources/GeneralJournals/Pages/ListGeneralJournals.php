@@ -8,4 +8,11 @@ use Filament\Resources\Pages\ListRecords;
 class ListGeneralJournals extends ListRecords
 {
     protected static string $resource = GeneralJournalResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\CreateAction::make(),
+        ];
+    }
 }

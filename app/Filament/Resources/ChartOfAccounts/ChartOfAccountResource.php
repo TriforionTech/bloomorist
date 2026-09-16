@@ -18,9 +18,9 @@ class ChartOfAccountResource extends Resource
 {
     protected static ?string $model = ChartOfAccount::class;
 
-    protected static ?string $navigationLabel = 'Chart of Accounts';
-    protected static ?string $pluralLabel = 'Chart of Accounts';
-    protected static ?string $label = 'Chart of Account';
+    protected static ?string $navigationLabel = 'Daftar Akun';
+    protected static ?string $pluralLabel = 'Daftar Akun';
+    protected static ?string $label = 'Daftar Akun';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-book-open';
 

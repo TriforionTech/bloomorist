@@ -13,7 +13,9 @@ return new class extends Migration
     public function up(): void
     {
         // For MySQL, change ENUM to VARCHAR
-        DB::statement('ALTER TABLE bl_coa_t MODIFY kategori VARCHAR(100) NOT NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE bl_coa_t MODIFY kategori VARCHAR(100) NOT NULL');
+        }
     }
 
     /**
@@ -22,6 +24,8 @@ return new class extends Migration
     public function down(): void
     {
         // Optionally revert to original ENUM
-        DB::statement("ALTER TABLE bl_coa_t MODIFY kategori ENUM('Aset', 'Kewajiban', 'Ekuitas', 'Pendapatan', 'Beban') NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE bl_coa_t MODIFY kategori ENUM('Aset', 'Kewajiban', 'Ekuitas', 'Pendapatan', 'Beban') NOT NULL");
+        }
     }
 };

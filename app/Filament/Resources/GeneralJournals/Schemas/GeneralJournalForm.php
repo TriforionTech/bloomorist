@@ -20,6 +20,28 @@ class GeneralJournalForm
         return $schema->components([
             Section::make('Header Jurnal')
                 ->schema([
+                    \Filament\Forms\Components\DatePicker::make('tanggal')
+                        ->label('Tanggal Jurnal')
+                        ->required()
+                        ->default(now())
+                        ->native(false)
+                        ->rule(function () {
+                            return function (string $attribute, $value, \Closure $fail) {
+                                $date = \Carbon\Carbon::parse($value);
+                                $period = \App\Models\AccountingPeriod::where('start_date', '<=', $date->toDateString())
+                                    ->where('end_date', '>=', $date->toDateString())
+                                    ->first();
+                                
+                                if (!$period) {
+                                    $fail('Tanggal ini tidak masuk ke dalam Periode Akuntansi manapun. Buat periode dulu.');
+                                    return;
+                                }
+                                if ($period->isClosed()) {
+                                    $fail("Periode akuntansi ({$period->label}) sudah CLOSED (Tutup Buku). Jurnal tidak bisa ditambah/diubah.");
+                                }
+                            };
+                        }),
+
                     TextInput::make('no_bukti')
                         ->label('No. Bukti')
                         ->required()
@@ -91,6 +113,32 @@ class GeneralJournalForm
                         ->defaultItems(2)
                         ->addActionLabel('+ Tambah Baris')
                         ->reorderable(false)
+                        ->rule(function () {
+                            return function (string $attribute, $value, \Closure $fail) {
+                                $totalDebit = collect($value)->sum('debit');
+                                $totalKredit = collect($value)->sum('kredit');
+                                
+                                if ($totalDebit !== $totalKredit) {
+                                    $selisih = abs($totalDebit - $totalKredit);
+                                    $fail("Jurnal tidak seimbang (Timpang). Total Debit: Rp " . number_format($totalDebit, 0, ',', '.') . " | Total Kredit: Rp " . number_format($totalKredit, 0, ',', '.') . " | Selisih: Rp " . number_format($selisih, 0, ',', '.'));
+                                }
+                            };
+                        })
+                        ->columnSpanFull(),
+
+                    \Filament\Forms\Components\Placeholder::make('balance_indicator')
+                        ->label('Status Keseimbangan (Live)')
+                        ->content(function ($get) {
+                            $items = $get('items') ?? [];
+                            $totalDebit = collect($items)->sum('debit');
+                            $totalKredit = collect($items)->sum('kredit');
+                            $selisih = abs($totalDebit - $totalKredit);
+
+                            if ($totalDebit === $totalKredit && $totalDebit > 0) {
+                                return new \Illuminate\Support\HtmlString('<span style="color: green; font-weight: bold;">✅ SEIMBANG (Total: Rp ' . number_format($totalDebit, 0, ',', '.') . ')</span>');
+                            }
+                            return new \Illuminate\Support\HtmlString('<span style="color: red; font-weight: bold;">❌ TIMPANG (Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')</span>');
+                        })
                         ->columnSpanFull(),
                 ]),
         ]);

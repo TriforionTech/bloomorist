@@ -17,9 +17,9 @@ class GeneralJournalResource extends Resource
 {
     protected static ?string $model = GeneralJournal::class;
 
-    protected static ?string $navigationLabel = 'Journal';
-    protected static ?string $pluralLabel = 'Journals';
-    protected static ?string $label = 'Journal';
+    protected static ?string $navigationLabel = 'Jurnal Umum';
+    protected static ?string $pluralLabel = 'Jurnal Umum';
+    protected static ?string $label = 'Jurnal Umum';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 

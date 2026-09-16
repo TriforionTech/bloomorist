@@ -1,24 +1,28 @@
 <x-filament-panels::page>
 
-    {{-- Tab Navigation --}}
-    <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav class="-mb-px flex space-x-8">
-            <button
-                wire:click="$set('activeTab', 'laba-rugi')"
-                class="whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'laba-rugi' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300' }}"
-            >
-                <x-heroicon-o-arrow-trending-up class="inline-block w-5 h-5 mr-1 -mt-0.5" />
-                Laba Rugi
-            </button>
-            <button
-                wire:click="$set('activeTab', 'neraca')"
-                class="whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors {{ $activeTab === 'neraca' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300' }}"
-            >
-                <x-heroicon-o-scale class="inline-block w-5 h-5 mr-1 -mt-0.5" />
-                Neraca
-            </button>
-        </nav>
-    </div>
+    <x-filament::tabs label="Laporan keuangan">
+        <x-filament::tabs.item
+            :active="$activeTab === 'laba-rugi'"
+            wire:click="$set('activeTab', 'laba-rugi')"
+            icon="heroicon-o-arrow-trending-up"
+        >
+            Laba Rugi
+        </x-filament::tabs.item>
+        <x-filament::tabs.item
+            :active="$activeTab === 'neraca'"
+            wire:click="$set('activeTab', 'neraca')"
+            icon="heroicon-o-scale"
+        >
+            Neraca
+        </x-filament::tabs.item>
+        <x-filament::tabs.item
+            :active="$activeTab === 'arus-kas'"
+            wire:click="$set('activeTab', 'arus-kas')"
+            icon="heroicon-o-banknotes"
+        >
+            Arus Kas
+        </x-filament::tabs.item>
+    </x-filament::tabs>
 
     {{-- ================================================================ --}}
     {{-- TAB 1: LABA RUGI (Income Statement) --}}
@@ -30,7 +34,7 @@
         @php $income = $this->getIncomeStatementData(); @endphp
 
         {{-- Export Buttons --}}
-        <div class="flex gap-3 mb-4">
+        <div class="flex flex-wrap gap-2">
             <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadIncomeStatementPdf" size="sm">
                 Download PDF
             </x-filament::button>
@@ -39,73 +43,91 @@
             </x-filament::button>
         </div>
 
-        {{-- Period Label --}}
-        <div class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Periode: {{ $income['start_date']->format('d M Y') }} — {{ $income['end_date']->format('d M Y') }}
-        </div>
-
-        {{-- Income Statement Card --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-            {{-- PENDAPATAN Section --}}
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20">
-                <h3 class="text-base font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">Pendapatan</h3>
-            </div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+        <x-filament::section
+            heading="Laba Rugi"
+            description="Periode: {{ $income['start_date']->format('d M Y') }} — {{ $income['end_date']->format('d M Y') }}"
+        >
+            <div class="space-y-8">
+                <x-filament::section heading="Pendapatan" compact>
+                    <x-slot name="afterHeader">
+                        <span class="text-sm font-semibold">
+                            Rp {{ number_format($income['total_pendapatan'], 0, ',', '.') }}
+                        </span>
+                    </x-slot>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 @foreach($income['pendapatan'] as $item)
-                    <div class="px-6 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <div>
-                            <span class="text-xs font-mono text-gray-400 mr-2">{{ $item['kode_akun'] }}</span>
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ $item['nama_akun'] }}</span>
-                        </div>
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                            Rp {{ number_format($item['saldo'], 0, ',', '.') }}
-                        </span>
-                    </div>
+                    <tr>
+                        <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
+                        <td class="py-3">{{ $item['nama_akun'] }}</td>
+                        <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
+                    </tr>
                 @endforeach
-                <div class="px-6 py-3 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20">
-                    <span class="text-sm font-bold text-emerald-800 dark:text-emerald-300">Total Pendapatan</span>
-                    <span class="text-sm font-bold text-emerald-800 dark:text-emerald-300">
-                        Rp {{ number_format($income['total_pendapatan'], 0, ',', '.') }}
-                    </span>
-                </div>
-            </div>
+                            </tbody>
+                        </table>
+                    </div>
+                </x-filament::section>
 
-            {{-- BEBAN Section --}}
-            <div class="px-6 py-4 border-b border-t border-gray-200 dark:border-gray-700 bg-red-50 dark:bg-red-900/20">
-                <h3 class="text-base font-bold text-red-800 dark:text-red-300 uppercase tracking-wide">Beban</h3>
-            </div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            @if($income['persediaan_akhir'] !== null)
+                <x-filament::section heading="Perhitungan HPP (Periodik)" compact>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    @foreach([
+                        'Persediaan Awal' => $income['persediaan_awal'],
+                        'Pembelian Bersih' => $income['pembelian_bersih'],
+                        'Beban Angkut Pembelian' => $income['beban_angkut_pembelian'],
+                        'Barang Tersedia Dijual' => $income['barang_tersedia_dijual'],
+                        'Persediaan Akhir' => -$income['persediaan_akhir'],
+                        'HPP' => $income['hpp'],
+                    ] as $label => $amount)
+                        <tr class="{{ $label === 'HPP' ? 'font-semibold' : '' }}">
+                            <td class="py-3">{{ $label }}</td>
+                            <td class="py-3 text-right whitespace-nowrap">Rp {{ number_format($amount, 0, ',', '.') }}</td>
+                        </tr>
+                    @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <x-slot name="footer">
+                        <div class="flex justify-between font-semibold">
+                            <span>Laba Kotor</span>
+                            <span>Rp {{ number_format($income['laba_kotor'], 0, ',', '.') }}</span>
+                        </div>
+                    </x-slot>
+                </x-filament::section>
+            @endif
+
+                <x-filament::section heading="Beban" compact>
+                    <x-slot name="afterHeader">
+                        <span class="text-sm font-semibold">
+                            Rp {{ number_format($income['total_beban'], 0, ',', '.') }}
+                        </span>
+                    </x-slot>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                 @foreach($income['beban'] as $item)
-                    <div class="px-6 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <div>
-                            <span class="text-xs font-mono text-gray-400 mr-2">{{ $item['kode_akun'] }}</span>
-                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ $item['nama_akun'] }}</span>
-                        </div>
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                            Rp {{ number_format($item['saldo'], 0, ',', '.') }}
-                        </span>
-                    </div>
+                    <tr>
+                        <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
+                        <td class="py-3">{{ $item['nama_akun'] }}</td>
+                        <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
+                    </tr>
                 @endforeach
-                <div class="px-6 py-3 flex justify-between items-center bg-red-50 dark:bg-red-900/20">
-                    <span class="text-sm font-bold text-red-800 dark:text-red-300">Total Beban</span>
-                    <span class="text-sm font-bold text-red-800 dark:text-red-300">
-                        Rp {{ number_format($income['total_beban'], 0, ',', '.') }}
-                    </span>
-                </div>
-            </div>
+                            </tbody>
+                        </table>
+                    </div>
+                </x-filament::section>
 
-            {{-- LABA / RUGI BERSIH --}}
-            <div class="px-6 py-5 border-t-2 {{ $income['laba_rugi'] >= 0 ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30' : 'border-red-500 bg-red-50 dark:bg-red-900/30' }}">
-                <div class="flex justify-between items-center">
-                    <span class="text-lg font-bold {{ $income['laba_rugi'] >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300' }}">
-                        {{ $income['laba_rugi'] >= 0 ? 'LABA BERSIH' : 'RUGI BERSIH' }}
-                    </span>
-                    <span class="text-lg font-bold {{ $income['laba_rugi'] >= 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300' }}">
-                        Rp {{ number_format(abs($income['laba_rugi']), 0, ',', '.') }}
-                    </span>
-                </div>
+                <x-filament::section>
+                    <div class="flex justify-between text-lg font-semibold">
+                        <span>{{ $income['laba_rugi'] >= 0 ? 'Laba Bersih' : 'Rugi Bersih' }}</span>
+                        <span>Rp {{ number_format(abs($income['laba_rugi']), 0, ',', '.') }}</span>
+                    </div>
+                </x-filament::section>
             </div>
-        </div>
+        </x-filament::section>
     @endif
 
     {{-- ================================================================ --}}
@@ -127,132 +149,136 @@
             </x-filament::button>
         </div>
 
-        {{-- Period Label --}}
-        <div class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Per Tanggal: {{ $balance['as_of']->format('d M Y') }}
-        </div>
+        <x-filament::section
+            heading="Neraca"
+            description="Per tanggal: {{ $balance['as_of']->format('d M Y') }}"
+        >
+            <div class="mb-4">
+                @if($balance['is_balanced'])
+                    <x-filament::badge color="success">Neraca Seimbang</x-filament::badge>
+                @else
+                    <x-filament::badge color="danger">
+                        Tidak Seimbang: Rp {{ number_format(abs($balance['total_aset'] - $balance['total_kewajiban_ekuitas']), 0, ',', '.') }}
+                    </x-filament::badge>
+                @endif
+            </div>
 
-        {{-- Balance Indicator --}}
-        <div class="mb-4 px-4 py-4 rounded-lg text-sm font-medium {{ $balance['is_balanced'] ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' }}">
-            @if($balance['is_balanced'])
-                ✅ Neraca Seimbang (Balance)
-            @else
-                ❌ Neraca Tidak Seimbang — Selisih: Rp {{ number_format(abs($balance['total_aset'] - $balance['total_kewajiban_ekuitas']), 0, ',', '.') }}
-            @endif
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {{-- LEFT SIDE: ASET --}}
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-sky-50 dark:bg-sky-900/20">
-                    <h3 class="text-base font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wide">Aset</h3>
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach($balance['aset'] as $item)
-                        <div class="px-6 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <div>
-                                <span class="text-xs font-mono text-gray-400 mr-2">{{ $item['kode_akun'] }}</span>
-                                <span class="text-sm text-gray-700 dark:text-gray-300">{{ $item['nama_akun'] }}</span>
+            @foreach([
+                'Aktiva' => [$balance['aset_groups'], $balance['total_aset']],
+                'Kewajiban' => [$balance['kewajiban_groups'], $balance['total_kewajiban']],
+                'Modal' => [$balance['ekuitas_groups'], $balance['total_ekuitas']],
+            ] as $heading => [$groups, $total])
+                <x-filament::section :heading="$heading" compact class="mb-6">
+                    @foreach($groups as $category => $items)
+                        <div class="mb-6 last:mb-0">
+                            <h4 class="mb-2 text-sm font-semibold">{{ $category }}</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        @foreach($items as $item)
+                                            <tr>
+                                                <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
+                                                <td class="py-3">{{ $item['nama_akun'] }}</td>
+                                                <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
+                                            </tr>
+                                        @endforeach
+                                        @if($heading === 'Modal' && $category === 'Modal')
+                                            <tr>
+                                                <td class="py-3 pr-4 font-mono text-xs text-gray-500">—</td>
+                                                <td class="py-3">Laba Ditahan</td>
+                                                <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format(abs($balance['laba_ditahan']), 0, ',', '.') }}</td>
+                                            </tr>
+                                        @endif
+                                    </tbody>
+                                </table>
                             </div>
-                            <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                                Rp {{ number_format($item['saldo'], 0, ',', '.') }}
-                            </span>
+                            <div class="mt-2 flex justify-between border-t pt-2 text-sm font-medium">
+                                <span>Total {{ $category }}</span>
+                                <span>Rp {{ number_format(collect($items)->sum('saldo') + (($heading === 'Modal' && $category === 'Modal') ? $balance['laba_ditahan'] : 0), 0, ',', '.') }}</span>
+                            </div>
                         </div>
                     @endforeach
-                </div>
-                <div class="px-6 py-4 border-t-2 border-sky-500 bg-sky-50 dark:bg-sky-900/30">
-                    <div class="flex justify-between items-center">
-                        <span class="text-base font-bold text-sky-800 dark:text-sky-300">TOTAL ASET</span>
-                        <span class="text-base font-bold text-sky-800 dark:text-sky-300">
-                            Rp {{ number_format($balance['total_aset'], 0, ',', '.') }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {{-- RIGHT SIDE: KEWAJIBAN + EKUITAS --}}
-            <div class="space-y-6">
-                {{-- KEWAJIBAN --}}
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20">
-                        <h3 class="text-base font-bold text-orange-800 dark:text-orange-300 uppercase tracking-wide">Kewajiban</h3>
-                    </div>
-                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach($balance['kewajiban'] as $item)
-                            <div class="px-6 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                <div>
-                                    <span class="text-xs font-mono text-gray-400 mr-2">{{ $item['kode_akun'] }}</span>
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $item['nama_akun'] }}</span>
-                                </div>
-                                <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                                    Rp {{ number_format($item['saldo'], 0, ',', '.') }}
-                                </span>
-                            </div>
-                        @endforeach
-                    </div>
-                    <div class="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-orange-50 dark:bg-orange-900/20">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-bold text-orange-800 dark:text-orange-300">Total Kewajiban</span>
-                            <span class="text-sm font-bold text-orange-800 dark:text-orange-300">
-                                Rp {{ number_format($balance['total_kewajiban'], 0, ',', '.') }}
-                            </span>
+                    <x-slot name="footer">
+                        <div class="flex justify-between font-semibold">
+                            <span>Total {{ $heading }}</span>
+                            <span>Rp {{ number_format($total, 0, ',', '.') }}</span>
                         </div>
-                    </div>
+                    </x-slot>
+                </x-filament::section>
+            @endforeach
+
+            <x-filament::section>
+                <div class="flex justify-between text-lg font-semibold">
+                    <span>Total Kewajiban + Ekuitas</span>
+                    <span>Rp {{ number_format($balance['total_kewajiban_ekuitas'], 0, ',', '.') }}</span>
+                </div>
+            </x-filament::section>
+        </x-filament::section>
+    @endif
+
+    @if($activeTab === 'arus-kas')
+        {{ $this->cashFlowFilterSchema }}
+
+        @php $cashFlow = $this->getCashFlowData(); @endphp
+
+        @if($cashFlow)
+            <x-filament::section
+                heading="Arus Kas"
+                description="Periode: {{ $cashFlow['period']->label }}"
+            >
+                <div class="mb-6">
+                    @if($cashFlow['is_reconciled'])
+                        <x-filament::badge color="success">Saldo kas terrekonsiliasi</x-filament::badge>
+                    @else
+                        <x-filament::badge color="danger">Saldo kas tidak terrekonsiliasi</x-filament::badge>
+                    @endif
                 </div>
 
-                {{-- EKUITAS --}}
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-violet-50 dark:bg-violet-900/20">
-                        <h3 class="text-base font-bold text-violet-800 dark:text-violet-300 uppercase tracking-wide">Ekuitas</h3>
-                    </div>
-                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach($balance['ekuitas'] as $item)
-                            <div class="px-6 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                <div>
-                                    <span class="text-xs font-mono text-gray-400 mr-2">{{ $item['kode_akun'] }}</span>
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $item['nama_akun'] }}</span>
-                                </div>
-                                <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                                    Rp {{ number_format($item['saldo'], 0, ',', '.') }}
-                                </span>
-                            </div>
-                        @endforeach
-                        {{-- LABA DITAHAN (Retained Earnings) --}}
-                        <div class="px-6 py-3 flex justify-between items-center bg-amber-50 dark:bg-amber-900/20">
-                            <div>
-                                <span class="text-xs font-mono text-amber-600 dark:text-amber-400 mr-2">—</span>
-                                <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">Laba Ditahan / Retained Earnings</span>
-                            </div>
-                            <span class="text-sm font-bold {{ $balance['laba_ditahan'] >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400' }}">
-                                Rp {{ number_format(abs($balance['laba_ditahan']), 0, ',', '.') }}{{ $balance['laba_ditahan'] < 0 ? ' (-)' : '' }}
-                            </span>
+                @foreach(['operating' => 'Aktivitas Operasi', 'investing' => 'Aktivitas Investasi', 'financing' => 'Aktivitas Pendanaan'] as $section => $label)
+                    <x-filament::section :heading="$label" compact class="mb-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($cashFlow[$section] as $line)
+                                        <tr>
+                                            <td class="py-3">{{ $line['label'] }}</td>
+                                            <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($line['amount'], 0, ',', '.') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-                    <div class="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-violet-50 dark:bg-violet-900/20">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-bold text-violet-800 dark:text-violet-300">Total Ekuitas</span>
-                            <span class="text-sm font-bold text-violet-800 dark:text-violet-300">
-                                Rp {{ number_format($balance['total_ekuitas'], 0, ',', '.') }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                        <x-slot name="footer">
+                            <div class="flex justify-between font-semibold">
+                                <span>Total {{ $label }}</span>
+                                <span>Rp {{ number_format($cashFlow["{$section}_total"], 0, ',', '.') }}</span>
+                            </div>
+                        </x-slot>
+                    </x-filament::section>
+                @endforeach
 
-                {{-- TOTAL KEWAJIBAN + EKUITAS --}}
-                <div class="rounded-xl border-2 {{ $balance['is_balanced'] ? 'border-emerald-500' : 'border-red-500' }} bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 {{ $balance['is_balanced'] ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-red-50 dark:bg-red-900/30' }}">
-                        <div class="flex justify-between items-center">
-                            <span class="text-base font-bold {{ $balance['is_balanced'] ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300' }}">
-                                TOTAL KEWAJIBAN + EKUITAS
-                            </span>
-                            <span class="text-base font-bold {{ $balance['is_balanced'] ? 'text-emerald-800 dark:text-emerald-300' : 'text-red-800 dark:text-red-300' }}">
-                                Rp {{ number_format($balance['total_kewajiban_ekuitas'], 0, ',', '.') }}
-                            </span>
+                <x-filament::section heading="Ringkasan" compact>
+                    <dl class="divide-y divide-gray-200 text-sm dark:divide-gray-700">
+                        <div class="flex justify-between py-3">
+                            <dt>Saldo Kas Awal</dt>
+                            <dd class="font-medium">Rp {{ number_format($cashFlow['opening_cash'], 0, ',', '.') }}</dd>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                        <div class="flex justify-between py-3">
+                            <dt>Kenaikan (Penurunan) Kas Bersih</dt>
+                            <dd class="font-medium">Rp {{ number_format($cashFlow['net_change'], 0, ',', '.') }}</dd>
+                        </div>
+                        <div class="flex justify-between py-3 text-base font-semibold">
+                            <dt>Saldo Kas Akhir</dt>
+                            <dd>Rp {{ number_format($cashFlow['ending_cash'], 0, ',', '.') }}</dd>
+                        </div>
+                    </dl>
+                </x-filament::section>
+            </x-filament::section>
+        @else
+            <x-filament::section>
+                <p class="text-sm text-gray-500">Buat periode akuntansi terlebih dahulu.</p>
+            </x-filament::section>
+        @endif
     @endif
 
     <x-filament-actions::modals />

@@ -8,22 +8,25 @@
         @php
             $entries = $this->getLedgerData();
             $coa = $this->getSelectedCoa();
+        $period = $this->getSelectedPeriod();
         @endphp
 
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             {{-- Header --}}
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div class="border-b border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700 dark:bg-gray-800 sm:px-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                     Buku Besar: {{ $coa->kode_akun }} — {{ $coa->nama_akun }}
                 </h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Kategori: {{ $coa->kategori }} | Saldo Normal: {{ $coa->saldo_normal }}
+                    Periode: {{ $period?->label ?? '-' }} |
+                    Kategori: {{ $coa->kategori }} |
+                    Saldo Normal: {{ $coa->saldo_normal }}
                 </p>
             </div>
 
             {{-- Table --}}
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+                <table class="min-w-[900px] w-full text-sm">
                     <thead>
                         <tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                             <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Tanggal</th>

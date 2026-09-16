@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Services\AccountingService;
+use App\Models\AccountingPeriod;
+use App\Services\CashFlowService;
 use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -37,6 +39,7 @@ class FinancialReports extends Page implements HasSchemas
 
     // Balance Sheet filter
     public ?string $balanceAsOf = null;
+    public ?int $cashFlowPeriodId = null;
 
     // Active tab
     public string $activeTab = 'laba-rugi';
@@ -52,6 +55,7 @@ class FinancialReports extends Page implements HasSchemas
     public function mount(): void
     {
         $this->balanceAsOf = now()->format('Y-m-d');
+        $this->cashFlowPeriodId = AccountingPeriod::query()->orderByDesc('start_date')->value('id');
     }
 
     /**
@@ -107,6 +111,22 @@ class FinancialReports extends Page implements HasSchemas
         ]);
     }
 
+    public function cashFlowFilterSchema(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('Filter Arus Kas')
+                ->schema([
+                    Select::make('cashFlowPeriodId')
+                        ->label('Periode Akuntansi')
+                        ->options(AccountingPeriod::query()->orderByDesc('start_date')->pluck('label', 'id'))
+                        ->searchable()
+                        ->native(false)
+                        ->live()
+                        ->required(),
+                ]),
+        ]);
+    }
+
     /**
      * Get Income Statement data based on current filter.
      */
@@ -127,6 +147,13 @@ class FinancialReports extends Page implements HasSchemas
             : now();
 
         return app(AccountingService::class)->getBalanceSheet($asOf);
+    }
+
+    public function getCashFlowData(): ?array
+    {
+        return $this->cashFlowPeriodId
+            ? app(CashFlowService::class)->getForPeriod($this->cashFlowPeriodId)
+            : null;
     }
 
     /**

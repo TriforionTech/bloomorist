@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ChartOfAccount;
+use App\Models\AccountingPeriod;
 use App\Models\Expense;
 use App\Models\GeneralJournal;
 use App\Models\Invoice;
@@ -43,6 +44,7 @@ class AccountingService
             if ($amount <= 0) return null;
 
             $journal = GeneralJournal::create([
+                'tanggal'      => now()->toDateString(),
                 'no_bukti'     => $this->generateNoBukti('ADJ'),
                 'keterangan'   => "Penyesuaian Stok ({$type}) - {$product->nama} - {$notes}",
                 'reference_id' => $product->id,
@@ -138,6 +140,7 @@ class AccountingService
             $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
 
             $journal = GeneralJournal::create([
+                'tanggal'      => $expense->created_at->toDateString(),
                 'no_bukti'     => $this->generateNoBukti('EXP'),
                 'keterangan'   => $expense->keterangan,
                 'reference_id' => $expense->id,
@@ -186,6 +189,7 @@ class AccountingService
             $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
 
             $journal = GeneralJournal::create([
+                'tanggal'      => $expense->created_at->toDateString(),
                 'no_bukti'     => $this->generateNoBukti('REV'),
                 'keterangan'   => "Pembatalan Expense: {$expense->keterangan}",
                 'reference_id' => $expense->id,
@@ -251,6 +255,7 @@ class AccountingService
             $amount = (int) $invoice->grand_total;
 
             $journal = GeneralJournal::create([
+                'tanggal'      => $invoice->issued_date->toDateString(),
                 'no_bukti'     => $this->generateNoBukti('INV'),
                 'keterangan'   => "Penjualan Invoice #{$invoice->invoice_number}",
                 'reference_id' => $invoice->id,
@@ -302,6 +307,7 @@ class AccountingService
             $amount = (int) $invoice->grand_total;
 
             $journal = GeneralJournal::create([
+                'tanggal'      => $invoice->issued_date->toDateString(),
                 'no_bukti'     => $this->generateNoBukti('REV'),
                 'keterangan'   => "Pembatalan Invoice #{$invoice->invoice_number}",
                 'reference_id' => $invoice->id,
@@ -369,6 +375,7 @@ class AccountingService
             }
 
             $journal = GeneralJournal::create([
+                'tanggal'      => now()->toDateString(),
                 'no_bukti'     => $this->generateNoBukti($prefix),
                 'keterangan'   => $description,
                 'reference_id' => null,
@@ -423,7 +430,7 @@ class AccountingService
 
         $totals = JournalItem::where('coa_id', $coaId)
             ->whereHas('journal', function ($q) use ($beforeDate) {
-                $q->where('created_at', '<', $beforeDate->startOfDay());
+                $q->where('tanggal', '<', $beforeDate->toDateString());
             })
             ->selectRaw('COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(kredit), 0) as total_kredit')
             ->first();
@@ -454,14 +461,14 @@ class AccountingService
             ->where('coa_id', $coaId)
             ->whereHas('journal', function ($q) use ($startDate, $endDate) {
                 if ($startDate) {
-                    $q->where('created_at', '>=', $startDate->startOfDay());
+                    $q->where('tanggal', '>=', $startDate->toDateString());
                 }
                 if ($endDate) {
-                    $q->where('created_at', '<=', $endDate->endOfDay());
+                    $q->where('tanggal', '<=', $endDate->toDateString());
                 }
             })
             ->join('bl_general_journals_t', 'bl_journal_items_t.journal_id', '=', 'bl_general_journals_t.id')
-            ->orderBy('bl_general_journals_t.created_at', 'asc')
+            ->orderBy('bl_general_journals_t.tanggal', 'asc')
             ->orderBy('bl_general_journals_t.id', 'asc')
             ->select('bl_journal_items_t.*')
             ->get();
@@ -490,7 +497,7 @@ class AccountingService
             }
 
             $rows->push([
-                'tanggal'    => $item->journal->created_at->format('d/m/Y'),
+                'tanggal'    => $item->journal->tanggal ? $item->journal->tanggal->format('d/m/Y') : $item->journal->created_at->format('d/m/Y'),
                 'no_bukti'   => $item->journal->no_bukti,
                 'kode_coa'   => $item->kode_coa,
                 'keterangan' => $item->journal->keterangan,
@@ -510,23 +517,59 @@ class AccountingService
      */
     public function getIncomeStatement(Carbon $start, Carbon $end): array
     {
-        // Pendapatan accounts
         $pendapatan = $this->getAccountGroupTotals('Pendapatan', $start, $end);
-        $totalPendapatan = $pendapatan->sum('saldo');
-
-        // Beban accounts
         $beban = $this->getAccountGroupTotals('Beban', $start, $end);
+        $totalPendapatan = $pendapatan->sum('saldo');
         $totalBeban = $beban->sum('saldo');
 
-        // Net income
-        $labaRugi = $totalPendapatan - $totalBeban;
+        $sales = $this->accountBalanceByCode('4101', $start, $end);
+        $salesReturns = $this->accountBalanceByCode('4102', $start, $end);
+        $interestIncome = $this->accountBalanceByCode('4103', $start, $end);
+        $otherIncome = $this->accountBalanceByCode('4104', $start, $end);
+        $hasPeriodicAccounts = ChartOfAccount::whereIn('kode_akun', ['4101', '4102', '5101', '5102', '5103', '1104'])->exists();
+
+        $netSales = $hasPeriodicAccounts ? $sales - $salesReturns : $totalPendapatan;
+        $netPurchases = $this->accountBalanceByCode('5101', $start, $end)
+            - $this->accountBalanceByCode('5102', $start, $end);
+        $purchaseFreight = $this->accountBalanceByCode('5103', $start, $end);
+        $openingInventory = $this->accountBalanceBeforeCode('1104', $start);
+        $closingInventory = $this->findPeriodForRange($start, $end)?->closing_inventory_value;
+        $goodsAvailable = $openingInventory + $netPurchases + $purchaseFreight;
+        $cogs = $hasPeriodicAccounts && $closingInventory !== null
+            ? $goodsAvailable - (float) $closingInventory
+            : 0;
+
+        $operatingExpenses = $hasPeriodicAccounts
+            ? $totalBeban - $this->accountBalanceByCode('5101', $start, $end)
+                + $this->accountBalanceByCode('5102', $start, $end)
+                - $purchaseFreight
+            : $totalBeban;
+        $grossProfit = $netSales - $cogs;
+        $operatingProfit = $grossProfit - $operatingExpenses;
+        $outsideOperatingIncome = $hasPeriodicAccounts
+            ? $interestIncome + $otherIncome
+            : 0;
+        $labaRugi = $hasPeriodicAccounts
+            ? $operatingProfit + $outsideOperatingIncome
+            : $totalPendapatan - $totalBeban;
 
         return [
             'pendapatan'       => $pendapatan,
-            'total_pendapatan' => $totalPendapatan,
+            'total_pendapatan' => $hasPeriodicAccounts ? $netSales + $outsideOperatingIncome : $totalPendapatan,
             'beban'            => $beban,
-            'total_beban'      => $totalBeban,
+            'total_beban'      => $hasPeriodicAccounts ? $cogs + $operatingExpenses : $totalBeban,
             'laba_rugi'        => $labaRugi,
+            'penjualan_bersih' => $netSales,
+            'persediaan_awal' => $openingInventory,
+            'pembelian_bersih' => $netPurchases,
+            'beban_angkut_pembelian' => $purchaseFreight,
+            'barang_tersedia_dijual' => $goodsAvailable,
+            'persediaan_akhir' => $closingInventory,
+            'hpp' => $cogs,
+            'laba_kotor' => $grossProfit,
+            'beban_operasional' => $operatingExpenses,
+            'laba_usaha' => $operatingProfit,
+            'pendapatan_luar_usaha' => $outsideOperatingIncome,
             'start_date'       => $start,
             'end_date'         => $end,
         ];
@@ -542,6 +585,18 @@ class AccountingService
 
         // Aset
         $aset = $this->getAccountGroupTotals('Aset', null, $endOfDay);
+        $period = AccountingPeriod::query()
+            ->whereDate('start_date', '<=', $asOf->toDateString())
+            ->whereDate('end_date', '>=', $asOf->toDateString())
+            ->first();
+        if ($period?->closing_inventory_value !== null) {
+            $aset = $aset->map(function (array $row) use ($period): array {
+                if ($row['kode_akun'] === '1104') {
+                    $row['saldo'] = (float) $period->closing_inventory_value;
+                }
+                return $row;
+            });
+        }
         $totalAset = $aset->sum('saldo');
 
         // Kewajiban
@@ -557,20 +612,38 @@ class AccountingService
 
         $totalEkuitas = $totalEkuitasMurni + $labaDitahan;
         $totalKewajibanEkuitas = $totalKewajiban + $totalEkuitas;
+        $categoryByCode = ChartOfAccount::query()
+            ->whereIn('kode_akun', $aset->pluck('kode_akun')
+                ->merge($kewajiban->pluck('kode_akun'))
+                ->merge($ekuitas->pluck('kode_akun')))
+            ->pluck('kategori', 'kode_akun');
 
         return [
             'aset'                    => $aset,
+            'aset_groups'             => $this->groupBalanceItems($aset, $categoryByCode, ['Aktiva Lancar', 'Aktiva Tetap', 'Aktiva Tetap (Kontra)']),
             'total_aset'              => $totalAset,
             'kewajiban'               => $kewajiban,
+            'kewajiban_groups'       => $this->groupBalanceItems($kewajiban, $categoryByCode, ['Kewajiban Lancar']),
             'total_kewajiban'         => $totalKewajiban,
             'ekuitas'                 => $ekuitas,
+            'ekuitas_groups'          => $this->groupBalanceItems($ekuitas, $categoryByCode, ['Modal', 'Modal (Kontra)']),
             'total_ekuitas_murni'     => $totalEkuitasMurni,
             'laba_ditahan'            => $labaDitahan,
             'total_ekuitas'           => $totalEkuitas,
             'total_kewajiban_ekuitas' => $totalKewajibanEkuitas,
-            'is_balanced'             => $totalAset === $totalKewajibanEkuitas,
+            'is_balanced'             => abs((float) $totalAset - (float) $totalKewajibanEkuitas) < 0.01,
             'as_of'                   => $asOf,
         ];
+    }
+
+    private function groupBalanceItems(Collection $items, Collection $categoryByCode, array $categories): array
+    {
+        return collect($categories)->mapWithKeys(function (string $category) use ($items, $categoryByCode): array {
+            return [$category => $items
+                ->filter(fn (array $item): bool => $categoryByCode->get($item['kode_akun']) === $category)
+                ->values()
+                ->all()];
+        })->all();
     }
 
     /**
@@ -585,22 +658,82 @@ class AccountingService
         return $pendapatan->sum('saldo') - $beban->sum('saldo');
     }
 
+    private function accountBalanceByCode(string $code, Carbon $start, Carbon $end): float
+    {
+        $account = ChartOfAccount::where('kode_akun', $code)->first();
+        if (!$account) {
+            return 0;
+        }
+
+        $totals = JournalItem::where('coa_id', $account->id)
+            ->whereHas('journal', function ($query) use ($start, $end) {
+                $query->whereDate('tanggal', '>=', $start->toDateString())
+                    ->whereDate('tanggal', '<=', $end->toDateString());
+            })
+            ->selectRaw('COALESCE(SUM(debit), 0) AS total_debit, COALESCE(SUM(kredit), 0) AS total_kredit')
+            ->first();
+
+        return $account->isDebitNormal()
+            ? (float) $totals->total_debit - (float) $totals->total_kredit
+            : (float) $totals->total_kredit - (float) $totals->total_debit;
+    }
+
+    private function accountBalanceBeforeCode(string $code, Carbon $date): float
+    {
+        $account = ChartOfAccount::where('kode_akun', $code)->first();
+        if (!$account) {
+            return 0;
+        }
+
+        $totals = JournalItem::where('coa_id', $account->id)
+            ->whereHas('journal', fn ($query) => $query->whereDate('tanggal', '<=', $date->copy()->subDay()->toDateString()))
+            ->selectRaw('COALESCE(SUM(debit), 0) AS total_debit, COALESCE(SUM(kredit), 0) AS total_kredit')
+            ->first();
+
+        return $account->isDebitNormal()
+            ? (float) $totals->total_debit - (float) $totals->total_kredit
+            : (float) $totals->total_kredit - (float) $totals->total_debit;
+    }
+
+    private function findPeriodForRange(Carbon $start, Carbon $end): ?AccountingPeriod
+    {
+        return AccountingPeriod::query()
+            ->whereDate('start_date', '<=', $start->toDateString())
+            ->whereDate('end_date', '>=', $end->toDateString())
+            ->first();
+    }
+
     /**
      * Get totals for all accounts in a category within a date range.
      * Each account's saldo is computed respecting its saldo_normal direction.
      */
     private function getAccountGroupTotals(string $kategori, ?Carbon $start, ?Carbon $end): Collection
     {
-        $accounts = ChartOfAccount::where('kategori', $kategori)->orderBy('kode_akun')->get();
+        $accounts = ChartOfAccount::query()
+            ->when($kategori === 'Aset', fn ($query) => $query->where(function ($q) {
+                $q->where('kategori', 'Aset')->orWhere('kategori', 'like', 'Aktiva%');
+            }))
+            ->when($kategori === 'Kewajiban', fn ($query) => $query->where(function ($q) {
+                $q->where('kategori', 'Kewajiban')->orWhere('kategori', 'like', 'Kewajiban%');
+            }))
+            ->when($kategori === 'Ekuitas', fn ($query) => $query->where(function ($q) {
+                $q->whereIn('kategori', ['Ekuitas', 'Modal'])->orWhere('kategori', 'like', 'Modal%');
+            }))
+            ->when($kategori === 'Pendapatan', fn ($query) => $query->where('kategori', 'like', 'Pendapatan%'))
+            ->when($kategori === 'Beban', fn ($query) => $query->where(function ($q) {
+                $q->where('kategori', 'Beban')->orWhere('kategori', 'like', 'Beban%');
+            }))
+            ->orderBy('kode_akun')
+            ->get();
 
         return $accounts->map(function ($account) use ($start, $end) {
             $query = JournalItem::where('coa_id', $account->id)
                 ->whereHas('journal', function ($q) use ($start, $end) {
                     if ($start) {
-                        $q->where('created_at', '>=', $start->startOfDay());
+                        $q->where('tanggal', '>=', $start->toDateString());
                     }
                     if ($end) {
-                        $q->where('created_at', '<=', $end);
+                        $q->where('tanggal', '<=', $end->toDateString());
                     }
                 });
 
