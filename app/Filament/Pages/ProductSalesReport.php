@@ -52,7 +52,7 @@ class ProductSalesReport extends Page implements HasTable
                 // Read directly from the Livewire component's public property to ensure we have the live, un-cached state
                 $filterState = $this->tableFilters['date_filter'] ?? [];
                 
-                $preset = $filterState['filter_preset'] ?? request()->query('filter', 'month');
+                $preset = $filterState['filter_preset'] ?? request()->query('filter', 'this_month');
                 
                 $startDate = null;
                 $endDate = null;
@@ -63,10 +63,11 @@ class ProductSalesReport extends Page implements HasTable
                 } else {
                     match ($preset) {
                         'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
-                        'week'  => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
-                        'month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
+                        'yesterday' => [$startDate, $endDate] = [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
+                        'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                         'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-                        'year'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfYear()],
+                        'ytd'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],
+                        'previous_year' => [$startDate, $endDate] = [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
                         'all'   => [$startDate, $endDate] = [null, null],
                         default => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                     };
@@ -145,14 +146,15 @@ class ProductSalesReport extends Page implements HasTable
                             ->label('Filter By')
                             ->options([
                                 'today' => 'Today',
-                                'week'  => 'Last 7 Days',
-                                'month' => 'This Month',
+                                'yesterday' => 'Yesterday',
+                                'this_month' => 'This Month',
                                 'previous_month' => 'Previous Month',
-                                'year'  => 'This Year',
+                                'ytd' => 'This Year',
+                                'previous_year' => 'Previous Year',
                                 'all'   => 'All Time',
                                 'custom' => 'Custom Range',
                             ])
-                            ->default(fn () => request()->query('filter', 'month'))
+                            ->default(fn () => request()->query('filter', 'this_month'))
                             ->live(),
                         Grid::make(2)
                             ->schema([
@@ -183,12 +185,13 @@ class ProductSalesReport extends Page implements HasTable
                                 $indicators['date_until'] = 'Until: ' . Carbon::parse($data['date_until'])->format('d M Y');
                             }
                         } else {
-                            $indicators['preset'] = 'Period: ' . match($data['filter_preset'] ?? 'month') {
+                            $indicators['preset'] = 'Period: ' . match($data['filter_preset'] ?? 'this_month') {
                                 'today' => 'Today',
-                                'week' => 'Last 7 Days',
-                                'month' => 'This Month',
+                                'yesterday' => 'Yesterday',
+                                'this_month' => 'This Month',
                                 'previous_month' => 'Previous Month',
-                                'year' => 'This Year',
+                                'ytd' => 'This Year',
+                                'previous_year' => 'Previous Year',
                                 'all' => 'All Time',
                                 'custom' => 'Custom Range',
                                 default => 'This Month'
