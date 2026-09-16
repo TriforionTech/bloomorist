@@ -65,10 +65,9 @@ class StatsOverview extends BaseWidget
         $filterLabel = 'Pendapatan ' . match($preset) {
             'today' => 'Hari Ini',
             'yesterday' => 'Kemarin',
-            'last_7' => '7 Hari Terakhir',
             'this_month' => 'Bulan Ini',
             'previous_month' => 'Bulan Lalu',
-            'ytd' => 'Tahun Ini (YTD)',
+            'ytd' => 'Tahun Ini',
             'previous_year' => 'Tahun Lalu',
             'all' => 'Semua Waktu',
             'custom' => 'Custom Range',

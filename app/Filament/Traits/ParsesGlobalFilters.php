@@ -24,7 +24,6 @@ trait ParsesGlobalFilters
             match ($preset) {
                 'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
                 'yesterday' => [$startDate, $endDate] = [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
-                'last_7' => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
                 'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                 'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
                 'ytd' => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],

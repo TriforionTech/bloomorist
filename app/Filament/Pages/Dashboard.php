@@ -27,11 +27,10 @@ class Dashboard extends BaseDashboard
                             ->label('Filter By')
                             ->options([
                                 'today' => 'Today',
-                                'yesterday' => 'Previous Day',
-                                'last_7' => 'Last 7 Days',
+                                'yesterday' => 'Yesterday',
                                 'this_month' => 'This Month',
                                 'previous_month' => 'Previous Month',
-                                'ytd' => 'Year to Date',
+                                'ytd' => 'This Year',
                                 'previous_year' => 'Previous Year',
                                 'all' => 'All Time',
                                 'custom' => 'Custom Range',
