@@ -63,15 +63,13 @@ class StatsOverview extends BaseWidget
         $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
 
         $filterLabel = 'Pendapatan ' . match($preset) {
+            'today' => 'Hari Ini',
             'yesterday' => 'Kemarin',
             'last_7' => '7 Hari Terakhir',
             'this_month' => 'Bulan Ini',
             'previous_month' => 'Bulan Lalu',
-            'last_30' => '30 Hari Terakhir',
-            'last_90' => '3 Bulan Terakhir',
-            'last_180' => '6 Bulan Terakhir',
             'ytd' => 'Tahun Ini (YTD)',
-            'last_365' => '1 Tahun Terakhir',
+            'previous_year' => 'Tahun Lalu',
             'all' => 'Semua Waktu',
             'custom' => 'Custom Range',
             default => 'Bulan Ini',

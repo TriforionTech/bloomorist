@@ -112,7 +112,7 @@ class SalesChart extends ChartWidget
                 $current->addMonth();
             }
 
-        } elseif ($preset === 'yesterday') {
+        } elseif (in_array($preset, ['today', 'yesterday'])) {
             $results = (clone $baseQuery)
                 ->whereDate('issued_date', $startDate)
                 ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))

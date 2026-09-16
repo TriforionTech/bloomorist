@@ -22,15 +22,13 @@ trait ParsesGlobalFilters
             $endDate = !empty($this->filters['endDate']) ? Carbon::parse($this->filters['endDate'])->endOfDay() : null;
         } else {
             match ($preset) {
+                'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
                 'yesterday' => [$startDate, $endDate] = [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
                 'last_7' => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
                 'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                 'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-                'last_30' => [$startDate, $endDate] = [now()->subDays(29)->startOfDay(), now()->endOfDay()],
-                'last_90' => [$startDate, $endDate] = [now()->subDays(89)->startOfDay(), now()->endOfDay()],
-                'last_180' => [$startDate, $endDate] = [now()->subDays(179)->startOfDay(), now()->endOfDay()],
                 'ytd' => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],
-                'last_365' => [$startDate, $endDate] = [now()->subDays(364)->startOfDay(), now()->endOfDay()],
+                'previous_year' => [$startDate, $endDate] = [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
                 'all' => [$startDate, $endDate] = [null, null],
                 default => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
             };

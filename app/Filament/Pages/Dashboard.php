@@ -26,15 +26,13 @@ class Dashboard extends BaseDashboard
                         Select::make('filter_preset')
                             ->label('Filter By')
                             ->options([
+                                'today' => 'Today',
                                 'yesterday' => 'Previous Day',
                                 'last_7' => 'Last 7 Days',
                                 'this_month' => 'This Month',
                                 'previous_month' => 'Previous Month',
-                                'last_30' => 'Last 1 Month',
-                                'last_90' => 'Last 3 Months',
-                                'last_180' => 'Last 6 Months',
                                 'ytd' => 'Year to Date',
-                                'last_365' => 'Last 1 Year',
+                                'previous_year' => 'Previous Year',
                                 'all' => 'All Time',
                                 'custom' => 'Custom Range',
                             ])
