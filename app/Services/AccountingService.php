@@ -532,7 +532,10 @@ class AccountingService
         $netPurchases = $this->accountBalanceByCode('5101', $start, $end)
             - $this->accountBalanceByCode('5102', $start, $end);
         $purchaseFreight = $this->accountBalanceByCode('5103', $start, $end);
-        $openingInventory = $this->accountBalanceBeforeCode('1104', $start);
+        // Use the ledger balance of inventory up to the end date (Persediaan Buku).
+        // This ensures any manual STK adjustments or initial capital journals placed mid-period
+        // are properly absorbed into COGS, guaranteeing the Balance Sheet remains perfectly balanced.
+        $openingInventory = $this->accountBalanceBeforeCode('1104', $end->copy()->addDay());
         $closingInventory = $this->findPeriodForRange($start, $end)?->closing_inventory_value;
         $goodsAvailable = $openingInventory + $netPurchases + $purchaseFreight;
         $cogs = $hasPeriodicAccounts && $closingInventory !== null
