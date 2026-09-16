@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
+
 class FinancialHealthCheckService
 {
     public function __construct(
@@ -36,7 +38,9 @@ class FinancialHealthCheckService
     public function checkBalanceSheet(int $periodId): array
     {
         $period = \App\Models\AccountingPeriod::findOrFail($periodId);
-        $balanceSheet = $this->accountingService->getBalanceSheet($period->end_date);
+        $balanceSheet = $this->accountingService->getBalanceSheet(
+            Carbon::parse($period->getRawOriginal('end_date'), config('app.timezone')),
+        );
         $difference = (float) $balanceSheet['total_aset'] - (float) $balanceSheet['total_kewajiban_ekuitas'];
         $isBalanced = abs($difference) < 0.01;
 

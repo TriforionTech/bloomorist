@@ -597,26 +597,52 @@ class AccountingService
                 return $row;
             });
         }
-        $totalAset = $aset->sum('saldo');
-
         // Kewajiban
         $kewajiban = $this->getAccountGroupTotals('Kewajiban', null, $endOfDay);
-        $totalKewajiban = $kewajiban->sum('saldo');
 
         // Ekuitas
         $ekuitas = $this->getAccountGroupTotals('Ekuitas', null, $endOfDay);
-        $totalEkuitasMurni = $ekuitas->sum('saldo');
-
-        // Laba Ditahan (Retained Earnings) = net income from inception to asOf
-        $labaDitahan = $this->getRetainedEarnings($endOfDay);
-
-        $totalEkuitas = $totalEkuitasMurni + $labaDitahan;
-        $totalKewajibanEkuitas = $totalKewajiban + $totalEkuitas;
         $categoryByCode = ChartOfAccount::query()
             ->whereIn('kode_akun', $aset->pluck('kode_akun')
                 ->merge($kewajiban->pluck('kode_akun'))
                 ->merge($ekuitas->pluck('kode_akun')))
             ->pluck('kategori', 'kode_akun');
+
+        // Kontra aset dan kontra modal mengurangi saldo kelompoknya.
+        $aset = $aset->map(function (array $row) use ($categoryByCode): array {
+            if ($categoryByCode->get($row['kode_akun']) === 'Aktiva Tetap (Kontra)') {
+                $row['saldo'] *= -1;
+            }
+            return $row;
+        });
+        $totalAset = $aset->sum('saldo');
+
+        $ekuitas = $ekuitas->map(function (array $row) use ($categoryByCode): array {
+            if ($categoryByCode->get($row['kode_akun']) === 'Modal (Kontra)') {
+                $row['saldo'] *= -1;
+            }
+            return $row;
+        });
+        $totalEkuitasMurni = $ekuitas->sum('saldo');
+        $totalKewajiban = $kewajiban->sum('saldo');
+
+        // Include the periodic inventory adjustment in current-period income.
+        $labaDitahan = $this->getRetainedEarnings($endOfDay);
+        if ($period) {
+            $periodStart = Carbon::parse(
+                $period->getRawOriginal('start_date'),
+                config('app.timezone'),
+            )->startOfDay();
+            $priorRetainedEarnings = $this->getRetainedEarnings($periodStart->copy()->subSecond());
+            $currentIncome = $this->getIncomeStatement(
+                $periodStart,
+                Carbon::parse($period->getRawOriginal('end_date'), config('app.timezone'))->endOfDay(),
+            )['laba_rugi'];
+            $labaDitahan = $priorRetainedEarnings + $currentIncome;
+        }
+
+        $totalEkuitas = $totalEkuitasMurni + $labaDitahan;
+        $totalKewajibanEkuitas = $totalKewajiban + $totalEkuitas;
 
         return [
             'aset'                    => $aset,

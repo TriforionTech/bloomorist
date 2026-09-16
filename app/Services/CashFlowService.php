@@ -47,7 +47,10 @@ class CashFlowService
         $netChange = $result['operating_total'] + $result['investing_total'] + $result['financing_total'];
         $openingCash = (float) $period->opening_cash_balance;
         $endingCash = $openingCash + $netChange;
-        $cashBalance = $this->cashBalanceAtPeriodEnd($period) + $openingCash;
+        // Reconcile both ledgers that already contain opening transactions and
+        // test/import ledgers that only contain movements inside this period.
+        $priorCash = $this->cashBalanceBeforePeriod($period);
+        $cashBalance = $this->cashBalanceAtPeriodEnd($period) + $openingCash - $priorCash;
 
         return [
             ...$result,
@@ -88,6 +91,16 @@ class CashFlowService
 
         return (float) JournalItem::whereIn('coa_id', $cashAccountIds)
             ->whereHas('journal', fn ($query) => $query->whereDate('tanggal', '<=', $period->end_date))
+            ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(kredit), 0) AS balance')
+            ->value('balance');
+    }
+
+    private function cashBalanceBeforePeriod(AccountingPeriod $period): float
+    {
+        $cashAccountIds = ChartOfAccount::whereIn('kode_akun', self::CASH_CODES)->pluck('id');
+
+        return (float) JournalItem::whereIn('coa_id', $cashAccountIds)
+            ->whereHas('journal', fn ($query) => $query->whereDate('tanggal', '<', $period->start_date))
             ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(kredit), 0) AS balance')
             ->value('balance');
     }

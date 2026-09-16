@@ -57,6 +57,11 @@ class InvoiceStatusService
                 );
             }
 
+            // Recalculate totals after invoice items have been persisted and
+            // before the accounting journal reads grand_total.
+            $invoice->load('items');
+            $invoice->save();
+
             // 1. Process stock mutations
             $this->processStockMutation($invoice, $oldStatus, $newStatus);
 
