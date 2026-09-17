@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\ChartOfAccount;
 use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Models\Expense;
 use App\Models\GeneralJournal;
 use App\Models\Invoice;
@@ -41,55 +41,58 @@ class AccountingService
 
             $amount = (int) ($product->harga_beli * $quantity);
 
-            if ($amount <= 0) return null;
+            if ($amount <= 0) {
+                return null;
+            }
 
             $journal = GeneralJournal::create([
-                'tanggal'      => now()->toDateString(),
-                'no_bukti'     => $this->generateNoBukti('ADJ'),
-                'keterangan'   => "Penyesuaian Stok ({$type}) - {$product->nama} - {$notes}",
+                'tanggal' => now()->toDateString(),
+                'no_bukti' => $this->generateNoBukti('ADJ'),
+                'keterangan' => "Penyesuaian Stok ({$type}) - {$product->nama} - {$notes}",
                 'reference_id' => $product->id,
-                'source_type'  => 'STOCK_ADJUSTMENT',
+                'source_type' => 'STOCK_ADJUSTMENT',
             ]);
 
             if ($type === 'loss' || $type === 'out') {
                 // Barang Hilang/Rusak: Debit Beban Operasional, Kredit Persediaan
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaBeban->id,
-                    'kode_coa'   => $coaBeban->kode_akun,
-                    'debit'      => $amount,
-                    'kredit'     => 0,
+                    'coa_id' => $coaBeban->id,
+                    'kode_coa' => $coaBeban->kode_akun,
+                    'debit' => $amount,
+                    'kredit' => 0,
                 ]);
 
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaPersediaan->id,
-                    'kode_coa'   => $coaPersediaan->kode_akun,
-                    'debit'      => 0,
-                    'kredit'     => $amount,
+                    'coa_id' => $coaPersediaan->id,
+                    'kode_coa' => $coaPersediaan->kode_akun,
+                    'debit' => 0,
+                    'kredit' => $amount,
                 ]);
             } else {
                 // Barang Masuk (Opname Plus): Debit Persediaan, Kredit Beban Operasional
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaPersediaan->id,
-                    'kode_coa'   => $coaPersediaan->kode_akun,
-                    'debit'      => $amount,
-                    'kredit'     => 0,
+                    'coa_id' => $coaPersediaan->id,
+                    'kode_coa' => $coaPersediaan->kode_akun,
+                    'debit' => $amount,
+                    'kredit' => 0,
                 ]);
 
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaBeban->id,
-                    'kode_coa'   => $coaBeban->kode_akun,
-                    'debit'      => 0,
-                    'kredit'     => $amount,
+                    'coa_id' => $coaBeban->id,
+                    'kode_coa' => $coaBeban->kode_akun,
+                    'debit' => 0,
+                    'kredit' => $amount,
                 ]);
             }
 
             return $journal;
         });
     }
+
     /**
      * Generate an auto-incrementing journal number.
      * Format: {prefix}-{YYYY}-{sequence}
@@ -111,7 +114,7 @@ class AccountingService
             $nextNumber = 1;
         }
 
-        return $pattern . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return $pattern.str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -136,15 +139,15 @@ class AccountingService
                 return $existing;
             }
 
-            $coaBeban  = ChartOfAccount::findOrFail($expense->coa_id);
+            $coaBeban = ChartOfAccount::findOrFail($expense->coa_id);
             $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
 
             $journal = GeneralJournal::create([
-                'tanggal'      => $expense->created_at->toDateString(),
-                'no_bukti'     => $this->generateNoBukti('EXP'),
-                'keterangan'   => $expense->keterangan,
+                'tanggal' => $expense->created_at->toDateString(),
+                'no_bukti' => $this->generateNoBukti('EXP'),
+                'keterangan' => $expense->keterangan,
                 'reference_id' => $expense->id,
-                'source_type'  => 'EXPENSE',
+                'source_type' => 'EXPENSE',
             ]);
 
             // Sync journal date to expense date
@@ -154,19 +157,19 @@ class AccountingService
             // Debit: Akun Beban
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaBeban->id,
-                'kode_coa'   => $coaBeban->kode_akun,
-                'debit'      => $expense->nominal,
-                'kredit'     => 0,
+                'coa_id' => $coaBeban->id,
+                'kode_coa' => $coaBeban->kode_akun,
+                'debit' => $expense->nominal,
+                'kredit' => 0,
             ]);
 
             // Kredit: Akun Kas/Bank (user-selected)
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaKredit->id,
-                'kode_coa'   => $coaKredit->kode_akun,
-                'debit'      => 0,
-                'kredit'     => $expense->nominal,
+                'coa_id' => $coaKredit->id,
+                'kode_coa' => $coaKredit->kode_akun,
+                'debit' => 0,
+                'kredit' => $expense->nominal,
             ]);
 
             return $journal;
@@ -185,15 +188,15 @@ class AccountingService
     public function createExpenseReversalJournal(Expense $expense): ?GeneralJournal
     {
         return DB::transaction(function () use ($expense) {
-            $coaBeban  = ChartOfAccount::findOrFail($expense->coa_id);
+            $coaBeban = ChartOfAccount::findOrFail($expense->coa_id);
             $coaKredit = ChartOfAccount::findOrFail($expense->coa_kredit_id);
 
             $journal = GeneralJournal::create([
-                'tanggal'      => $expense->created_at->toDateString(),
-                'no_bukti'     => $this->generateNoBukti('REV'),
-                'keterangan'   => "Pembatalan Expense: {$expense->keterangan}",
+                'tanggal' => $expense->created_at->toDateString(),
+                'no_bukti' => $this->generateNoBukti('REV'),
+                'keterangan' => "Pembatalan Expense: {$expense->keterangan}",
                 'reference_id' => $expense->id,
-                'source_type'  => 'EXPENSE',
+                'source_type' => 'EXPENSE',
             ]);
 
             // Sync journal date to expense date
@@ -203,19 +206,19 @@ class AccountingService
             // Debit: Akun Kas/Bank (reverse — sebelumnya di kredit)
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaKredit->id,
-                'kode_coa'   => $coaKredit->kode_akun,
-                'debit'      => $expense->nominal,
-                'kredit'     => 0,
+                'coa_id' => $coaKredit->id,
+                'kode_coa' => $coaKredit->kode_akun,
+                'debit' => $expense->nominal,
+                'kredit' => 0,
             ]);
 
             // Kredit: Akun Beban (reverse — sebelumnya di debit)
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaBeban->id,
-                'kode_coa'   => $coaBeban->kode_akun,
-                'debit'      => 0,
-                'kredit'     => $expense->nominal,
+                'coa_id' => $coaBeban->id,
+                'kode_coa' => $coaBeban->kode_akun,
+                'debit' => 0,
+                'kredit' => $expense->nominal,
             ]);
 
             return $journal;
@@ -244,22 +247,22 @@ class AccountingService
                 return $existing;
             }
 
-            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
+            $coaKas = ChartOfAccount::where('kode_akun', '1101')->first();
             $coaPendapatan = ChartOfAccount::where('kode_akun', '4101')->first();
 
             // Gracefully skip if COA accounts aren't set up yet
-            if (!$coaKas || !$coaPendapatan) {
+            if (! $coaKas || ! $coaPendapatan) {
                 return null;
             }
 
             $amount = (int) $invoice->grand_total;
 
             $journal = GeneralJournal::create([
-                'tanggal'      => $invoice->issued_date->toDateString(),
-                'no_bukti'     => $this->generateNoBukti('INV'),
-                'keterangan'   => "Penjualan Invoice #{$invoice->invoice_number}",
+                'tanggal' => $invoice->issued_date->toDateString(),
+                'no_bukti' => $this->generateNoBukti('INV'),
+                'keterangan' => "Penjualan Invoice #{$invoice->invoice_number}",
                 'reference_id' => $invoice->id,
-                'source_type'  => 'INVOICE',
+                'source_type' => 'INVOICE',
             ]);
 
             // Sync journal date to invoice date
@@ -269,19 +272,19 @@ class AccountingService
             // Debit: Kas & Bank
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaKas->id,
-                'kode_coa'   => $coaKas->kode_akun,
-                'debit'      => $amount,
-                'kredit'     => 0,
+                'coa_id' => $coaKas->id,
+                'kode_coa' => $coaKas->kode_akun,
+                'debit' => $amount,
+                'kredit' => 0,
             ]);
 
             // Kredit: Pendapatan Penjualan
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaPendapatan->id,
-                'kode_coa'   => $coaPendapatan->kode_akun,
-                'debit'      => 0,
-                'kredit'     => $amount,
+                'coa_id' => $coaPendapatan->id,
+                'kode_coa' => $coaPendapatan->kode_akun,
+                'debit' => 0,
+                'kredit' => $amount,
             ]);
 
             return $journal;
@@ -296,22 +299,22 @@ class AccountingService
      */
     public function createInvoiceReversalJournal(Invoice $invoice, string $reason = 'cancelled'): ?GeneralJournal
     {
-        return DB::transaction(function () use ($invoice, $reason) {
-            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
+        return DB::transaction(function () use ($invoice) {
+            $coaKas = ChartOfAccount::where('kode_akun', '1101')->first();
             $coaPendapatan = ChartOfAccount::where('kode_akun', '4101')->first();
 
-            if (!$coaKas || !$coaPendapatan) {
+            if (! $coaKas || ! $coaPendapatan) {
                 return null;
             }
 
             $amount = (int) $invoice->grand_total;
 
             $journal = GeneralJournal::create([
-                'tanggal'      => $invoice->issued_date->toDateString(),
-                'no_bukti'     => $this->generateNoBukti('REV'),
-                'keterangan'   => "Pembatalan Invoice #{$invoice->invoice_number}",
+                'tanggal' => $invoice->issued_date->toDateString(),
+                'no_bukti' => $this->generateNoBukti('REV'),
+                'keterangan' => "Pembatalan Invoice #{$invoice->invoice_number}",
                 'reference_id' => $invoice->id,
-                'source_type'  => 'INVOICE',
+                'source_type' => 'INVOICE',
             ]);
 
             // Sync journal date to invoice date
@@ -321,19 +324,19 @@ class AccountingService
             // Debit: Pendapatan Penjualan (reverse)
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaPendapatan->id,
-                'kode_coa'   => $coaPendapatan->kode_akun,
-                'debit'      => $amount,
-                'kredit'     => 0,
+                'coa_id' => $coaPendapatan->id,
+                'kode_coa' => $coaPendapatan->kode_akun,
+                'debit' => $amount,
+                'kredit' => 0,
             ]);
 
             // Kredit: Kas & Bank (reverse)
             JournalItem::create([
                 'journal_id' => $journal->id,
-                'coa_id'     => $coaKas->id,
-                'kode_coa'   => $coaKas->kode_akun,
-                'debit'      => 0,
-                'kredit'     => $amount,
+                'coa_id' => $coaKas->id,
+                'kode_coa' => $coaKas->kode_akun,
+                'debit' => 0,
+                'kredit' => $amount,
             ]);
 
             return $journal;
@@ -354,10 +357,10 @@ class AccountingService
     ): ?GeneralJournal {
         return DB::transaction(function () use ($type, $quantity, $unitCost, $productName, $notes) {
             $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first();
-            $coaKas        = ChartOfAccount::where('kode_akun', '1101')->first();
-            $coaBeban      = ChartOfAccount::where('kode_akun', '6106')->first();
+            $coaKas = ChartOfAccount::where('kode_akun', '1101')->first();
+            $coaBeban = ChartOfAccount::where('kode_akun', '6106')->first();
 
-            if (!$coaPersediaan || !$coaKas || !$coaBeban) {
+            if (! $coaPersediaan || ! $coaKas || ! $coaBeban) {
                 return null;
             }
 
@@ -368,53 +371,136 @@ class AccountingService
             }
 
             $prefix = $type === 'in' ? 'STK-IN' : 'STK-OUT';
-            $label  = $type === 'in' ? 'Stock In' : 'Stock Out';
+            $label = $type === 'in' ? 'Stock In' : 'Stock Out';
             $description = "{$label}: {$productName} ({$quantity} unit)";
             if ($notes) {
                 $description .= " — {$notes}";
             }
 
             $journal = GeneralJournal::create([
-                'tanggal'      => now()->toDateString(),
-                'no_bukti'     => $this->generateNoBukti($prefix),
-                'keterangan'   => $description,
+                'tanggal' => now()->toDateString(),
+                'no_bukti' => $this->generateNoBukti($prefix),
+                'keterangan' => $description,
                 'reference_id' => null,
-                'source_type'  => 'STOCK',
+                'source_type' => 'STOCK',
             ]);
 
             if ($type === 'in') {
                 // Stock In: Debit Persediaan, Kredit Kas
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaPersediaan->id,
-                    'kode_coa'   => $coaPersediaan->kode_akun,
-                    'debit'      => $amount,
-                    'kredit'     => 0,
+                    'coa_id' => $coaPersediaan->id,
+                    'kode_coa' => $coaPersediaan->kode_akun,
+                    'debit' => $amount,
+                    'kredit' => 0,
                 ]);
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaKas->id,
-                    'kode_coa'   => $coaKas->kode_akun,
-                    'debit'      => 0,
-                    'kredit'     => $amount,
+                    'coa_id' => $coaKas->id,
+                    'kode_coa' => $coaKas->kode_akun,
+                    'debit' => 0,
+                    'kredit' => $amount,
                 ]);
             } else {
                 // Stock Out: Debit Beban Operasional, Kredit Persediaan
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaBeban->id,
-                    'kode_coa'   => $coaBeban->kode_akun,
-                    'debit'      => $amount,
-                    'kredit'     => 0,
+                    'coa_id' => $coaBeban->id,
+                    'kode_coa' => $coaBeban->kode_akun,
+                    'debit' => $amount,
+                    'kredit' => 0,
                 ]);
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coaPersediaan->id,
-                    'kode_coa'   => $coaPersediaan->kode_akun,
-                    'debit'      => 0,
-                    'kredit'     => $amount,
+                    'coa_id' => $coaPersediaan->id,
+                    'kode_coa' => $coaPersediaan->kode_akun,
+                    'debit' => 0,
+                    'kredit' => $amount,
                 ]);
             }
+
+            return $journal;
+        });
+    }
+
+    /**
+     * Create journal entries for a stock transfer.
+     * Records the transfer between two products and records any price variance as gain/loss.
+     */
+    public function createStockTransferJournal(\App\Models\StockTransfer $transfer): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($transfer) {
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first();
+            $coaPendapatanLain = ChartOfAccount::where('kode_akun', '4104')->first();
+            $coaBebanLain = ChartOfAccount::where('kode_akun', '6108')->first();
+
+            if (! $coaPersediaan || ! $coaPendapatanLain || ! $coaBebanLain) {
+                return null;
+            }
+
+            $sourceProduct = $transfer->sourceProduct;
+            $targetProduct = $transfer->targetProduct;
+            $quantity = $transfer->quantity;
+
+            $sourceValue = $quantity * $sourceProduct->harga_beli;
+            $targetValue = $quantity * $targetProduct->harga_beli;
+
+            $journal = GeneralJournal::create([
+                'tanggal' => $transfer->tanggal->toDateString(),
+                'no_bukti' => $this->generateNoBukti('TRF'),
+                'keterangan' => "Transfer Stok: {$quantity} {$sourceProduct->nama} ke {$targetProduct->nama}".($transfer->keterangan ? " - {$transfer->keterangan}" : ''),
+                'reference_id' => $transfer->id,
+                'source_type' => 'STOCK_TRANSFER',
+            ]);
+
+            // Sync journal date
+            $journal->created_at = $transfer->tanggal;
+            $journal->save(['timestamps' => false]);
+
+            // Debit target inventory
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id' => $coaPersediaan->id,
+                'kode_coa' => $coaPersediaan->kode_akun,
+                'debit' => $targetValue,
+                'kredit' => 0,
+            ]);
+
+            // Credit source inventory
+            JournalItem::create([
+                'journal_id' => $journal->id,
+                'coa_id' => $coaPersediaan->id,
+                'kode_coa' => $coaPersediaan->kode_akun,
+                'debit' => 0,
+                'kredit' => $sourceValue,
+            ]);
+
+            $variance = $targetValue - $sourceValue;
+
+            if ($variance > 0) {
+                // Gain -> Credit Pendapatan Lain-lain
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id' => $coaPendapatanLain->id,
+                    'kode_coa' => $coaPendapatanLain->kode_akun,
+                    'debit' => 0,
+                    'kredit' => $variance,
+                ]);
+            } elseif ($variance < 0) {
+                // Loss -> Debit Beban Lain-lain
+                JournalItem::create([
+                    'journal_id' => $journal->id,
+                    'coa_id' => $coaBebanLain->id,
+                    'kode_coa' => $coaBebanLain->kode_akun,
+                    'debit' => abs($variance),
+                    'kredit' => 0,
+                ]);
+            }
+
+            // Deduct stock from source
+            $sourceProduct->decrement('stok', $quantity);
+            // Add stock to target
+            $targetProduct->increment('stok', $quantity);
 
             return $journal;
         });
@@ -479,13 +565,13 @@ class AccountingService
 
         // Add opening balance row
         $rows->push([
-            'tanggal'    => $startDate?->format('d/m/Y') ?? '-',
-            'no_bukti'   => '-',
-            'kode_coa'   => $coa->kode_akun,
+            'tanggal' => $startDate?->format('d/m/Y') ?? '-',
+            'no_bukti' => '-',
+            'kode_coa' => $coa->kode_akun,
             'keterangan' => 'Saldo Awal',
-            'debit'      => 0,
-            'kredit'     => 0,
-            'saldo'      => $runningBalance,
+            'debit' => 0,
+            'kredit' => 0,
+            'saldo' => $runningBalance,
             'is_opening' => true,
         ]);
 
@@ -497,13 +583,13 @@ class AccountingService
             }
 
             $rows->push([
-                'tanggal'    => $item->journal->tanggal ? $item->journal->tanggal->format('d/m/Y') : $item->journal->created_at->format('d/m/Y'),
-                'no_bukti'   => $item->journal->no_bukti,
-                'kode_coa'   => $item->kode_coa,
+                'tanggal' => $item->journal->tanggal ? $item->journal->tanggal->format('d/m/Y') : $item->journal->created_at->format('d/m/Y'),
+                'no_bukti' => $item->journal->no_bukti,
+                'kode_coa' => $item->kode_coa,
                 'keterangan' => $item->journal->keterangan,
-                'debit'      => $item->debit,
-                'kredit'     => $item->kredit,
-                'saldo'      => $runningBalance,
+                'debit' => $item->debit,
+                'kredit' => $item->kredit,
+                'saldo' => $runningBalance,
                 'is_opening' => false,
             ]);
         }
@@ -557,11 +643,11 @@ class AccountingService
             : $totalPendapatan - $totalBeban;
 
         return [
-            'pendapatan'       => $pendapatan,
+            'pendapatan' => $pendapatan,
             'total_pendapatan' => $hasPeriodicAccounts ? $netSales + $outsideOperatingIncome : $totalPendapatan,
-            'beban'            => $beban,
-            'total_beban'      => $hasPeriodicAccounts ? $cogs + $operatingExpenses : $totalBeban,
-            'laba_rugi'        => $labaRugi,
+            'beban' => $beban,
+            'total_beban' => $hasPeriodicAccounts ? $cogs + $operatingExpenses : $totalBeban,
+            'laba_rugi' => $labaRugi,
             'penjualan_bersih' => $netSales,
             'persediaan_awal' => $openingInventory,
             'pembelian_bersih' => $netPurchases,
@@ -573,8 +659,8 @@ class AccountingService
             'beban_operasional' => $operatingExpenses,
             'laba_usaha' => $operatingProfit,
             'pendapatan_luar_usaha' => $outsideOperatingIncome,
-            'start_date'       => $start,
-            'end_date'         => $end,
+            'start_date' => $start,
+            'end_date' => $end,
         ];
     }
 
@@ -597,6 +683,7 @@ class AccountingService
                 if ($row['kode_akun'] === '1104') {
                     $row['saldo'] = (float) $period->closing_inventory_value;
                 }
+
                 return $row;
             });
         }
@@ -616,6 +703,7 @@ class AccountingService
             if ($categoryByCode->get($row['kode_akun']) === 'Aktiva Tetap (Kontra)') {
                 $row['saldo'] *= -1;
             }
+
             return $row;
         });
         $totalAset = $aset->sum('saldo');
@@ -624,6 +712,7 @@ class AccountingService
             if ($categoryByCode->get($row['kode_akun']) === 'Modal (Kontra)') {
                 $row['saldo'] *= -1;
             }
+
             return $row;
         });
         $totalEkuitasMurni = $ekuitas->sum('saldo');
@@ -648,20 +737,20 @@ class AccountingService
         $totalKewajibanEkuitas = $totalKewajiban + $totalEkuitas;
 
         return [
-            'aset'                    => $aset,
-            'aset_groups'             => $this->groupBalanceItems($aset, $categoryByCode, ['Aktiva Lancar', 'Aktiva Tetap', 'Aktiva Tetap (Kontra)']),
-            'total_aset'              => $totalAset,
-            'kewajiban'               => $kewajiban,
-            'kewajiban_groups'       => $this->groupBalanceItems($kewajiban, $categoryByCode, ['Kewajiban Lancar']),
-            'total_kewajiban'         => $totalKewajiban,
-            'ekuitas'                 => $ekuitas,
-            'ekuitas_groups'          => $this->groupBalanceItems($ekuitas, $categoryByCode, ['Modal', 'Modal (Kontra)']),
-            'total_ekuitas_murni'     => $totalEkuitasMurni,
-            'laba_ditahan'            => $labaDitahan,
-            'total_ekuitas'           => $totalEkuitas,
+            'aset' => $aset,
+            'aset_groups' => $this->groupBalanceItems($aset, $categoryByCode, ['Aktiva Lancar', 'Aktiva Tetap', 'Aktiva Tetap (Kontra)']),
+            'total_aset' => $totalAset,
+            'kewajiban' => $kewajiban,
+            'kewajiban_groups' => $this->groupBalanceItems($kewajiban, $categoryByCode, ['Kewajiban Lancar']),
+            'total_kewajiban' => $totalKewajiban,
+            'ekuitas' => $ekuitas,
+            'ekuitas_groups' => $this->groupBalanceItems($ekuitas, $categoryByCode, ['Modal', 'Modal (Kontra)']),
+            'total_ekuitas_murni' => $totalEkuitasMurni,
+            'laba_ditahan' => $labaDitahan,
+            'total_ekuitas' => $totalEkuitas,
             'total_kewajiban_ekuitas' => $totalKewajibanEkuitas,
-            'is_balanced'             => abs((float) $totalAset - (float) $totalKewajibanEkuitas) < 0.01,
-            'as_of'                   => $asOf,
+            'is_balanced' => abs((float) $totalAset - (float) $totalKewajibanEkuitas) < 0.01,
+            'as_of' => $asOf,
         ];
     }
 
@@ -682,7 +771,7 @@ class AccountingService
     public function getRetainedEarnings(Carbon $asOf): int
     {
         $pendapatan = $this->getAccountGroupTotals('Pendapatan', null, $asOf);
-        $beban      = $this->getAccountGroupTotals('Beban', null, $asOf);
+        $beban = $this->getAccountGroupTotals('Beban', null, $asOf);
 
         return $pendapatan->sum('saldo') - $beban->sum('saldo');
     }
@@ -690,7 +779,7 @@ class AccountingService
     private function accountBalanceByCode(string $code, ?Carbon $start, ?Carbon $end, bool $excludeClosing = false): float
     {
         $account = ChartOfAccount::where('kode_akun', $code)->first();
-        if (!$account) {
+        if (! $account) {
             return 0;
         }
 
@@ -717,7 +806,7 @@ class AccountingService
     private function accountBalanceBeforeCode(string $code, Carbon $date): float
     {
         $account = ChartOfAccount::where('kode_akun', $code)->first();
-        if (!$account) {
+        if (! $account) {
             return 0;
         }
 
@@ -786,7 +875,7 @@ class AccountingService
             return [
                 'kode_akun' => $account->kode_akun,
                 'nama_akun' => $account->nama_akun,
-                'saldo'     => $saldo,
+                'saldo' => $saldo,
             ];
         });
     }

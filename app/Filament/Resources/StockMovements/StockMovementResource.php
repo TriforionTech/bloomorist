@@ -20,7 +20,7 @@ class StockMovementResource extends Resource
     protected static ?string $pluralLabel = 'Stock Movements';
     protected static ?string $label = 'Stock Movement';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsUpDown;
 
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
     protected static ?int $navigationSort = 2;
