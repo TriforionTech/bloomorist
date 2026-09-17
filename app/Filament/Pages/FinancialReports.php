@@ -33,9 +33,7 @@ class FinancialReports extends Page implements HasSchemas
     protected string $view = 'filament.pages.financial-reports';
 
     // Income Statement filters
-    public string $incomeFilter = 'bulan_ini';
-    public ?string $incomeStartDate = null;
-    public ?string $incomeEndDate = null;
+    public ?int $incomePeriodId = null;
 
     // Balance Sheet filter
     public ?string $balanceAsOf = null;
@@ -54,8 +52,10 @@ class FinancialReports extends Page implements HasSchemas
 
     public function mount(): void
     {
+        $defaultPeriodId = AccountingPeriod::query()->orderByDesc('start_date')->value('id');
+        $this->incomePeriodId = $defaultPeriodId;
+        $this->cashFlowPeriodId = $defaultPeriodId;
         $this->balanceAsOf = now()->format('Y-m-d');
-        $this->cashFlowPeriodId = AccountingPeriod::query()->orderByDesc('start_date')->value('id');
     }
 
     /**
@@ -66,30 +66,15 @@ class FinancialReports extends Page implements HasSchemas
         return $schema->components([
             Section::make('Filter Laporan Laba Rugi')
                 ->schema([
-                    Select::make('incomeFilter')
-                        ->label('Periode')
-                        ->options([
-                            'bulan_ini'  => 'Bulan Ini',
-                            'bulan_lalu' => 'Bulan Lalu',
-                            'tahun_ini'  => 'Tahun Ini',
-                            'custom'     => 'Custom Range',
-                        ])
+                    Select::make('incomePeriodId')
+                        ->label('Periode Akuntansi')
+                        ->options(AccountingPeriod::query()->orderByDesc('start_date')->pluck('label', 'id'))
+                        ->searchable()
                         ->native(false)
-                        ->live(),
-
-                    DatePicker::make('incomeStartDate')
-                        ->label('Dari Tanggal')
-                        ->native(false)
-                        ->visible(fn () => $this->incomeFilter === 'custom')
-                        ->live(),
-
-                    DatePicker::make('incomeEndDate')
-                        ->label('Sampai Tanggal')
-                        ->native(false)
-                        ->visible(fn () => $this->incomeFilter === 'custom')
-                        ->live(),
+                        ->live()
+                        ->required(),
                 ])
-                ->columns(3),
+                ->columns(1),
         ]);
     }
 
@@ -161,16 +146,13 @@ class FinancialReports extends Page implements HasSchemas
      */
     private function getIncomeDateRange(): array
     {
-        return match ($this->incomeFilter) {
-            'bulan_ini'  => [now()->startOfMonth(), now()->endOfMonth()],
-            'bulan_lalu' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-            'tahun_ini'  => [now()->startOfYear(), now()->endOfYear()],
-            'custom'     => [
-                $this->incomeStartDate ? Carbon::parse($this->incomeStartDate) : now()->startOfMonth(),
-                $this->incomeEndDate ? Carbon::parse($this->incomeEndDate) : now()->endOfMonth(),
-            ],
-            default => [now()->startOfMonth(), now()->endOfMonth()],
-        };
+        if ($this->incomePeriodId) {
+            $period = AccountingPeriod::find($this->incomePeriodId);
+            if ($period) {
+                return [$period->start_date, $period->end_date];
+            }
+        }
+        return [now()->startOfMonth(), now()->endOfMonth()];
     }
 
     /**

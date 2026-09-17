@@ -71,18 +71,28 @@ class CashFlowService
             return 0;
         }
 
-        return (float) JournalItem::query()
-            ->with('journal.items.coa')
+        // Get all journal IDs that have cash movements in this period
+        $journalIdsWithCash = JournalItem::query()
             ->whereIn('coa_id', $cashAccountIds)
             ->whereHas('journal', function ($query) use ($period) {
                 $query->whereDate('tanggal', '>=', $period->start_date)
                     ->whereDate('tanggal', '<=', $period->end_date);
             })
+            ->pluck('journal_id')
+            ->unique();
+
+        if ($journalIdsWithCash->isEmpty()) {
+            return 0;
+        }
+
+        // Now sum the (kredit - debit) of the counter accounts that match our patterns
+        return (float) JournalItem::query()
+            ->with('coa')
+            ->whereIn('journal_id', $journalIdsWithCash)
+            ->whereNotIn('coa_id', $cashAccountIds) // Only look at non-cash lines
             ->get()
-            ->filter(fn (JournalItem $cashLine) => $cashLine->journal->items
-                ->where('id', '!=', $cashLine->id)
-                ->contains(fn (JournalItem $counterLine) => $this->matches($counterLine->coa?->kode_akun, $patterns)))
-            ->sum(fn (JournalItem $line) => $line->debit - $line->kredit);
+            ->filter(fn (JournalItem $line) => $this->matches($line->coa?->kode_akun, $patterns))
+            ->sum(fn (JournalItem $line) => $line->kredit - $line->debit);
     }
 
     private function cashBalanceAtPeriodEnd(AccountingPeriod $period): float
