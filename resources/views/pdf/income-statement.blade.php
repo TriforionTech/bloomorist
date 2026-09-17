@@ -167,39 +167,55 @@
             <div class="generated-at">Dicetak: {{ $generated }}</div>
         </div>
 
-        <!-- PENDAPATAN -->
         <div class="section">
-            <div class="section-title pendapatan">Pendapatan</div>
             <table class="report-table">
-                @foreach($data['pendapatan'] as $item)
-                    <tr>
-                        <td class="account-code">{{ $item['kode_akun'] }}</td>
-                        <td class="account-name">{{ $item['nama_akun'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
-                    </tr>
-                @endforeach
-                <tr class="subtotal-row pendapatan">
-                    <td colspan="2">Total Pendapatan</td>
-                    <td class="amount">Rp {{ number_format($data['total_pendapatan'], 0, ',', '.') }}</td>
-                </tr>
-            </table>
-        </div>
+                <!-- PENDAPATAN -->
+                <tr class="subtotal-row pendapatan"><td colspan="2">PENDAPATAN</td><td class="amount"></td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Penjualan</td><td class="amount">Rp {{ number_format($data['balances_by_code']['4101'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Retur Penjualan</td><td class="amount">Rp {{ number_format($data['balances_by_code']['4102'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Penjualan Bersih</td><td class="amount">Rp {{ number_format($data['penjualan_bersih'], 0, ',', '.') }}</td></tr>
+                <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
 
-        <!-- BEBAN -->
-        <div class="section">
-            <div class="section-title beban">Beban</div>
-            <table class="report-table">
-                @foreach($data['beban'] as $item)
-                    <tr>
-                        <td class="account-code">{{ $item['kode_akun'] }}</td>
-                        <td class="account-name">{{ $item['nama_akun'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
-                    </tr>
-                @endforeach
-                <tr class="subtotal-row beban">
-                    <td colspan="2">Total Beban</td>
-                    <td class="amount">Rp {{ number_format($data['total_beban'], 0, ',', '.') }}</td>
-                </tr>
+                <!-- HPP -->
+                <tr class="subtotal-row"><td colspan="2">HARGA POKOK PENJUALAN (HPP)</td><td class="amount"></td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Pembelian Bunga</td><td class="amount">Rp {{ number_format($data['balances_by_code']['5101'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Retur Pembelian</td><td class="amount">Rp {{ number_format($data['balances_by_code']['5102'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Pembelian Bersih</td><td class="amount">Rp {{ number_format($data['pembelian_bersih'], 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Angkut Pembelian</td><td class="amount">Rp {{ number_format($data['balances_by_code']['5103'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Persediaan Awal</td><td class="amount">Rp {{ number_format($data['persediaan_awal'], 0, ',', '.') }}</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Barang Tersedia Dijual</td><td class="amount">Rp {{ number_format($data['barang_tersedia_dijual'], 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name" style="color: #dc2626;">Persediaan Bunga Akhir (hasil stock opname)</td><td class="amount" style="color: #dc2626;">(Rp {{ number_format($data['persediaan_akhir'] ?? 0, 0, ',', '.') }})</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Harga Pokok Penjualan (HPP)</td><td class="amount">Rp {{ number_format($data['hpp'], 0, ',', '.') }}</td></tr>
+                <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
+
+                <!-- LABA KOTOR -->
+                <tr class="subtotal-row" style="background-color: #f0fdf4;"><td colspan="2" style="color: #166534;">LABA KOTOR</td><td class="amount" style="color: #166534;">Rp {{ number_format($data['laba_kotor'], 0, ',', '.') }}</td></tr>
+                <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
+
+                <!-- BEBAN OPERASIONAL -->
+                <tr class="subtotal-row beban"><td colspan="2">BEBAN OPERASIONAL</td><td class="amount"></td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Gaji</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6101'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Sewa</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6102'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Utilitas</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6103'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Angkut Penjualan</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6104'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Penyusutan</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6105'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Kerugian Bunga Rusak/Layu</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6106'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Perlengkapan</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6107'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Akomodasi</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6109'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Lain-Lain</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6108'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Beban Pesangon</td><td class="amount">Rp {{ number_format($data['balances_by_code']['6110'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Total Beban Operasional</td><td class="amount">Rp {{ number_format($data['beban_operasional'], 0, ',', '.') }}</td></tr>
+                <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
+
+                <!-- LABA USAHA -->
+                <tr class="subtotal-row" style="background-color: #f0fdf4;"><td colspan="2" style="color: #166534;">LABA USAHA</td><td class="amount" style="color: #166534;">Rp {{ number_format($data['laba_usaha'], 0, ',', '.') }}</td></tr>
+                <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
+
+                <!-- PENDAPATAN DI LUAR USAHA -->
+                <tr class="subtotal-row"><td colspan="2">PENDAPATAN DI LUAR USAHA</td><td class="amount"></td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Pendapatan Bunga Piutang</td><td class="amount">Rp {{ number_format($data['balances_by_code']['4103'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Pendapatan Lain-Lain</td><td class="amount">Rp {{ number_format($data['balances_by_code']['4104'] ?? 0, 0, ',', '.') }}</td></tr>
+                <tr style="font-weight: 700;"><td class="account-code" style="padding-left: 20px;"></td><td class="account-name">Total Pendapatan Di Luar Usaha</td><td class="amount">Rp {{ number_format($data['pendapatan_luar_usaha'], 0, ',', '.') }}</td></tr>
             </table>
         </div>
 

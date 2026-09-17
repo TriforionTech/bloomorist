@@ -16,22 +16,27 @@ class CashFlowService
         $period = AccountingPeriod::findOrFail($periodId);
         $lines = [
             'operating' => [
-                ['key' => 'sales_receipts', 'label' => 'Penerimaan dari Penjualan', 'patterns' => ['4101']],
-                ['key' => 'receivables', 'label' => 'Penerimaan Pelunasan Piutang', 'patterns' => ['1103']],
-                ['key' => 'purchases', 'label' => 'Pembayaran Pembelian Bunga', 'patterns' => ['51*']],
-                ['key' => 'payables', 'label' => 'Pembayaran Hutang Dagang', 'patterns' => ['2101']],
-                ['key' => 'operating_expenses', 'label' => 'Pembayaran Beban Operasional', 'patterns' => ['6*']],
-                ['key' => 'interest_income', 'label' => 'Penerimaan Pendapatan Bunga', 'patterns' => ['4103']],
-                ['key' => 'other_income', 'label' => 'Penerimaan Pendapatan Lain-Lain', 'patterns' => ['4104']],
+                ['key' => '4101', 'label' => 'Penerimaan dari Penjualan', 'patterns' => ['4101']],
+                ['key' => '1103', 'label' => 'Penerimaan Pelunasan Piutang Dagang', 'patterns' => ['1103']],
+                ['key' => '1107', 'label' => 'Penerimaan Piutang Ongkir', 'patterns' => ['1107']],
+                ['key' => '51xx',  'label' => 'Pembayaran Pembelian Bunga (bersih)', 'patterns' => ['51*']],
+                ['key' => '2101', 'label' => 'Pembayaran/Pelunasan Hutang Dagang', 'patterns' => ['2101']],
+                ['key' => '61xx',   'label' => 'Pembayaran Beban Operasional (Gaji, sewa, utilitas, angkut, dll)', 'patterns' => ['6*']],
+                ['key' => '1108', 'label' => 'Pembelian Perlengkapan', 'patterns' => ['1108']],
+                ['key' => '4103', 'label' => 'Penerimaan Pendapatan Bunga', 'patterns' => ['4103']],
+                ['key' => '1110', 'label' => 'Uang Muka Pembelian Petani', 'patterns' => ['1110']],
+                ['key' => '1111', 'label' => 'Gaji Bayar di Muka', 'patterns' => ['1111']],
+                ['key' => '4104', 'label' => 'Penerimaan Pendapatan Lain-Lain', 'patterns' => ['4104']],
+                ['key' => '2102', 'label' => 'Penerimaan Uang Muka Penjualan', 'patterns' => ['2102']],
             ],
             'investing' => [
-                ['key' => 'fixed_assets', 'label' => 'Pembelian Peralatan', 'patterns' => ['1105']],
-                ['key' => 'investment_receivables', 'label' => 'Pinjaman/Piutang Investasi', 'patterns' => ['1109']],
-                ['key' => 'land_advances', 'label' => 'Uang Muka Pembelian Tanah', 'patterns' => ['1112']],
+                ['key' => '1105', 'label' => 'Pembelian Peralatan', 'patterns' => ['1105']],
+                ['key' => '1109', 'label' => 'Pinjaman/Piutang Investasi', 'patterns' => ['1109']],
+                ['key' => '1112', 'label' => 'Uang Muka Pembelian Tanah', 'patterns' => ['1112']],
             ],
             'financing' => [
-                ['key' => 'owner_capital', 'label' => 'Setoran Modal Pemilik', 'patterns' => ['3101']],
-                ['key' => 'owner_drawings', 'label' => 'Prive Pemilik', 'patterns' => ['3102']],
+                ['key' => '3101', 'label' => 'Setoran Modal Pemilik', 'patterns' => ['3101']],
+                ['key' => '3102', 'label' => 'Prive Pemilik', 'patterns' => ['3102']],
             ],
         ];
 

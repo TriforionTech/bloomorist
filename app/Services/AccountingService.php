@@ -630,7 +630,7 @@ class AccountingService
 
         $operatingExpenses = $hasPeriodicAccounts
             ? $totalBeban - $this->accountBalanceByCode('5101', $start, $end, true)
-                + $this->accountBalanceByCode('5102', $start, $end, true)
+                - $this->accountBalanceByCode('5102', $start, $end, true)
                 - $purchaseFreight
             : $totalBeban;
         $grossProfit = $netSales - $cogs;
@@ -641,6 +641,9 @@ class AccountingService
         $labaRugi = $hasPeriodicAccounts
             ? $operatingProfit + $outsideOperatingIncome
             : $totalPendapatan - $totalBeban;
+
+        // Create a lookup table for all account balances in this period for easy Blade templating
+        $balancesByCode = $pendapatan->concat($beban)->pluck('saldo', 'kode_akun')->toArray();
 
         return [
             'pendapatan' => $pendapatan,
@@ -661,6 +664,7 @@ class AccountingService
             'pendapatan_luar_usaha' => $outsideOperatingIncome,
             'start_date' => $start,
             'end_date' => $end,
+            'balances_by_code' => $balancesByCode,
         ];
     }
 
@@ -736,6 +740,8 @@ class AccountingService
         $totalEkuitas = $totalEkuitasMurni + $labaDitahan;
         $totalKewajibanEkuitas = $totalKewajiban + $totalEkuitas;
 
+        $balancesByCode = $aset->concat($kewajiban)->concat($ekuitas)->pluck('saldo', 'kode_akun')->toArray();
+
         return [
             'aset' => $aset,
             'aset_groups' => $this->groupBalanceItems($aset, $categoryByCode, ['Aktiva Lancar', 'Aktiva Tetap', 'Aktiva Tetap (Kontra)']),
@@ -751,6 +757,7 @@ class AccountingService
             'total_kewajiban_ekuitas' => $totalKewajibanEkuitas,
             'is_balanced' => abs((float) $totalAset - (float) $totalKewajibanEkuitas) < 0.01,
             'as_of' => $asOf,
+            'balances_by_code' => $balancesByCode,
         ];
     }
 

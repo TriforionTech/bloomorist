@@ -167,71 +167,94 @@
             <div class="generated-at">Dicetak: {{ $generated }}</div>
         </div>
 
-        <!-- OPERATING -->
         <div class="section">
-            <div class="section-title operating">Aktivitas Operasi</div>
             <table class="report-table">
-                @foreach($data['operating'] as $item)
+                <thead>
                     <tr>
-                        <td class="account-name">{{ $item['label'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
+                        <th style="text-align: left; width: 60px;">Helper</th>
+                        <th style="text-align: left;">Keterangan</th>
+                        <th style="text-align: right;">Jumlah</th>
                     </tr>
-                @endforeach
-                <tr class="subtotal-row">
-                    <td>Total Aktivitas Operasi</td>
-                    <td class="amount">Rp {{ number_format($data['operating_total'], 0, ',', '.') }}</td>
-                </tr>
-            </table>
-        </div>
+                </thead>
+                <tbody>
+                    <!-- OPERATING -->
+                    <tr>
+                        <td></td>
+                        <td style="font-weight: 700; padding-top: 15px;">ARUS KAS DARI AKTIVITAS OPERASI</td>
+                        <td></td>
+                    </tr>
+                    @foreach($data['operating'] as $item)
+                        <tr>
+                            <td class="account-code">{{ $item['key'] }}</td>
+                            <td class="account-name">{{ $item['label'] }}</td>
+                            <td class="amount">{{ $item['amount'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}</td>
+                        </tr>
+                    @endforeach
+                    <tr class="subtotal-row">
+                        <td></td>
+                        <td>Kas Bersih dari Aktivitas Operasi</td>
+                        <td class="amount">{{ $data['operating_total'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($data['operating_total']), 0, ',', '.') }}{{ $data['operating_total'] < 0 ? ')' : '' }}</td>
+                    </tr>
+                    <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
 
-        <!-- INVESTING -->
-        <div class="section">
-            <div class="section-title investing">Aktivitas Investasi</div>
-            <table class="report-table">
-                @foreach($data['investing'] as $item)
+                    <!-- INVESTING -->
                     <tr>
-                        <td class="account-name">{{ $item['label'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
+                        <td></td>
+                        <td style="font-weight: 700; padding-top: 15px;">ARUS KAS DARI AKTIVITAS INVESTASI</td>
+                        <td></td>
                     </tr>
-                @endforeach
-                <tr class="subtotal-row">
-                    <td>Total Aktivitas Investasi</td>
-                    <td class="amount">Rp {{ number_format($data['investing_total'], 0, ',', '.') }}</td>
-                </tr>
-            </table>
-        </div>
-        
-        <!-- FINANCING -->
-        <div class="section">
-            <div class="section-title financing">Aktivitas Pendanaan</div>
-            <table class="report-table">
-                @foreach($data['financing'] as $item)
-                    <tr>
-                        <td class="account-name">{{ $item['label'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
+                    @foreach($data['investing'] as $item)
+                        <tr>
+                            <td class="account-code">{{ $item['key'] }}</td>
+                            <td class="account-name">{{ $item['label'] }}</td>
+                            <td class="amount">{{ $item['amount'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}</td>
+                        </tr>
+                    @endforeach
+                    <tr class="subtotal-row">
+                        <td></td>
+                        <td>Kas Bersih dari Aktivitas Investasi</td>
+                        <td class="amount">{{ $data['investing_total'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($data['investing_total']), 0, ',', '.') }}{{ $data['investing_total'] < 0 ? ')' : '' }}</td>
                     </tr>
-                @endforeach
-                <tr class="subtotal-row">
-                    <td>Total Aktivitas Pendanaan</td>
-                    <td class="amount">Rp {{ number_format($data['financing_total'], 0, ',', '.') }}</td>
-                </tr>
-            </table>
-        </div>
+                    <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
 
-        <!-- SUMMARY -->
-        <div class="summary-box">
-            <div class="summary-row">
-                <span class="label">Saldo Kas Awal</span>
-                <span class="value">Rp {{ number_format($data['opening_cash'], 0, ',', '.') }}</span>
-            </div>
-            <div class="summary-row">
-                <span class="label">Kenaikan (Penurunan) Kas Bersih</span>
-                <span class="value">Rp {{ number_format($data['net_change'], 0, ',', '.') }}</span>
-            </div>
-            <div class="summary-row total">
-                <span class="label">Saldo Kas Akhir</span>
-                <span class="value">Rp {{ number_format($data['ending_cash'], 0, ',', '.') }}</span>
-            </div>
+                    <!-- FINANCING -->
+                    <tr>
+                        <td></td>
+                        <td style="font-weight: 700; padding-top: 15px;">ARUS KAS DARI AKTIVITAS PENDANAAN</td>
+                        <td></td>
+                    </tr>
+                    @foreach($data['financing'] as $item)
+                        <tr>
+                            <td class="account-code">{{ $item['key'] }}</td>
+                            <td class="account-name">{{ $item['label'] }}</td>
+                            <td class="amount">{{ $item['amount'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}</td>
+                        </tr>
+                    @endforeach
+                    <tr class="subtotal-row">
+                        <td></td>
+                        <td>Kas Bersih dari Aktivitas Pendanaan</td>
+                        <td class="amount">{{ $data['financing_total'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($data['financing_total']), 0, ',', '.') }}{{ $data['financing_total'] < 0 ? ')' : '' }}</td>
+                    </tr>
+                    <tr><td colspan="3" style="border:none; padding:10px;"></td></tr>
+
+                    <!-- SUMMARY -->
+                    <tr class="subtotal-row">
+                        <td></td>
+                        <td>KENAIKAN (PENURUNAN) KAS & BANK BERSIH</td>
+                        <td class="amount">{{ $data['net_change'] < 0 ? '(Rp ' : 'Rp ' }}{{ number_format(abs($data['net_change']), 0, ',', '.') }}{{ $data['net_change'] < 0 ? ')' : '' }}</td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td class="account-name" style="padding-left: 20px;">Saldo Kas & Bank Awal Periode</td>
+                        <td class="amount">Rp {{ number_format($data['opening_cash'], 0, ',', '.') }}</td>
+                    </tr>
+                    <tr style="font-weight: 700;">
+                        <td></td>
+                        <td class="account-name" style="padding-left: 20px;">Saldo Kas & Bank Akhir Periode</td>
+                        <td class="amount">Rp {{ number_format($data['ending_cash'], 0, ',', '.') }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <!-- Footer -->

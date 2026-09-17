@@ -44,88 +44,74 @@
         </div>
 
         <x-filament::section
-            heading="Laba Rugi"
+            heading="Laporan Laba Rugi (Periodik - Perusahaan Dagang)"
             description="Periode: {{ $income['start_date']->format('d M Y') }} — {{ $income['end_date']->format('d M Y') }}"
         >
-            <div class="space-y-8">
-                <x-filament::section heading="Pendapatan" compact>
-                    <x-slot name="afterHeader">
-                        <span class="text-sm font-semibold">
-                            Rp {{ number_format($income['total_pendapatan'], 0, ',', '.') }}
-                        </span>
-                    </x-slot>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                @foreach($income['pendapatan'] as $item)
-                    <tr>
-                        <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
-                        <td class="py-3">{{ $item['nama_akun'] }}</td>
-                        <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
-                    </tr>
-                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </x-filament::section>
-
-            @if($income['persediaan_akhir'] !== null)
-                <x-filament::section heading="Perhitungan HPP (Periodik)" compact>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach([
-                        'Persediaan Awal' => $income['persediaan_awal'],
-                        'Pembelian Bersih' => $income['pembelian_bersih'],
-                        'Beban Angkut Pembelian' => $income['beban_angkut_pembelian'],
-                        'Barang Tersedia Dijual' => $income['barang_tersedia_dijual'],
-                        'Persediaan Akhir' => -$income['persediaan_akhir'],
-                        'HPP' => $income['hpp'],
-                    ] as $label => $amount)
-                        <tr class="{{ $label === 'HPP' ? 'font-semibold' : '' }}">
-                            <td class="py-3">{{ $label }}</td>
-                            <td class="py-3 text-right whitespace-nowrap">Rp {{ number_format($amount, 0, ',', '.') }}</td>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="border-b">
+                        <tr>
+                            <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white">Keterangan</th>
+                            <th class="py-2 px-4 text-right font-semibold text-gray-900 dark:text-white">Jumlah</th>
                         </tr>
-                    @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <x-slot name="footer">
-                        <div class="flex justify-between font-semibold">
-                            <span>Laba Kotor</span>
-                            <span>Rp {{ number_format($income['laba_kotor'], 0, ',', '.') }}</span>
-                        </div>
-                    </x-slot>
-                </x-filament::section>
-            @endif
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {{-- PENDAPATAN --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold">PENDAPATAN</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Penjualan</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['4101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Retur Penjualan</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['4102'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Penjualan Bersih</td><td class="py-2 px-4 text-right">{{ number_format($income['penjualan_bersih'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
 
-                <x-filament::section heading="Beban" compact>
-                    <x-slot name="afterHeader">
-                        <span class="text-sm font-semibold">
-                            Rp {{ number_format($income['total_beban'], 0, ',', '.') }}
-                        </span>
-                    </x-slot>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                @foreach($income['beban'] as $item)
-                    <tr>
-                        <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
-                        <td class="py-3">{{ $item['nama_akun'] }}</td>
-                        <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
-                    </tr>
-                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </x-filament::section>
+                        {{-- HARGA POKOK PENJUALAN --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold">HARGA POKOK PENJUALAN (HPP)</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Pembelian Bunga</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['5101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Retur Pembelian</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['5102'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Pembelian Bersih</td><td class="py-2 px-4 text-right">{{ number_format($income['pembelian_bersih'], 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Angkut Pembelian</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['5103'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Persediaan Awal</td><td class="py-2 px-4 text-right">{{ number_format($income['persediaan_awal'], 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Barang Tersedia Dijual</td><td class="py-2 px-4 text-right">{{ number_format($income['barang_tersedia_dijual'], 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8 text-danger-600">Persediaan Bunga Akhir (hasil stock opname)</td><td class="py-2 px-4 text-right text-danger-600">({{ number_format($income['persediaan_akhir'] ?? 0, 0, ',', '.') }})</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Harga Pokok Penjualan (HPP)</td><td class="py-2 px-4 text-right">{{ number_format($income['hpp'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
 
-                <x-filament::section>
-                    <div class="flex justify-between text-lg font-semibold">
-                        <span>{{ $income['laba_rugi'] >= 0 ? 'Laba Bersih' : 'Rugi Bersih' }}</span>
-                        <span>Rp {{ number_format(abs($income['laba_rugi']), 0, ',', '.') }}</span>
-                    </div>
-                </x-filament::section>
+                        {{-- LABA KOTOR --}}
+                        <tr class="bg-primary-50 dark:bg-primary-900/20 text-lg"><td class="py-3 px-4 font-bold text-primary-600 dark:text-primary-400">LABA KOTOR</td><td class="py-3 px-4 text-right font-bold text-primary-600 dark:text-primary-400">{{ number_format($income['laba_kotor'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- BEBAN OPERASIONAL --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold">BEBAN OPERASIONAL</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Gaji</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Sewa</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6102'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Utilitas</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6103'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Angkut Penjualan</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6104'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Penyusutan</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6105'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Kerugian Bunga Rusak/Layu</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6106'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Perlengkapan</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6107'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Akomodasi</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6109'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Lain-Lain</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6108'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Beban Pesangon</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['6110'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Total Beban Operasional</td><td class="py-2 px-4 text-right">{{ number_format($income['beban_operasional'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- LABA USAHA --}}
+                        <tr class="bg-primary-50 dark:bg-primary-900/20 text-lg"><td class="py-3 px-4 font-bold text-primary-600 dark:text-primary-400">LABA USAHA</td><td class="py-3 px-4 text-right font-bold text-primary-600 dark:text-primary-400">{{ number_format($income['laba_usaha'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- PENDAPATAN DI LUAR USAHA --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold">PENDAPATAN DI LUAR USAHA</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Pendapatan Bunga Piutang</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['4103'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-8">Pendapatan Lain-Lain</td><td class="py-2 px-4 text-right">{{ number_format($income['balances_by_code']['4104'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-8">Total Pendapatan Di Luar Usaha</td><td class="py-2 px-4 text-right">{{ number_format($income['pendapatan_luar_usaha'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- LABA BERSIH --}}
+                        <tr class="bg-success-50 dark:bg-success-900/20 text-xl">
+                            <td class="py-4 px-4 font-bold text-success-600 dark:text-success-400">{{ $income['laba_rugi'] >= 0 ? 'LABA BERSIH' : 'RUGI BERSIH' }}</td>
+                            <td class="py-4 px-4 text-right font-bold text-success-600 dark:text-success-400">{{ number_format($income['laba_rugi'], 0, ',', '.') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </x-filament::section>
     @endif
@@ -150,7 +136,7 @@
         </div>
 
         <x-filament::section
-            heading="Neraca"
+            heading="NERACA (BALANCE SHEET)"
             description="Per tanggal: {{ $balance['as_of']->format('d M Y') }}"
         >
             <div class="mb-4">
@@ -163,56 +149,75 @@
                 @endif
             </div>
 
-            @foreach([
-                'Aktiva' => [$balance['aset_groups'], $balance['total_aset']],
-                'Kewajiban' => [$balance['kewajiban_groups'], $balance['total_kewajiban']],
-                'Modal' => [$balance['ekuitas_groups'], $balance['total_ekuitas']],
-            ] as $heading => [$groups, $total])
-                <x-filament::section :heading="$heading" compact class="mb-6">
-                    @foreach($groups as $category => $items)
-                        <div class="mb-6 last:mb-0">
-                            <h4 class="mb-2 text-sm font-semibold">{{ $category }}</h4>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                        @foreach($items as $item)
-                                            <tr>
-                                                <td class="py-3 pr-4 font-mono text-xs text-gray-500">{{ $item['kode_akun'] }}</td>
-                                                <td class="py-3">{{ $item['nama_akun'] }}</td>
-                                                <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
-                                            </tr>
-                                        @endforeach
-                                        @if($heading === 'Modal' && $category === 'Modal')
-                                            <tr>
-                                                <td class="py-3 pr-4 font-mono text-xs text-gray-500">—</td>
-                                                <td class="py-3">Laba Ditahan</td>
-                                                <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format(abs($balance['laba_ditahan']), 0, ',', '.') }}</td>
-                                            </tr>
-                                        @endif
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div class="mt-2 flex justify-between border-t pt-2 text-sm font-medium">
-                                <span>Total {{ $category }}</span>
-                                <span>Rp {{ number_format(collect($items)->sum('saldo') + (($heading === 'Modal' && $category === 'Modal') ? $balance['laba_ditahan'] : 0), 0, ',', '.') }}</span>
-                            </div>
-                        </div>
-                    @endforeach
-                    <x-slot name="footer">
-                        <div class="flex justify-between font-semibold">
-                            <span>Total {{ $heading }}</span>
-                            <span>Rp {{ number_format($total, 0, ',', '.') }}</span>
-                        </div>
-                    </x-slot>
-                </x-filament::section>
-            @endforeach
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="border-b">
+                        <tr>
+                            <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white">Keterangan</th>
+                            <th class="py-2 px-4 text-right font-semibold text-gray-900 dark:text-white">Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        {{-- AKTIVA --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold text-lg">AKTIVA</td></tr>
+                        
+                        {{-- Aktiva Lancar --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800/50"><td colspan="2" class="py-2 px-4 pl-8 font-bold">Aktiva Lancar</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Kas</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Bank</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1102'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Piutang Dagang</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1103'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Piutang Ongkir</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1107'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Uang Muka Pembelian Petani</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1110'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Piutang Investasi</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1109'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Gaji Bayar di Muka</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1111'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Persediaan Bunga (Akhir)</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1104'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Perlengkapan</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1108'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-12">Total Aktiva Lancar</td><td class="py-2 px-4 text-right">{{ number_format(collect($balance['aset_groups']['Aktiva Lancar'] ?? [])->sum('saldo'), 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
 
-            <x-filament::section>
-                <div class="flex justify-between text-lg font-semibold">
-                    <span>Total Kewajiban + Ekuitas</span>
-                    <span>Rp {{ number_format($balance['total_kewajiban_ekuitas'], 0, ',', '.') }}</span>
-                </div>
-            </x-filament::section>
+                        {{-- Aktiva Tetap --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800/50"><td colspan="2" class="py-2 px-4 pl-8 font-bold">Aktiva Tetap</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Peralatan</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1105'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12 text-danger-600">Akumulasi Penyusutan Peralatan</td><td class="py-2 px-4 text-right text-danger-600">({{ number_format(abs($balance['balances_by_code']['1106'] ?? 0), 0, ',', '.') }})</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Uang Muka Pembelian Tanah</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['1112'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-12">Total Aktiva Tetap</td><td class="py-2 px-4 text-right">
+                            @php
+                                $totalAktivaTetap = collect($balance['aset_groups']['Aktiva Tetap'] ?? [])->sum('saldo') + collect($balance['aset_groups']['Aktiva Tetap (Kontra)'] ?? [])->sum('saldo');
+                            @endphp
+                            {{ $totalAktivaTetap < 0 ? '(' : '' }}{{ number_format(abs($totalAktivaTetap), 0, ',', '.') }}{{ $totalAktivaTetap < 0 ? ')' : '' }}
+                        </td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- TOTAL AKTIVA --}}
+                        <tr class="bg-primary-50 dark:bg-primary-900/20 text-lg"><td class="py-3 px-4 font-bold text-primary-600 dark:text-primary-400">TOTAL AKTIVA</td><td class="py-3 px-4 text-right font-bold text-primary-600 dark:text-primary-400">{{ number_format($balance['total_aset'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-4 border-none"></td></tr>
+
+                        {{-- KEWAJIBAN --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold text-lg">KEWAJIBAN</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Hutang Dagang</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['2101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Uang Muka Penjualan</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['2102'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-12">Total Kewajiban</td><td class="py-2 px-4 text-right">{{ number_format($balance['total_kewajiban'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- MODAL --}}
+                        <tr class="bg-gray-50 dark:bg-gray-800"><td colspan="2" class="py-2 px-4 font-bold text-lg">MODAL</td></tr>
+                        <tr><td class="py-2 px-4 pl-12">Modal Pemilik (Awal)</td><td class="py-2 px-4 text-right">{{ number_format($balance['balances_by_code']['3101'] ?? 0, 0, ',', '.') }}</td></tr>
+                        <tr>
+                            <td class="py-2 px-4 pl-12 {{ $balance['laba_ditahan'] < 0 ? 'text-danger-600' : '' }}">Laba Bersih Periode Berjalan</td>
+                            <td class="py-2 px-4 text-right {{ $balance['laba_ditahan'] < 0 ? 'text-danger-600' : '' }}">
+                                {{ $balance['laba_ditahan'] < 0 ? '(' : '' }}{{ number_format(abs($balance['laba_ditahan']), 0, ',', '.') }}{{ $balance['laba_ditahan'] < 0 ? ')' : '' }}
+                            </td>
+                        </tr>
+                        <tr><td class="py-2 px-4 pl-12 text-danger-600">Prive</td><td class="py-2 px-4 text-right text-danger-600">({{ number_format(abs($balance['balances_by_code']['3102'] ?? 0), 0, ',', '.') }})</td></tr>
+                        <tr class="font-bold"><td class="py-2 px-4 pl-12">Total Modal (Akhir)</td><td class="py-2 px-4 text-right">{{ number_format($balance['total_ekuitas'], 0, ',', '.') }}</td></tr>
+                        <tr><td colspan="2" class="py-2"></td></tr>
+
+                        {{-- TOTAL KEWAJIBAN + MODAL --}}
+                        <tr class="bg-primary-50 dark:bg-primary-900/20 text-lg"><td class="py-3 px-4 font-bold text-primary-600 dark:text-primary-400">TOTAL KEWAJIBAN + MODAL</td><td class="py-3 px-4 text-right font-bold text-primary-600 dark:text-primary-400">{{ number_format($balance['total_kewajiban_ekuitas'], 0, ',', '.') }}</td></tr>
+
+                    </tbody>
+                </table>
+            </div>
         </x-filament::section>
     @endif
 
@@ -237,52 +242,120 @@
                 description="Periode: {{ $cashFlow['period']->label }}"
             >
                 <div class="mb-6">
+                <div class="mb-4">
                     @if($cashFlow['is_reconciled'])
-                        <x-filament::badge color="success">Saldo kas terrekonsiliasi</x-filament::badge>
+                        <x-filament::badge color="success">Kas Terekonsiliasi Seimbang</x-filament::badge>
                     @else
-                        <x-filament::badge color="danger">Saldo kas tidak terrekonsiliasi</x-filament::badge>
+                        <x-filament::badge color="danger">
+                            Selisih Kas: Rp {{ number_format(abs($cashFlow['difference']), 0, ',', '.') }}
+                            (Cek transaksi kas/bank yang tidak terpetakan)
+                        </x-filament::badge>
                     @endif
                 </div>
 
-                @foreach(['operating' => 'Aktivitas Operasi', 'investing' => 'Aktivitas Investasi', 'financing' => 'Aktivitas Pendanaan'] as $section => $label)
-                    <x-filament::section :heading="$label" compact class="mb-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                                    @foreach($cashFlow[$section] as $line)
-                                        <tr>
-                                            <td class="py-3">{{ $line['label'] }}</td>
-                                            <td class="py-3 text-right font-medium whitespace-nowrap">Rp {{ number_format($line['amount'], 0, ',', '.') }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        <x-slot name="footer">
-                            <div class="flex justify-between font-semibold">
-                                <span>Total {{ $label }}</span>
-                                <span>Rp {{ number_format($cashFlow["{$section}_total"], 0, ',', '.') }}</span>
-                            </div>
-                        </x-slot>
-                    </x-filament::section>
-                @endforeach
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="border-b">
+                            <tr>
+                                <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white w-24">Helper</th>
+                                <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white">Keterangan</th>
+                                <th class="py-2 px-4 text-right font-semibold text-gray-900 dark:text-white">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            {{-- OPERATING --}}
+                            <tr>
+                                <td></td>
+                                <td class="py-3 px-4 font-bold text-lg text-gray-900 dark:text-white">ARUS KAS DARI AKTIVITAS OPERASI</td>
+                                <td></td>
+                            </tr>
+                            @foreach($cashFlow['operating'] as $item)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td class="py-2 px-4 font-mono text-xs text-gray-500">{{ $item['key'] }}</td>
+                                    <td class="py-2 px-4">{{ $item['label'] }}</td>
+                                    <td class="py-2 px-4 text-right font-medium {{ $item['amount'] < 0 ? 'text-danger-600' : '' }}">
+                                        {{ $item['amount'] < 0 ? '(' : '' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr class="bg-gray-50 dark:bg-gray-800/50 font-bold">
+                                <td></td>
+                                <td class="py-3 px-4">Kas Bersih dari Aktivitas Operasi</td>
+                                <td class="py-3 px-4 text-right {{ $cashFlow['operating_total'] < 0 ? 'text-danger-600' : '' }}">
+                                    {{ $cashFlow['operating_total'] < 0 ? '(' : '' }}{{ number_format(abs($cashFlow['operating_total']), 0, ',', '.') }}{{ $cashFlow['operating_total'] < 0 ? ')' : '' }}
+                                </td>
+                            </tr>
+                            <tr><td colspan="3" class="py-2 border-none"></td></tr>
 
-                <x-filament::section heading="Ringkasan" compact>
-                    <dl class="divide-y divide-gray-200 text-sm dark:divide-gray-700">
-                        <div class="flex justify-between py-3">
-                            <dt>Saldo Kas Awal</dt>
-                            <dd class="font-medium">Rp {{ number_format($cashFlow['opening_cash'], 0, ',', '.') }}</dd>
-                        </div>
-                        <div class="flex justify-between py-3">
-                            <dt>Kenaikan (Penurunan) Kas Bersih</dt>
-                            <dd class="font-medium">Rp {{ number_format($cashFlow['net_change'], 0, ',', '.') }}</dd>
-                        </div>
-                        <div class="flex justify-between py-3 text-base font-semibold">
-                            <dt>Saldo Kas Akhir</dt>
-                            <dd>Rp {{ number_format($cashFlow['ending_cash'], 0, ',', '.') }}</dd>
-                        </div>
-                    </dl>
-                </x-filament::section>
+                            {{-- INVESTING --}}
+                            <tr>
+                                <td></td>
+                                <td class="py-3 px-4 font-bold text-lg text-gray-900 dark:text-white">ARUS KAS DARI AKTIVITAS INVESTASI</td>
+                                <td></td>
+                            </tr>
+                            @foreach($cashFlow['investing'] as $item)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td class="py-2 px-4 font-mono text-xs text-gray-500">{{ $item['key'] }}</td>
+                                    <td class="py-2 px-4">{{ $item['label'] }}</td>
+                                    <td class="py-2 px-4 text-right font-medium {{ $item['amount'] < 0 ? 'text-danger-600' : '' }}">
+                                        {{ $item['amount'] < 0 ? '(' : '' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr class="bg-gray-50 dark:bg-gray-800/50 font-bold">
+                                <td></td>
+                                <td class="py-3 px-4">Kas Bersih dari Aktivitas Investasi</td>
+                                <td class="py-3 px-4 text-right {{ $cashFlow['investing_total'] < 0 ? 'text-danger-600' : '' }}">
+                                    {{ $cashFlow['investing_total'] < 0 ? '(' : '' }}{{ number_format(abs($cashFlow['investing_total']), 0, ',', '.') }}{{ $cashFlow['investing_total'] < 0 ? ')' : '' }}
+                                </td>
+                            </tr>
+                            <tr><td colspan="3" class="py-2 border-none"></td></tr>
+
+                            {{-- FINANCING --}}
+                            <tr>
+                                <td></td>
+                                <td class="py-3 px-4 font-bold text-lg text-gray-900 dark:text-white">ARUS KAS DARI AKTIVITAS PENDANAAN</td>
+                                <td></td>
+                            </tr>
+                            @foreach($cashFlow['financing'] as $item)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                    <td class="py-2 px-4 font-mono text-xs text-gray-500">{{ $item['key'] }}</td>
+                                    <td class="py-2 px-4">{{ $item['label'] }}</td>
+                                    <td class="py-2 px-4 text-right font-medium {{ $item['amount'] < 0 ? 'text-danger-600' : '' }}">
+                                        {{ $item['amount'] < 0 ? '(' : '' }}{{ number_format(abs($item['amount']), 0, ',', '.') }}{{ $item['amount'] < 0 ? ')' : '' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr class="bg-gray-50 dark:bg-gray-800/50 font-bold">
+                                <td></td>
+                                <td class="py-3 px-4">Kas Bersih dari Aktivitas Pendanaan</td>
+                                <td class="py-3 px-4 text-right {{ $cashFlow['financing_total'] < 0 ? 'text-danger-600' : '' }}">
+                                    {{ $cashFlow['financing_total'] < 0 ? '(' : '' }}{{ number_format(abs($cashFlow['financing_total']), 0, ',', '.') }}{{ $cashFlow['financing_total'] < 0 ? ')' : '' }}
+                                </td>
+                            </tr>
+                            <tr><td colspan="3" class="py-2 border-none"></td></tr>
+
+                            {{-- SUMMARY --}}
+                            <tr class="bg-primary-50 dark:bg-primary-900/20 text-lg">
+                                <td></td>
+                                <td class="py-3 px-4 font-bold text-primary-600 dark:text-primary-400">KENAIKAN (PENURUNAN) KAS & BANK BERSIH</td>
+                                <td class="py-3 px-4 text-right font-bold {{ $cashFlow['net_change'] < 0 ? 'text-danger-600' : 'text-primary-600 dark:text-primary-400' }}">
+                                    {{ $cashFlow['net_change'] < 0 ? '(' : '' }}{{ number_format(abs($cashFlow['net_change']), 0, ',', '.') }}{{ $cashFlow['net_change'] < 0 ? ')' : '' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td class="py-2 px-4 pl-8">Saldo Kas & Bank Awal Periode</td>
+                                <td class="py-2 px-4 text-right font-medium">{{ number_format($cashFlow['opening_cash'], 0, ',', '.') }}</td>
+                            </tr>
+                            <tr class="font-bold text-lg border-t-2 border-gray-900 dark:border-white">
+                                <td></td>
+                                <td class="py-3 px-4 pl-8">Saldo Kas & Bank Akhir Periode</td>
+                                <td class="py-3 px-4 text-right">{{ number_format($cashFlow['ending_cash'], 0, ',', '.') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </x-filament::section>
         @else
             <x-filament::section>
