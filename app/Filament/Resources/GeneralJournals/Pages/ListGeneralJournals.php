@@ -12,6 +12,13 @@ class ListGeneralJournals extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\Action::make('panduan')
+                ->label('📖 Buku Panduan (Manual)')
+                ->color('info')
+                ->modalHeading('Panduan Penggunaan Jurnal Umum')
+                ->modalContent(view('filament.manuals.general-journal-modal'))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup'),
             \Filament\Actions\CreateAction::make(),
         ];
     }

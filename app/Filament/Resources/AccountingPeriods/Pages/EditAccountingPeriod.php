@@ -13,6 +13,13 @@ class EditAccountingPeriod extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\Action::make('panduan')
+                ->label('📖 Buku Panduan (Manual)')
+                ->color('info')
+                ->modalHeading('Panduan Penggunaan Periode Akuntansi')
+                ->modalContent(view('filament.manuals.accounting-period-modal'))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup'),
             Actions\DeleteAction::make(),
         ];
     }
