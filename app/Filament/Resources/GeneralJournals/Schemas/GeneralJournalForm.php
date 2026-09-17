@@ -19,6 +19,8 @@ class GeneralJournalForm
     {
         return $schema->components([
             Section::make('Header Jurnal')
+                ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     \Filament\Forms\Components\DatePicker::make('tanggal')
                         ->label('Tanggal Jurnal')
@@ -43,24 +45,27 @@ class GeneralJournalForm
                         }),
 
                     TextInput::make('no_bukti')
-                        ->label('No. Bukti')
+                        ->label('Nomor Bukti')
                         ->required()
                         ->disabled(fn ($operation) => $operation === 'edit')
                         ->dehydrated()
                         ->default(fn () => app(AccountingService::class)->generateNoBukti('JU'))
-                        ->unique(ignoreRecord: true),
+                        ->unique(ignoreRecord: true)
+                        ->helperText('Otomatis dibuat oleh sistem (Unik).')
+                        ->columnSpan(1),
 
                     TextInput::make('keterangan')
-                        ->label('Keterangan')
+                        ->label('Keterangan Jurnal')
                         ->required()
                         ->maxLength(255)
-                        ->columnSpanFull(),
+                        ->columnSpan(1),
                 ]),
 
             Section::make('Detail Jurnal')
+                ->columnSpanFull()
                 ->schema([
                     Repeater::make('items')
-                        ->label('Baris Jurnal')
+                        ->label('')
                         ->relationship()
                         ->schema([
                             Select::make('coa_id')
@@ -82,13 +87,12 @@ class GeneralJournalForm
                                         $set('kode_coa', $coa?->kode_akun ?? '');
                                     }
                                 })
-                                ->columnSpan(2),
+                                ->columnSpan([
+                                    'default' => 1,
+                                    'md' => 2,
+                                ]),
 
-                            TextInput::make('kode_coa')
-                                ->label('Kode')
-                                ->disabled()
-                                ->dehydrated()
-                                ->columnSpan(1),
+                            \Filament\Forms\Components\Hidden::make('kode_coa'),
 
                             TextInput::make('debit')
                                 ->label('Debit')
@@ -97,7 +101,10 @@ class GeneralJournalForm
                                 ->minValue(0)
                                 ->live(onBlur: true)
                                 ->prefix('Rp')
-                                ->columnSpan(1),
+                                ->columnSpan([
+                                    'default' => 1,
+                                    'md' => 1,
+                                ]),
 
                             TextInput::make('kredit')
                                 ->label('Kredit')
@@ -106,12 +113,18 @@ class GeneralJournalForm
                                 ->minValue(0)
                                 ->live(onBlur: true)
                                 ->prefix('Rp')
-                                ->columnSpan(1),
+                                ->columnSpan([
+                                    'default' => 1,
+                                    'md' => 1,
+                                ]),
                         ])
-                        ->columns(5)
+                        ->columns([
+                            'default' => 1,
+                            'md' => 4,
+                        ])
                         ->minItems(2)
                         ->defaultItems(2)
-                        ->addActionLabel('+ Tambah Baris')
+                        ->addActionLabel('Tambah Baris Akun')
                         ->reorderable(false)
                         ->rule(function () {
                             return function (string $attribute, $value, \Closure $fail) {
@@ -120,24 +133,12 @@ class GeneralJournalForm
                                 
                                 if ($totalDebit !== $totalKredit) {
                                     $selisih = abs($totalDebit - $totalKredit);
-                                    $fail("Jurnal tidak seimbang (Timpang). Total Debit: Rp " . number_format($totalDebit, 0, ',', '.') . " | Total Kredit: Rp " . number_format($totalKredit, 0, ',', '.') . " | Selisih: Rp " . number_format($selisih, 0, ',', '.'));
+                                    $fail("Jurnal belum seimbang (selisih Rp " . number_format($selisih, 0, ',', '.') . ").");
+                                }
+                                if ($totalDebit == 0) {
+                                    $fail("Nominal jurnal tidak boleh 0.");
                                 }
                             };
-                        })
-                        ->columnSpanFull(),
-
-                    \Filament\Forms\Components\Placeholder::make('balance_indicator')
-                        ->label('Status Keseimbangan (Live)')
-                        ->content(function ($get) {
-                            $items = $get('items') ?? [];
-                            $totalDebit = collect($items)->sum('debit');
-                            $totalKredit = collect($items)->sum('kredit');
-                            $selisih = abs($totalDebit - $totalKredit);
-
-                            if ($totalDebit === $totalKredit && $totalDebit > 0) {
-                                return new \Illuminate\Support\HtmlString('<span style="color: green; font-weight: bold;">✅ SEIMBANG (Total: Rp ' . number_format($totalDebit, 0, ',', '.') . ')</span>');
-                            }
-                            return new \Illuminate\Support\HtmlString('<span style="color: red; font-weight: bold;">❌ TIMPANG (Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')</span>');
                         })
                         ->columnSpanFull(),
                 ]),
