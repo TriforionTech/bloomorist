@@ -161,16 +161,20 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadIncomeStatementPdf()
     {
         $data = $this->getIncomeStatementData();
+        $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
         $pdf = Pdf::loadView('pdf.income-statement', [
             'data'      => $data,
             'company'   => 'Bloomorist',
             'generated' => now()->format('d M Y H:i'),
+            'periodLabel' => $periodLabel
         ]);
+
+        $filename = 'laporan-laba-rugi-' . ($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')) . '.pdf';
 
         return response()->streamDownload(
             fn () => print($pdf->output()),
-            'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.pdf'
+            $filename
         );
     }
 
@@ -180,15 +184,19 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadIncomeStatementCsv(): StreamedResponse
     {
         $data = $this->getIncomeStatementData();
+        $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
-        return response()->streamDownload(function () use ($data) {
+        $filename = 'laporan-laba-rugi-' . ($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')) . '.csv';
+
+        return response()->streamDownload(function () use ($data, $periodLabel) {
             $handle = fopen('php://output', 'w');
 
             // UTF-8 BOM for Excel compatibility
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['LAPORAN LABA RUGI - BLOOMORIST']);
-            fputcsv($handle, ['Periode: ' . $data['start_date']->format('d M Y') . ' - ' . $data['end_date']->format('d M Y')]);
+            $periodText = $periodLabel ?? ($data['start_date']->format('d M Y') . ' - ' . $data['end_date']->format('d M Y'));
+            fputcsv($handle, ['Periode: ' . $periodText]);
             fputcsv($handle, []);
 
             // Pendapatan
@@ -213,7 +221,7 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['', 'LABA/RUGI BERSIH', $data['laba_rugi']]);
 
             fclose($handle);
-        }, 'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.csv');
+        }, $filename);
     }
 
     /**
@@ -286,5 +294,61 @@ class FinancialReports extends Page implements HasSchemas
 
             fclose($handle);
         }, 'neraca-' . now()->format('Y-m-d') . '.csv');
+    }
+
+    /**
+     * Download Cash Flow as PDF.
+     */
+    public function downloadCashFlowPdf()
+    {
+        $data = $this->getCashFlowData();
+        if (!$data) return null;
+
+        $pdf = Pdf::loadView('pdf.cash-flow', [
+            'data'      => $data,
+            'company'   => 'Bloomorist',
+            'generated' => now()->format('d M Y H:i'),
+        ]);
+
+        return response()->streamDownload(
+            fn () => print($pdf->output()),
+            'arus-kas-' . \Illuminate\Support\Str::slug($data['period']->label) . '.pdf'
+        );
+    }
+
+    /**
+     * Download Cash Flow as CSV.
+     */
+    public function downloadCashFlowCsv(): StreamedResponse
+    {
+        $data = $this->getCashFlowData();
+
+        return response()->streamDownload(function () use ($data) {
+            $handle = fopen('php://output', 'w');
+
+            // UTF-8 BOM
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['LAPORAN ARUS KAS (CASH FLOW) - BLOOMORIST']);
+            fputcsv($handle, ['Periode: ' . $data['period']->label]);
+            fputcsv($handle, []);
+
+            foreach (['operating' => 'Aktivitas Operasi', 'investing' => 'Aktivitas Investasi', 'financing' => 'Aktivitas Pendanaan'] as $section => $label) {
+                fputcsv($handle, [strtoupper($label)]);
+                fputcsv($handle, ['Deskripsi', 'Jumlah']);
+                foreach ($data[$section] as $item) {
+                    fputcsv($handle, [$item['label'], $item['amount']]);
+                }
+                fputcsv($handle, ['Total ' . $label, $data["{$section}_total"]]);
+                fputcsv($handle, []);
+            }
+
+            fputcsv($handle, ['RINGKASAN']);
+            fputcsv($handle, ['Saldo Kas Awal', $data['opening_cash']]);
+            fputcsv($handle, ['Kenaikan (Penurunan) Kas Bersih', $data['net_change']]);
+            fputcsv($handle, ['Saldo Kas Akhir', $data['ending_cash']]);
+
+            fclose($handle);
+        }, 'arus-kas-' . \Illuminate\Support\Str::slug($data['period']->label) . '.csv');
     }
 }

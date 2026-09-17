@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Laba Rugi — {{ $company }}</title>
+    <title>Laporan Arus Kas ?" {{ $company }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -71,8 +71,9 @@
             letter-spacing: 1px;
         }
 
-        .section-title.pendapatan { background-color: #059669; }
-        .section-title.beban { background-color: #dc2626; }
+        .section-title.operating { background-color: #2563eb; }
+        .section-title.investing { background-color: #059669; }
+        .section-title.financing { background-color: #d97706; }
 
         /* Table */
         .report-table {
@@ -83,13 +84,6 @@
         .report-table td {
             padding: 8px 16px;
             border-bottom: 1px solid #f0f0f0;
-        }
-
-        .report-table .account-code {
-            width: 80px;
-            font-family: 'Courier New', monospace;
-            font-size: 9pt;
-            color: #6b7280;
         }
 
         .report-table .account-name {
@@ -111,37 +105,43 @@
             padding: 10px 16px;
         }
 
-        .subtotal-row.pendapatan td { color: #059669; }
-        .subtotal-row.beban td { color: #dc2626; }
-
-        /* Net Result */
-        .net-result {
+        /* Summary */
+        .summary-box {
             margin-top: 30px;
+            border: 2px solid #e5e7eb;
             padding: 16px 20px;
-            border: 3px solid #1a1a2e;
+        }
+        
+        .summary-row {
             display: table;
             width: 100%;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e5e7eb;
         }
-
-        .net-result .label {
-            display: table-cell;
-            font-size: 12pt;
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+        
+        .summary-row.total {
+            border-top: 2px solid #1a1a2e;
+            border-bottom: none;
+            padding-top: 12px;
             font-weight: 700;
-            color: #1a1a2e;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 12pt;
         }
 
-        .net-result .value {
+        .summary-row .label {
+            display: table-cell;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .summary-row .value {
             display: table-cell;
             text-align: right;
-            font-size: 14pt;
-            font-weight: 700;
             font-family: 'Courier New', monospace;
+            font-weight: 600;
         }
-
-        .net-result .value.profit { color: #059669; }
-        .net-result .value.loss { color: #dc2626; }
 
         /* Footer */
         .report-footer {
@@ -160,55 +160,78 @@
         <!-- Header -->
         <div class="report-header">
             <div class="company-name">{{ $company }}</div>
-            <div class="report-title">Laporan Laba Rugi (Income Statement)</div>
+            <div class="report-title">Laporan Arus Kas (Cash Flow)</div>
             <div class="report-period">
-                Periode: {{ $periodLabel ?? ($data['start_date']->format('d M Y') . ' — ' . $data['end_date']->format('d M Y')) }}
+                Periode: {{ $data['period']->label }}
             </div>
             <div class="generated-at">Dicetak: {{ $generated }}</div>
         </div>
 
-        <!-- PENDAPATAN -->
+        <!-- OPERATING -->
         <div class="section">
-            <div class="section-title pendapatan">Pendapatan</div>
+            <div class="section-title operating">Aktivitas Operasi</div>
             <table class="report-table">
-                @foreach($data['pendapatan'] as $item)
+                @foreach($data['operating'] as $item)
                     <tr>
-                        <td class="account-code">{{ $item['kode_akun'] }}</td>
-                        <td class="account-name">{{ $item['nama_akun'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
+                        <td class="account-name">{{ $item['label'] }}</td>
+                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
-                <tr class="subtotal-row pendapatan">
-                    <td colspan="2">Total Pendapatan</td>
-                    <td class="amount">Rp {{ number_format($data['total_pendapatan'], 0, ',', '.') }}</td>
+                <tr class="subtotal-row">
+                    <td>Total Aktivitas Operasi</td>
+                    <td class="amount">Rp {{ number_format($data['operating_total'], 0, ',', '.') }}</td>
                 </tr>
             </table>
         </div>
 
-        <!-- BEBAN -->
+        <!-- INVESTING -->
         <div class="section">
-            <div class="section-title beban">Beban</div>
+            <div class="section-title investing">Aktivitas Investasi</div>
             <table class="report-table">
-                @foreach($data['beban'] as $item)
+                @foreach($data['investing'] as $item)
                     <tr>
-                        <td class="account-code">{{ $item['kode_akun'] }}</td>
-                        <td class="account-name">{{ $item['nama_akun'] }}</td>
-                        <td class="amount">Rp {{ number_format($item['saldo'], 0, ',', '.') }}</td>
+                        <td class="account-name">{{ $item['label'] }}</td>
+                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
-                <tr class="subtotal-row beban">
-                    <td colspan="2">Total Beban</td>
-                    <td class="amount">Rp {{ number_format($data['total_beban'], 0, ',', '.') }}</td>
+                <tr class="subtotal-row">
+                    <td>Total Aktivitas Investasi</td>
+                    <td class="amount">Rp {{ number_format($data['investing_total'], 0, ',', '.') }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- FINANCING -->
+        <div class="section">
+            <div class="section-title financing">Aktivitas Pendanaan</div>
+            <table class="report-table">
+                @foreach($data['financing'] as $item)
+                    <tr>
+                        <td class="account-name">{{ $item['label'] }}</td>
+                        <td class="amount">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+                <tr class="subtotal-row">
+                    <td>Total Aktivitas Pendanaan</td>
+                    <td class="amount">Rp {{ number_format($data['financing_total'], 0, ',', '.') }}</td>
                 </tr>
             </table>
         </div>
 
-        <!-- NET RESULT -->
-        <div class="net-result">
-            <span class="label">{{ $data['laba_rugi'] >= 0 ? 'Laba Bersih' : 'Rugi Bersih' }}</span>
-            <span class="value {{ $data['laba_rugi'] >= 0 ? 'profit' : 'loss' }}">
-                Rp {{ number_format(abs($data['laba_rugi']), 0, ',', '.') }}
-            </span>
+        <!-- SUMMARY -->
+        <div class="summary-box">
+            <div class="summary-row">
+                <span class="label">Saldo Kas Awal</span>
+                <span class="value">Rp {{ number_format($data['opening_cash'], 0, ',', '.') }}</span>
+            </div>
+            <div class="summary-row">
+                <span class="label">Kenaikan (Penurunan) Kas Bersih</span>
+                <span class="value">Rp {{ number_format($data['net_change'], 0, ',', '.') }}</span>
+            </div>
+            <div class="summary-row total">
+                <span class="label">Saldo Kas Akhir</span>
+                <span class="value">Rp {{ number_format($data['ending_cash'], 0, ',', '.') }}</span>
+            </div>
         </div>
 
         <!-- Footer -->

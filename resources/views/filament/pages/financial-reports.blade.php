@@ -34,7 +34,7 @@
         @php $income = $this->getIncomeStatementData(); @endphp
 
         {{-- Export Buttons --}}
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-3 mt-4 mb-4">
             <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadIncomeStatementPdf" size="sm">
                 Download PDF
             </x-filament::button>
@@ -140,7 +140,7 @@
         @php $balance = $this->getBalanceSheetData(); @endphp
 
         {{-- Export Buttons --}}
-        <div class="flex gap-3 mb-4">
+        <div class="flex flex-wrap gap-3 mt-4 mb-4">
             <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadBalanceSheetPdf" size="sm">
                 Download PDF
             </x-filament::button>
@@ -222,6 +222,16 @@
         @php $cashFlow = $this->getCashFlowData(); @endphp
 
         @if($cashFlow)
+            {{-- Export Buttons --}}
+            <div class="flex flex-wrap gap-3 mt-4 mb-4">
+                <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadCashFlowPdf" size="sm">
+                    Download PDF
+                </x-filament::button>
+                <x-filament::button color="success" icon="heroicon-o-table-cells" wire:click="downloadCashFlowCsv" size="sm">
+                    Download CSV
+                </x-filament::button>
+            </div>
+
             <x-filament::section
                 heading="Arus Kas"
                 description="Periode: {{ $cashFlow['period']->label }}"
