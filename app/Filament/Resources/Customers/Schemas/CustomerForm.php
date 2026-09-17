@@ -24,6 +24,15 @@ class CustomerForm
                         $set('nama', Str::title($state));
                     })
                     ->dehydrateStateUsing(fn ($state) => Str::title($state)),
+                Select::make('tipe_customer')
+                    ->label('Customer Type')
+                    ->options([
+                        'toko' => 'Toko (Default)',
+                        'vendor' => 'Vendor',
+                        'dekor' => 'Dekorator',
+                    ])
+                    ->default('toko')
+                    ->required(),
                 TextInput::make('alias')
                     ->label('Alias')
                     ->placeholder('Enter member alias (optional)'),

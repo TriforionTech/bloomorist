@@ -172,11 +172,11 @@ class GenerateInvoice extends Page implements HasSchemas
 
      
     // Helper method untuk get product price dengan cache
-    protected function getProductPrice(int $productId, string $customerType = 'member'): float
+    protected function getProductPrice(int $productId, string $pricingTier = 'toko'): float
     {
-        $cacheKey = "{$productId}_{$customerType}";
+        $cacheKey = "{$productId}_{$pricingTier}";
         if (!isset($this->productPriceCache[$cacheKey])) {
-            $column = match($customerType) {
+            $column = match($pricingTier) {
                 'vendor' => 'harga_vendor',
                 'dekor'  => 'harga_dekor',
                 default  => 'harga_jual',
@@ -222,6 +222,7 @@ class GenerateInvoice extends Page implements HasSchemas
         
         // Dapatkan state dari parent
         $customerType = $get('../../customer_type');
+        $pricingTier = $get('../../pricing_tier') ?? 'toko';
         $discountModeNonMember = $get('../../discount_mode');
         $discountModeMember = $get('../../discount_mode_member');
         $membershipId = $get('../../membership_id');
@@ -233,7 +234,7 @@ class GenerateInvoice extends Page implements HasSchemas
         }
 
         // ambil harga produk dari cache (sesuai tier kustomer)
-        $price = $this->getProductPrice($productId, $customerType);
+        $price = $this->getProductPrice($productId, $pricingTier);
         
         // harga 1 produk
         $set('unit_price', Number::format($price, locale: 'id'));
@@ -320,19 +321,19 @@ class GenerateInvoice extends Page implements HasSchemas
         return Section::make('Customer Type')
         ->icon('heroicon-o-user-circle')
         ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
+        ->columns(2)
         ->schema([
             Select::make('customer_type')
-                ->label('Select Customer Type')
+                ->label('Mode Transaksi')
                 ->options([
-                    'member' => 'Toko (Member)',
-                    'non_member' => 'Toko (Non-Member)',
-                    'vendor' => 'Vendor',
-                    'dekor' => 'Dekorator',
+                    'member' => 'Member',
+                    'non_member' => 'Non-Member',
                 ])
                 ->default('member')
                 ->live()                            
                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
                 $set('member_id', null);
+                $set('pricing_tier', 'toko');
                 $set('name', null);
                 $set('alias', null);
                 $set('address', null);
@@ -356,6 +357,17 @@ class GenerateInvoice extends Page implements HasSchemas
 
                 $this->recalculateAllProducts($get, $set);
             }),
+
+            Select::make('pricing_tier')
+                ->label('Harga Diterapkan')
+                ->options([
+                    'toko' => 'Harga Toko (Default)',
+                    'vendor' => 'Harga Vendor',
+                    'dekor' => 'Harga Dekorator',
+                ])
+                ->default('toko')
+                ->live()
+                ->afterStateUpdated(fn ($state, Set $set, Get $get) => $this->recalculateAllProducts($get, $set)),
 
             Select::make('member_id')
                 ->label('Search Customer')
@@ -403,6 +415,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             $set('email', $member->email);
                             $set('phone_number', $member->nomor_hp);
                             $set('membership_id', $member->membership_id);
+                            $set('pricing_tier', $member->tipe_customer ?? 'toko');
                         }
                     } else {
                         // Clear dropdown, bersihkan field

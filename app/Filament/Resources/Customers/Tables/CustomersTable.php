@@ -25,6 +25,18 @@ class CustomersTable
                     ->label('NAME')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('tipe_customer')
+                    ->label('TYPE')
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'toko' => 'success',
+                        'vendor' => 'warning',
+                        'dekor' => 'info',
+                        default => 'gray',
+                    })
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('alias')
                     ->label('ALIAS')
                     ->searchable()
