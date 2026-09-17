@@ -11,9 +11,14 @@ use Filament\Support\RawJs;
 
 class MonthlyTrendChartWidget extends ChartWidget
 {
+    public static function canView(): bool
+    {
+        return false;
+    }
+
     protected ?string $heading = 'Tren Keuangan Bulanan';
     protected string $view = 'filament.widgets.sales-chart';
-    protected static ?int $sort = 20;
+    protected static ?int $sort = 4;
     protected int|string|array $columnSpan = [
         'default' => 1,
         'md' => 12,

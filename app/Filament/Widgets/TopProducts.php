@@ -20,7 +20,7 @@ class TopProducts extends ChartWidget
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 5;
     protected ?string $heading = 'Top 10 Selling Products';
 
     protected int|string|array $columnSpan = [
