@@ -54,12 +54,10 @@ class StatsOverview extends BaseWidget
         $invoiceFilteredPaidCount = $paidFilterQuery->count();
 
         // --- Total Order Hari Ini (semua status) ---
-        $totalOrdersToday = Invoice::whereDate('created_at', $today)->count();
+        $totalOrdersToday = Invoice::whereDate('issued_date', $today)->count();
 
         // --- Order Pending ---
         $pendingOrders = Invoice::where('status', 'pending')->count();
-
-        // --- Stok Menipis (< 10, hanya produk aktif) ---
         $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
 
         $filterLabel = 'Pendapatan ' . match($preset) {

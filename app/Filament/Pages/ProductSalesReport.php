@@ -80,7 +80,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_sold", [$startDate, $endDate]);
 
                     $query->selectRaw("COALESCE((
@@ -89,7 +89,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_revenue", [$startDate, $endDate]);
                 } else {
                     $query->selectRaw("COALESCE((
