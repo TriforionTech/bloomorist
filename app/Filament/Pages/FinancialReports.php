@@ -2,8 +2,8 @@
 
 namespace App\Filament\Pages;
 
-use App\Services\AccountingService;
 use App\Models\AccountingPeriod;
+use App\Services\AccountingService;
 use App\Services\CashFlowService;
 use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -16,7 +16,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
@@ -25,9 +24,13 @@ class FinancialReports extends Page implements HasSchemas
     use InteractsWithSchemas;
 
     protected static ?string $title = 'Financial Report';
+
     protected static ?string $navigationLabel = 'Financial Report';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
+
     protected static ?int $navigationSort = 4;
 
     protected string $view = 'filament.pages.financial-reports';
@@ -37,6 +40,7 @@ class FinancialReports extends Page implements HasSchemas
 
     // Balance Sheet filter
     public ?string $balanceAsOf = null;
+
     public ?int $cashFlowPeriodId = null;
 
     // Active tab
@@ -152,6 +156,7 @@ class FinancialReports extends Page implements HasSchemas
                 return [$period->start_date, $period->end_date];
             }
         }
+
         return [now()->startOfMonth(), now()->endOfMonth()];
     }
 
@@ -164,16 +169,18 @@ class FinancialReports extends Page implements HasSchemas
         $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
         $pdf = Pdf::loadView('pdf.income-statement', [
-            'data'      => $data,
-            'company'   => 'Bloomorist',
+            'data' => $data,
+            'company' => config('app.name'),
             'generated' => now()->format('d M Y H:i'),
-            'periodLabel' => $periodLabel
-        ]);
+            'periodLabel' => $periodLabel,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
 
-        $filename = 'laporan-laba-rugi-' . ($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')) . '.pdf';
+        $filename = 'laporan-laba-rugi-'.($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')).'.pdf';
 
         return response()->streamDownload(
-            fn () => print($pdf->output()),
+            fn () => print ($pdf->output()),
             $filename
         );
     }
@@ -186,7 +193,7 @@ class FinancialReports extends Page implements HasSchemas
         $data = $this->getIncomeStatementData();
         $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
-        $filename = 'laporan-laba-rugi-' . ($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')) . '.csv';
+        $filename = 'laporan-laba-rugi-'.($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')).'.csv';
 
         return response()->streamDownload(function () use ($data, $periodLabel) {
             $handle = fopen('php://output', 'w');
@@ -195,8 +202,8 @@ class FinancialReports extends Page implements HasSchemas
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['LAPORAN LABA RUGI - BLOOMORIST']);
-            $periodText = $periodLabel ?? ($data['start_date']->format('d M Y') . ' - ' . $data['end_date']->format('d M Y'));
-            fputcsv($handle, ['Periode: ' . $periodText]);
+            $periodText = $periodLabel ?? ($data['start_date']->format('d M Y').' - '.$data['end_date']->format('d M Y'));
+            fputcsv($handle, ['Periode: '.$periodText]);
             fputcsv($handle, []);
 
             // Pendapatan
@@ -232,14 +239,16 @@ class FinancialReports extends Page implements HasSchemas
         $data = $this->getBalanceSheetData();
 
         $pdf = Pdf::loadView('pdf.balance-sheet', [
-            'data'      => $data,
-            'company'   => 'Bloomorist',
+            'data' => $data,
+            'company' => config('app.name'),
             'generated' => now()->format('d M Y H:i'),
-        ]);
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
 
         return response()->streamDownload(
-            fn () => print($pdf->output()),
-            'neraca-' . now()->format('Y-m-d') . '.pdf'
+            fn () => print ($pdf->output()),
+            'neraca-'.now()->format('Y-m-d').'.pdf'
         );
     }
 
@@ -257,7 +266,7 @@ class FinancialReports extends Page implements HasSchemas
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['NERACA KEUANGAN - BLOOMORIST']);
-            fputcsv($handle, ['Per Tanggal: ' . $data['as_of']->format('d M Y')]);
+            fputcsv($handle, ['Per Tanggal: '.$data['as_of']->format('d M Y')]);
             fputcsv($handle, []);
 
             // Aset
@@ -293,7 +302,7 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['', 'Neraca Balance', $data['is_balanced'] ? 'YA' : 'TIDAK']);
 
             fclose($handle);
-        }, 'neraca-' . now()->format('Y-m-d') . '.csv');
+        }, 'neraca-'.now()->format('Y-m-d').'.csv');
     }
 
     /**
@@ -302,17 +311,21 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadCashFlowPdf()
     {
         $data = $this->getCashFlowData();
-        if (!$data) return null;
+        if (! $data) {
+            return null;
+        }
 
         $pdf = Pdf::loadView('pdf.cash-flow', [
-            'data'      => $data,
-            'company'   => 'Bloomorist',
+            'data' => $data,
+            'company' => config('app.name'),
             'generated' => now()->format('d M Y H:i'),
-        ]);
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
 
         return response()->streamDownload(
-            fn () => print($pdf->output()),
-            'arus-kas-' . \Illuminate\Support\Str::slug($data['period']->label) . '.pdf'
+            fn () => print ($pdf->output()),
+            'arus-kas-'.\Illuminate\Support\Str::slug($data['period']->label).'.pdf'
         );
     }
 
@@ -330,7 +343,7 @@ class FinancialReports extends Page implements HasSchemas
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['LAPORAN ARUS KAS (CASH FLOW) - BLOOMORIST']);
-            fputcsv($handle, ['Periode: ' . $data['period']->label]);
+            fputcsv($handle, ['Periode: '.$data['period']->label]);
             fputcsv($handle, []);
 
             foreach (['operating' => 'Aktivitas Operasi', 'investing' => 'Aktivitas Investasi', 'financing' => 'Aktivitas Pendanaan'] as $section => $label) {
@@ -339,7 +352,7 @@ class FinancialReports extends Page implements HasSchemas
                 foreach ($data[$section] as $item) {
                     fputcsv($handle, [$item['label'], $item['amount']]);
                 }
-                fputcsv($handle, ['Total ' . $label, $data["{$section}_total"]]);
+                fputcsv($handle, ['Total '.$label, $data["{$section}_total"]]);
                 fputcsv($handle, []);
             }
 
@@ -349,6 +362,6 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['Saldo Kas Akhir', $data['ending_cash']]);
 
             fclose($handle);
-        }, 'arus-kas-' . \Illuminate\Support\Str::slug($data['period']->label) . '.csv');
+        }, 'arus-kas-'.\Illuminate\Support\Str::slug($data['period']->label).'.csv');
     }
 }
