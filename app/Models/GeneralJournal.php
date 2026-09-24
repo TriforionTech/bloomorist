@@ -42,6 +42,15 @@ class GeneralJournal extends Model
      */
     protected static function booted(): void
     {
+        static::created(function (GeneralJournal $journal) {
+            app(\App\Services\AccountingAuditService::class)->record(
+                'created',
+                $journal,
+                null,
+                $journal->only(['tanggal', 'no_bukti', 'keterangan', 'reference_id', 'source_type']),
+            );
+        });
+
         static::updated(function (GeneralJournal $journal) {
             app(\App\Services\AccountingAuditService::class)->record(
                 'updated',
@@ -54,7 +63,7 @@ class GeneralJournal extends Model
         static::deleted(function (GeneralJournal $journal) {
             app(\App\Services\AccountingAuditService::class)->record(
                 'deleted',
-                $journal,
+                null,
                 $journal->getOriginal(),
                 null,
             );

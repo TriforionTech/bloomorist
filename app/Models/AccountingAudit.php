@@ -31,4 +31,22 @@ class AccountingAudit extends Model
     {
         return $this->belongsTo(GeneralJournal::class, 'journal_id');
     }
+
+    public function getDisplayNoBuktiAttribute(): string
+    {
+        return $this->journal?->no_bukti
+            ?? $this->old_values['no_bukti']
+            ?? $this->new_values['header']['no_bukti']
+            ?? $this->new_values['no_bukti']
+            ?? '-';
+    }
+
+    public function getDisplayKeteranganAttribute(): string
+    {
+        return $this->journal?->keterangan
+            ?? $this->old_values['keterangan']
+            ?? $this->new_values['header']['keterangan']
+            ?? $this->new_values['keterangan']
+            ?? '-';
+    }
 }

@@ -14,11 +14,7 @@ class JournalEntryService
      * Create a manual general journal entry with its items.
      * Validates that the sum of debit equals sum of kredit.
      *
-     * @param string $tanggal
-     * @param string $keterangan
-     * @param array $items Array of ['coa_id' => int, 'debit' => int, 'kredit' => int]
-     * @param string|null $noBukti
-     * @return GeneralJournal
+     * @param  array  $items  Array of ['coa_id' => int, 'debit' => int, 'kredit' => int]
      */
     public function createManualEntry(
         string $tanggal,
@@ -26,8 +22,7 @@ class JournalEntryService
         array $items,
         ?string $noBukti = null,
         string $sourceType = 'MANUAL',
-    ): GeneralJournal
-    {
+    ): GeneralJournal {
         $totalDebit = collect($items)->sum('debit');
         $totalKredit = collect($items)->sum('kredit');
 
@@ -36,37 +31,30 @@ class JournalEntryService
         }
 
         if ($totalDebit <= 0) {
-            throw new InvalidArgumentException("Total jurnal harus lebih dari 0.");
+            throw new InvalidArgumentException('Total jurnal harus lebih dari 0.');
         }
 
         return DB::transaction(function () use ($tanggal, $keterangan, $items, $noBukti, $sourceType) {
             $accountingService = app(AccountingService::class);
 
             $journal = GeneralJournal::create([
-                'tanggal'      => $tanggal,
-                'no_bukti'     => $noBukti ?? $accountingService->generateNoBukti('JU'),
-                'keterangan'   => $keterangan,
+                'tanggal' => $tanggal,
+                'no_bukti' => $noBukti ?? $accountingService->generateNoBukti('JU'),
+                'keterangan' => $keterangan,
                 'reference_id' => null,
-                'source_type'  => $sourceType,
+                'source_type' => $sourceType,
             ]);
 
             foreach ($items as $item) {
                 $coa = ChartOfAccount::findOrFail($item['coa_id']);
                 JournalItem::create([
                     'journal_id' => $journal->id,
-                    'coa_id'     => $coa->id,
-                    'kode_coa'   => $coa->kode_akun,
-                    'debit'      => $item['debit'] ?? 0,
-                    'kredit'     => $item['kredit'] ?? 0,
+                    'coa_id' => $coa->id,
+                    'kode_coa' => $coa->kode_akun,
+                    'debit' => $item['debit'] ?? 0,
+                    'kredit' => $item['kredit'] ?? 0,
                 ]);
             }
-
-            app(AccountingAuditService::class)->record(
-                'created',
-                $journal,
-                null,
-                app(AccountingAuditService::class)->journalSnapshot($journal),
-            );
 
             return $journal;
         });
