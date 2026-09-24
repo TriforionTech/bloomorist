@@ -507,6 +507,94 @@ class AccountingService
     }
 
     /**
+     * Create journal entries for Stock Opname.
+     * Updates product physical stock and records shrinkage (loss) or gain into the general journal.
+     */
+    public function createStockOpnameJournal(\App\Models\StockOpname $stockOpname): ?GeneralJournal
+    {
+        return DB::transaction(function () use ($stockOpname) {
+            $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first()
+                ?? ChartOfAccount::where('kode_akun', '1030')->first();
+            $coaShrinkage = ChartOfAccount::where('kode_akun', '6106')->first()
+                ?? ChartOfAccount::where('kode_akun', '6108')->first()
+                ?? ChartOfAccount::where('kode_akun', '5010')->first();
+            $coaGain = ChartOfAccount::where('kode_akun', '4104')->first()
+                ?? ChartOfAccount::where('kode_akun', '4030')->first();
+
+            $totalLoss = 0;
+            $totalGain = 0;
+
+            $stockOpname->loadMissing('items');
+
+            foreach ($stockOpname->items as $item) {
+                $product = \App\Models\Product::find($item->product_id);
+                if ($product) {
+                    $product->stok = $item->physical_qty;
+                    $product->save();
+                }
+
+                if ($item->variance < 0) {
+                    $totalLoss += abs((float) $item->total_value);
+                } elseif ($item->variance > 0) {
+                    $totalGain += (float) $item->total_value;
+                }
+            }
+
+            $journal = null;
+
+            if (($totalLoss > 0 || $totalGain > 0) && $coaPersediaan) {
+                $journal = GeneralJournal::create([
+                    'tanggal' => $stockOpname->date ? $stockOpname->date->toDateString() : now()->toDateString(),
+                    'no_bukti' => $this->generateNoBukti('SOP'),
+                    'keterangan' => 'Stock Opname '.$stockOpname->reference_number,
+                    'reference_id' => $stockOpname->id,
+                    'source_type' => 'STOCK_OPNAME',
+                ]);
+
+                if ($totalLoss > 0 && $coaShrinkage) {
+                    JournalItem::create([
+                        'journal_id' => $journal->id,
+                        'coa_id' => $coaShrinkage->id,
+                        'kode_coa' => $coaShrinkage->kode_akun,
+                        'debit' => (int) round($totalLoss),
+                        'kredit' => 0,
+                    ]);
+
+                    JournalItem::create([
+                        'journal_id' => $journal->id,
+                        'coa_id' => $coaPersediaan->id,
+                        'kode_coa' => $coaPersediaan->kode_akun,
+                        'debit' => 0,
+                        'kredit' => (int) round($totalLoss),
+                    ]);
+                }
+
+                if ($totalGain > 0 && $coaGain) {
+                    JournalItem::create([
+                        'journal_id' => $journal->id,
+                        'coa_id' => $coaPersediaan->id,
+                        'kode_coa' => $coaPersediaan->kode_akun,
+                        'debit' => (int) round($totalGain),
+                        'kredit' => 0,
+                    ]);
+
+                    JournalItem::create([
+                        'journal_id' => $journal->id,
+                        'coa_id' => $coaGain->id,
+                        'kode_coa' => $coaGain->kode_akun,
+                        'debit' => 0,
+                        'kredit' => (int) round($totalGain),
+                    ]);
+                }
+            }
+
+            $stockOpname->update(['status' => 'posted']);
+
+            return $journal;
+        });
+    }
+
+    /**
      * Calculate opening balance for a COA before a given date.
      * Respects saldo_normal: Debit-normal = sum(debit) - sum(kredit), vice versa.
      */
