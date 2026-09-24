@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AccountingPeriod;
 use App\Models\MonthlySummary;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -13,7 +14,18 @@ class PeriodClosingService
         private readonly FinancialHealthCheckService $healthCheck,
         private readonly AccountingService $accountingService,
         private readonly CashFlowService $cashFlowService,
-    ) {
+    ) {}
+
+    /**
+     * Calculate closing inventory value from physical warehouse stock.
+     */
+    public function calculateClosingInventoryValue(AccountingPeriod $period): float
+    {
+        $total = (float) Product::active()
+            ->selectRaw('COALESCE(SUM(stok * harga_beli), 0) as total')
+            ->value('total');
+
+        return max(0, $total);
     }
 
     public function close(AccountingPeriod $period): MonthlySummary
@@ -22,8 +34,12 @@ class PeriodClosingService
             throw new RuntimeException('Periode sudah ditutup.');
         }
 
+        // Auto-fill Nilai Stock Opname Akhir dari fisik produk jika belum diisi manual
         if ($period->closing_inventory_value === null) {
-            throw new RuntimeException('Nilai stock opname akhir wajib diisi.');
+            $period->update([
+                'closing_inventory_value' => $this->calculateClosingInventoryValue($period),
+            ]);
+            $period->refresh();
         }
 
         $checks = [
@@ -31,7 +47,7 @@ class PeriodClosingService
             $this->healthCheck->checkBalanceSheet($period->id),
             $this->healthCheck->checkCashFlow($period->id),
         ];
-        $failed = collect($checks)->first(fn (array $check) => !$check['is_healthy']);
+        $failed = collect($checks)->first(fn (array $check) => ! $check['is_healthy']);
         if ($failed) {
             throw new RuntimeException("Tutup periode ditolak: {$failed['message']}");
         }

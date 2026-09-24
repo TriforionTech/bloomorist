@@ -7,7 +7,6 @@ use App\Models\ChartOfAccount;
 use App\Models\GeneralJournal;
 use App\Models\JournalItem;
 use App\Services\AccountingService;
-use App\Services\CashFlowService;
 use App\Services\FinancialHealthCheckService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -118,7 +117,7 @@ class PeriodicFinancialReportTest extends TestCase
         ] as [$code, $name, $cat, $norm]) {
             $accounts[$code] = ChartOfAccount::create([
                 'kode_akun' => $code, 'nama_akun' => $name,
-                'kategori'  => $cat,  'saldo_normal' => $norm,
+                'kategori' => $cat,  'saldo_normal' => $norm,
             ]);
         }
 
@@ -215,16 +214,16 @@ class PeriodicFinancialReportTest extends TestCase
     public function test_balance_sheet_returns_balances_by_code(): void
     {
         $period = AccountingPeriod::create([
-            'label'      => 'Agustus 2026',
+            'label' => 'Agustus 2026',
             'start_date' => '2026-08-01',
-            'end_date'   => '2026-08-31',
-            'status'     => 'open',
+            'end_date' => '2026-08-31',
+            'status' => 'open',
             'closing_inventory_value' => 0,
         ]);
 
-        $kas     = ChartOfAccount::create(['kode_akun'=>'1101','nama_akun'=>'Kas',         'kategori'=>'Aset',    'saldo_normal'=>'Debit']);
-        $hutang  = ChartOfAccount::create(['kode_akun'=>'2101','nama_akun'=>'Hutang',      'kategori'=>'Kewajiban','saldo_normal'=>'Kredit']);
-        $modal   = ChartOfAccount::create(['kode_akun'=>'3101','nama_akun'=>'Modal',       'kategori'=>'Ekuitas', 'saldo_normal'=>'Kredit']);
+        $kas = ChartOfAccount::create(['kode_akun' => '1101', 'nama_akun' => 'Kas',         'kategori' => 'Aset',    'saldo_normal' => 'Debit']);
+        $hutang = ChartOfAccount::create(['kode_akun' => '2101', 'nama_akun' => 'Hutang',      'kategori' => 'Kewajiban', 'saldo_normal' => 'Kredit']);
+        $modal = ChartOfAccount::create(['kode_akun' => '3101', 'nama_akun' => 'Modal',       'kategori' => 'Ekuitas', 'saldo_normal' => 'Kredit']);
 
         $this->createJournal($period, '2026-08-01', 'Modal awal', [
             [$kas,   5000, 0],
@@ -257,14 +256,14 @@ class PeriodicFinancialReportTest extends TestCase
             'end_date' => '2026-08-31', 'status' => 'open', 'closing_inventory_value' => 1500,
         ]);
 
-        $kas     = ChartOfAccount::create(['kode_akun'=>'1101','nama_akun'=>'Kas',        'kategori'=>'Aset',    'saldo_normal'=>'Debit']);
-        $inv     = ChartOfAccount::create(['kode_akun'=>'1104','nama_akun'=>'Persediaan', 'kategori'=>'Aset',    'saldo_normal'=>'Debit']);
-        $modal   = ChartOfAccount::create(['kode_akun'=>'3101','nama_akun'=>'Modal',      'kategori'=>'Ekuitas', 'saldo_normal'=>'Kredit']);
-        $sales   = ChartOfAccount::create(['kode_akun'=>'4101','nama_akun'=>'Penjualan',  'kategori'=>'Pendapatan','saldo_normal'=>'Kredit']);
-        $purch   = ChartOfAccount::create(['kode_akun'=>'5101','nama_akun'=>'Pembelian',  'kategori'=>'Beban',   'saldo_normal'=>'Debit']);
-        ChartOfAccount::create(['kode_akun'=>'4102','nama_akun'=>'Retur Jual','kategori'=>'Pendapatan','saldo_normal'=>'Debit']);
-        ChartOfAccount::create(['kode_akun'=>'5102','nama_akun'=>'Retur Beli','kategori'=>'Beban','saldo_normal'=>'Kredit']);
-        ChartOfAccount::create(['kode_akun'=>'5103','nama_akun'=>'Angkut Beli','kategori'=>'Beban','saldo_normal'=>'Debit']);
+        $kas = ChartOfAccount::create(['kode_akun' => '1101', 'nama_akun' => 'Kas',        'kategori' => 'Aset',    'saldo_normal' => 'Debit']);
+        $inv = ChartOfAccount::create(['kode_akun' => '1104', 'nama_akun' => 'Persediaan', 'kategori' => 'Aset',    'saldo_normal' => 'Debit']);
+        $modal = ChartOfAccount::create(['kode_akun' => '3101', 'nama_akun' => 'Modal',      'kategori' => 'Ekuitas', 'saldo_normal' => 'Kredit']);
+        $sales = ChartOfAccount::create(['kode_akun' => '4101', 'nama_akun' => 'Penjualan',  'kategori' => 'Pendapatan', 'saldo_normal' => 'Kredit']);
+        $purch = ChartOfAccount::create(['kode_akun' => '5101', 'nama_akun' => 'Pembelian',  'kategori' => 'Beban',   'saldo_normal' => 'Debit']);
+        ChartOfAccount::create(['kode_akun' => '4102', 'nama_akun' => 'Retur Jual', 'kategori' => 'Pendapatan', 'saldo_normal' => 'Debit']);
+        ChartOfAccount::create(['kode_akun' => '5102', 'nama_akun' => 'Retur Beli', 'kategori' => 'Beban', 'saldo_normal' => 'Kredit']);
+        ChartOfAccount::create(['kode_akun' => '5103', 'nama_akun' => 'Angkut Beli', 'kategori' => 'Beban', 'saldo_normal' => 'Debit']);
 
         // Opening inventory from prior period — create journal THEN close
         $this->createJournal($priorPeriod, '2026-07-01', 'Inv awal', [[$inv, 3000, 0], [$modal, 0, 3000]]);
@@ -303,24 +302,24 @@ class PeriodicFinancialReportTest extends TestCase
 
         $accounts = [];
         foreach ([
-            ['1101','Kas','Aset','Debit'],
-            ['1104','Persediaan','Aset','Debit'],
-            ['4101','Penjualan','Pendapatan','Kredit'],
-            ['4102','Retur Jual','Pendapatan','Debit'],
-            ['5101','Pembelian','Beban','Debit'],
-            ['5102','Retur Beli','Beban','Kredit'],
-            ['5103','Angkut Beli','Beban','Debit'],
+            ['1101', 'Kas', 'Aset', 'Debit'],
+            ['1104', 'Persediaan', 'Aset', 'Debit'],
+            ['4101', 'Penjualan', 'Pendapatan', 'Kredit'],
+            ['4102', 'Retur Jual', 'Pendapatan', 'Debit'],
+            ['5101', 'Pembelian', 'Beban', 'Debit'],
+            ['5102', 'Retur Beli', 'Beban', 'Kredit'],
+            ['5103', 'Angkut Beli', 'Beban', 'Debit'],
         ] as [$c,$n,$k,$s]) {
-            $accounts[$c] = ChartOfAccount::create(['kode_akun'=>$c,'nama_akun'=>$n,'kategori'=>$k,'saldo_normal'=>$s]);
+            $accounts[$c] = ChartOfAccount::create(['kode_akun' => $c, 'nama_akun' => $n, 'kategori' => $k, 'saldo_normal' => $s]);
         }
 
         $this->createJournal($priorPeriod, '2026-07-01', 'Inv awal', [[$accounts['1104'], 1200, 0], [$accounts['1101'], 0, 1200]]);
         $priorPeriod->update(['status' => 'closed', 'closed_at' => now()]);
-        $this->createJournal($period, '2026-08-05', 'Jual',       [[$accounts['1101'], 8000, 0], [$accounts['4101'], 0, 8000]]);
+        $this->createJournal($period, '2026-08-05', 'Jual', [[$accounts['1101'], 8000, 0], [$accounts['4101'], 0, 8000]]);
         $this->createJournal($period, '2026-08-06', 'Retur Jual', [[$accounts['4102'], 300, 0],  [$accounts['1101'], 0, 300]]);
-        $this->createJournal($period, '2026-08-07', 'Beli',       [[$accounts['5101'], 3500, 0], [$accounts['1101'], 0, 3500]]);
+        $this->createJournal($period, '2026-08-07', 'Beli', [[$accounts['5101'], 3500, 0], [$accounts['1101'], 0, 3500]]);
         $this->createJournal($period, '2026-08-08', 'Retur Beli', [[$accounts['1101'], 200, 0],  [$accounts['5102'], 0, 200]]);
-        $this->createJournal($period, '2026-08-09', 'Angkut',     [[$accounts['5103'], 150, 0],  [$accounts['1101'], 0, 150]]);
+        $this->createJournal($period, '2026-08-09', 'Angkut', [[$accounts['5103'], 150, 0],  [$accounts['1101'], 0, 150]]);
 
         $report = app(AccountingService::class)->getIncomeStatement(
             $period->start_date->startOfDay(), $period->end_date->endOfDay(),
@@ -409,11 +408,38 @@ class PeriodicFinancialReportTest extends TestCase
         $this->assertEqualsWithDelta(0, $result['difference'], 0.01);
     }
 
+    public function test_opening_inventory_is_automatically_taken_from_prior_period_closing_inventory(): void
+    {
+        $augustPeriod = AccountingPeriod::create([
+            'label' => 'Agustus 2026',
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-31',
+            'status' => 'closed',
+            'closing_inventory_value' => 5852000,
+        ]);
+
+        $septemberPeriod = AccountingPeriod::create([
+            'label' => 'September 2026',
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-09-30',
+            'status' => 'open',
+            'closing_inventory_value' => 6000000,
+        ]);
+
+        $report = app(AccountingService::class)->getIncomeStatement(
+            $septemberPeriod->start_date->startOfDay(),
+            $septemberPeriod->end_date->endOfDay(),
+        );
+
+        $this->assertSame(5852000.0, $report['persediaan_awal']);
+        $this->assertSame(6000000.0, (float) $report['persediaan_akhir']);
+    }
+
     private function createJournal(AccountingPeriod $period, string $date, string $description, array $lines): void
     {
         $journal = GeneralJournal::create([
             'tanggal' => $date,
-            'no_bukti' => 'JU-' . $period->id . '-' . $date . '-' . $description,
+            'no_bukti' => 'JU-'.$period->id.'-'.$date.'-'.$description,
             'keterangan' => $description,
             'source_type' => 'MANUAL',
         ]);

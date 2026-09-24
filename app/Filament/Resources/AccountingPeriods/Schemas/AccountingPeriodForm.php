@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\AccountingPeriods\Schemas;
 
 use Filament\Forms\Components\DatePicker;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class AccountingPeriodForm
@@ -56,13 +56,13 @@ class AccountingPeriodForm
                             ->label('Nilai Stock Opname Akhir')
                             ->prefix('Rp')
                             ->numeric()
-                            ->placeholder('Masukkan nilai stok di akhir periode')
-                            ->helperText('Wajib diisi sebelum melakukan Tutup Buku.')
+                            ->placeholder('Otomatis dihitung saat Tutup Buku (opsional isi manual)')
+                            ->helperText('Jika dikosongkan, sistem akan otomatis menghitung dari total fisik stok gudang saat Tutup Buku.')
                             ->extraInputAttributes([
                                 'inputmode' => 'numeric',
                             ]),
                     ])->columns(2),
-                    
+
                 Section::make('Status Pembukuan')
                     ->schema([
                         Select::make('status')

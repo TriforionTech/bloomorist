@@ -59,6 +59,37 @@ class PeriodClosingTest extends TestCase
         app(PeriodClosingService::class)->close($period);
     }
 
+    public function test_closing_period_auto_calculates_closing_inventory_value_if_null(): void
+    {
+        $period = AccountingPeriod::create([
+            'label' => 'Oktober 2026',
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-31',
+            'opening_cash_balance' => 0,
+            'closing_inventory_value' => null,
+            'status' => 'open',
+        ]);
+
+        \App\Models\Product::create([
+            'sku' => 'TEST-AUTO-INV',
+            'nama' => 'Bunga Auto Opname',
+            'kategori' => 'bunga',
+            'harga_beli' => 15000,
+            'harga_jual' => 25000,
+            'stok' => 40,
+            'is_active' => true,
+        ]);
+
+        $cash = $this->account('1010', 'Kas & Bank', 'Aset', 'Debit');
+        $capital = $this->account('3101', 'Modal Pemilik', 'Ekuitas', 'Kredit');
+        $this->journal($period, $cash, $capital);
+
+        $summary = app(PeriodClosingService::class)->close($period);
+
+        $this->assertSame('closed', $period->fresh()->status);
+        $this->assertEquals(600000.0, (float) $period->fresh()->closing_inventory_value);
+    }
+
     private function account(string $code, string $name, string $category, string $normal): ChartOfAccount
     {
         return ChartOfAccount::create([

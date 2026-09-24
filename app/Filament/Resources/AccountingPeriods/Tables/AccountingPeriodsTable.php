@@ -3,15 +3,15 @@
 namespace App\Filament\Resources\AccountingPeriods\Tables;
 
 use App\Models\AccountingPeriod;
+use App\Services\ClosingEntryService;
 use App\Services\DepreciationService;
 use App\Services\PeriodClosingService;
-use App\Services\ClosingEntryService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\Notifications\Notification;
 
 class AccountingPeriodsTable
 {
@@ -38,8 +38,16 @@ class AccountingPeriodsTable
 
                 TextColumn::make('closing_inventory_value')
                     ->label('STOCK OPNAME')
-                    ->formatStateUsing(fn ($state) => $state !== null ? 'Rp ' . number_format($state, 0, ',', '.') : 'Belum Diisi')
-                    ->color(fn ($state) => $state !== null ? 'success' : 'danger'),
+                    ->formatStateUsing(function ($state, AccountingPeriod $record) {
+                        if ($state !== null) {
+                            return 'Rp '.number_format($state, 0, ',', '.');
+                        }
+                        $est = app(PeriodClosingService::class)->calculateClosingInventoryValue($record);
+
+                        return 'Rp '.number_format($est, 0, ',', '.').' (Auto)';
+                    })
+                    ->color(fn ($state) => $state !== null ? 'success' : 'info')
+                    ->tooltip(fn ($state) => $state === null ? 'Otomatis dihitung dari stok fisik saat Tutup Buku' : 'Nilai persediaan akhir terkunci'),
 
                 TextColumn::make('status')
                     ->label('STATUS')
@@ -91,7 +99,17 @@ class AccountingPeriodsTable
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Tutup Periode Akuntansi')
-                    ->modalDescription(fn (AccountingPeriod $record) => "Apakah Anda yakin ingin mengunci periode {$record->label}? Anda TIDAK AKAN BISA menambah atau mengubah transaksi (Invoices, Expenses) di periode ini lagi. Pastikan semua data sudah final.")
+                    ->modalDescription(function (AccountingPeriod $record) {
+                        $info = '';
+                        if ($record->closing_inventory_value === null) {
+                            $autoVal = app(PeriodClosingService::class)->calculateClosingInventoryValue($record);
+                            $info = ' Nilai Stock Opname akhir otomatis dihitung sebesar Rp '.number_format($autoVal, 0, ',', '.').' dari stok fisik saat ini.';
+                        } else {
+                            $info = ' Nilai Stock Opname akhir: Rp '.number_format((float) $record->closing_inventory_value, 0, ',', '.').'.';
+                        }
+
+                        return "Apakah Anda yakin ingin mengunci periode {$record->label}?{$info} Anda TIDAK AKAN BISA menambah atau mengubah transaksi (Invoices, Expenses) di periode ini lagi. Pastikan semua data sudah final.";
+                    })
                     ->disabled(fn (AccountingPeriod $record) => $record->isClosed())
                     ->action(function (AccountingPeriod $record) {
                         try {
@@ -139,13 +157,13 @@ class AccountingPeriodsTable
                 EditAction::make()
                     ->disabled(fn (AccountingPeriod $record) => $record->isClosed())
                     ->tooltip(fn (AccountingPeriod $record) => $record->isClosed() ? 'Periode yang sudah tutup buku tidak bisa diedit' : ''),
-                
+
                 DeleteAction::make()
                     ->disabled(fn (AccountingPeriod $record) => $record->isClosed())
                     ->tooltip(fn (AccountingPeriod $record) => $record->isClosed() ? 'Periode yang sudah tutup buku tidak bisa dihapus' : ''),
             ])
             ->bulkActions([
-                // 
+                //
             ]);
     }
 }

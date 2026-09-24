@@ -12,8 +12,10 @@ class StockOpnameInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Stock Opname Details')
+                    ->columnSpanFull()
                     ->columns(3)
                     ->schema([
                         TextEntry::make('reference_number'),
@@ -32,6 +34,7 @@ class StockOpnameInfolist
                     ]),
 
                 Section::make('Items')
+                    ->columnSpanFull()
                     ->schema([
                         RepeatableEntry::make('items')
                             ->schema([

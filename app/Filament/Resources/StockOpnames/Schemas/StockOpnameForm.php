@@ -16,9 +16,11 @@ class StockOpnameForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Stock Opname Details')
-                    ->columns(2)
+                    ->columnSpanFull()
+                    ->columns(3)
                     ->schema([
                         TextInput::make('reference_number')
                             ->required()
@@ -29,14 +31,15 @@ class StockOpnameForm
                             ->required()
                             ->default(now()),
                         TextInput::make('notes')
-                            ->columnSpanFull(),
+                            ->placeholder('Catatan (opsional)'),
                     ]),
 
                 Section::make('Items')
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('items')
                             ->relationship('items')
-                            ->columns(6)
+                            ->columns(7)
                             ->schema([
                                 Select::make('product_id')
                                     ->label('Product')
@@ -63,7 +66,8 @@ class StockOpnameForm
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
-                                    ->required(),
+                                    ->required()
+                                    ->columnSpan(1),
                                 TextInput::make('physical_qty')
                                     ->numeric()
                                     ->required()
@@ -76,21 +80,25 @@ class StockOpnameForm
 
                                         $set('variance', $variance);
                                         $set('total_value', $variance * $cost);
-                                    }),
+                                    })
+                                    ->columnSpan(1),
                                 TextInput::make('variance')
                                     ->numeric()
                                     ->readOnly()
-                                    ->dehydrated(),
+                                    ->dehydrated()
+                                    ->columnSpan(1),
                                 TextInput::make('unit_cost')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
-                                    ->prefix('Rp'),
+                                    ->prefix('Rp')
+                                    ->columnSpan(1),
                                 TextInput::make('total_value')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
-                                    ->prefix('Rp'),
+                                    ->prefix('Rp')
+                                    ->columnSpan(1),
                             ])
                             ->defaultItems(0)
                             ->addActionLabel('Add Item'),
