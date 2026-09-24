@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\StockOpnames\Pages;
 
 use App\Filament\Resources\StockOpnames\StockOpnameResource;
-use App\Services\StockOpnameCsvService;
+use App\Services\StockOpnameExcelService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -15,11 +15,11 @@ class CreateStockOpname extends CreateRecord
     {
         return [
             Action::make('downloadTemplate')
-                ->label('Download Template CSV')
+                ->label('Download Template Excel')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->tooltip('Unduh template CSV yang telah otomatis terisi seluruh produk aktif terbaru')
-                ->action(fn (StockOpnameCsvService $service) => $service->generateTemplateCsvStream()),
+                ->color('success')
+                ->tooltip('Unduh template Excel (.xlsx) resmi yang telah otomatis terisi seluruh produk aktif terbaru')
+                ->action(fn (StockOpnameExcelService $service) => $service->generateTemplateExcel()),
         ];
     }
 }

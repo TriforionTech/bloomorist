@@ -671,42 +671,80 @@ class StockOpnameTest extends TestCase
             ->assertSee('+5 pcs');
     }
 
-    public function test_can_download_stock_opname_csv_template(): void
+    protected function createTestExcelFile(array $rows): string
     {
-        $this->actingAs($this->user);
+        $tempPath = tempnam(sys_get_temp_dir(), 'test_so_xlsx_');
+        $zip = new \ZipArchive;
+        $zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
 
-        Product::create([
-            'sku' => 'FLW-LIL-001',
-            'nama' => 'Lily Putih',
-            'kategori' => 'bunga',
-            'harga_beli' => 20000,
-            'harga_jual' => 35000,
-            'stok' => 15,
-            'is_active' => true,
-        ]);
+        $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>';
 
-        $service = app(\App\Services\StockOpnameCsvService::class);
-        $response = $service->generateTemplateCsvStream();
+        $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>';
 
-        $this->assertEquals(200, $response->getStatusCode());
-        $this->assertTrue(str_contains($response->headers->get('Content-Type'), 'text/csv'));
+        $workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>';
 
-        ob_start();
-        $response->sendContent();
-        $csvContent = ob_get_clean();
+        $workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
+</workbook>';
 
-        $this->assertStringContainsString('product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan', $csvContent);
-        $this->assertStringContainsString('FLW-LIL-001', $csvContent);
-        $this->assertStringContainsString('Lily Putih', $csvContent);
+        $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+        $sheetXml .= '<row r="1">
+            <c r="A1" t="inlineStr"><is><t>product_id</t></is></c>
+            <c r="B1" t="inlineStr"><is><t>sku</t></is></c>
+            <c r="C1" t="inlineStr"><is><t>nama_produk</t></is></c>
+            <c r="D1" t="inlineStr"><is><t>kategori</t></is></c>
+            <c r="E1" t="inlineStr"><is><t>stok_sistem</t></is></c>
+            <c r="F1" t="inlineStr"><is><t>harga_beli</t></is></c>
+            <c r="G1" t="inlineStr"><is><t>stok_fisik</t></is></c>
+            <c r="H1" t="inlineStr"><is><t>catatan</t></is></c>
+        </row>';
+
+        $rowNum = 2;
+        foreach ($rows as $r) {
+            $sheetXml .= '<row r="'.$rowNum.'">';
+            $sheetXml .= '<c r="A'.$rowNum.'"><v>'.$r['product_id'].'</v></c>';
+            $sheetXml .= '<c r="B'.$rowNum.'" t="inlineStr"><is><t>'.$r['sku'].'</t></is></c>';
+            $sheetXml .= '<c r="C'.$rowNum.'" t="inlineStr"><is><t>'.($r['nama_produk'] ?? '').'</t></is></c>';
+            $sheetXml .= '<c r="D'.$rowNum.'" t="inlineStr"><is><t>'.($r['kategori'] ?? '').'</t></is></c>';
+            $sheetXml .= '<c r="E'.$rowNum.'"><v>'.($r['stok_sistem'] ?? 0).'</v></c>';
+            $sheetXml .= '<c r="F'.$rowNum.'"><v>'.($r['harga_beli'] ?? 0).'</v></c>';
+            $sheetXml .= '<c r="G'.$rowNum.'"><v>'.$r['stok_fisik'].'</v></c>';
+            $sheetXml .= '<c r="H'.$rowNum.'" t="inlineStr"><is><t>'.($r['catatan'] ?? '').'</t></is></c>';
+            $sheetXml .= '</row>';
+            $rowNum++;
+        }
+        $sheetXml .= '</sheetData></worksheet>';
+
+        $zip->addFromString('[Content_Types].xml', $contentTypes);
+        $zip->addFromString('_rels/.rels', $rels);
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $workbookRels);
+        $zip->addFromString('xl/workbook.xml', $workbook);
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+        $zip->close();
+
+        return $tempPath;
     }
 
-    public function test_can_import_stock_opname_via_csv_as_draft(): void
+    public function test_can_import_stock_opname_via_excel_as_draft(): void
     {
         $this->actingAs($this->user);
 
         $prodA = Product::create([
-            'sku' => 'PROD-CSV-A',
-            'nama' => 'Produk A',
+            'sku' => 'PROD-EX-A',
+            'nama' => 'Produk Excel A',
             'kategori' => 'bunga',
             'harga_beli' => 10000,
             'harga_jual' => 15000,
@@ -715,8 +753,8 @@ class StockOpnameTest extends TestCase
         ]);
 
         $prodB = Product::create([
-            'sku' => 'PROD-CSV-B',
-            'nama' => 'Produk B',
+            'sku' => 'PROD-EX-B',
+            'nama' => 'Produk Excel B',
             'kategori' => 'bunga',
             'harga_beli' => 20000,
             'harga_jual' => 30000,
@@ -724,18 +762,16 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$prodA->id},PROD-CSV-A,Produk A,bunga,50,10000,45,Kurang 5 pcs\n"
-            ."{$prodB->id},PROD-CSV-B,Produk B,bunga,30,20000,32,Surplus 2 pcs\n";
+        $tempPath = $this->createTestExcelFile([
+            ['product_id' => $prodA->id, 'sku' => 'PROD-EX-A', 'nama_produk' => 'Produk Excel A', 'stok_fisik' => '45', 'catatan' => 'Kurang 5 pcs'],
+            ['product_id' => $prodB->id, 'sku' => 'PROD-EX-B', 'nama_produk' => 'Produk Excel B', 'stok_fisik' => '32', 'catatan' => 'Surplus 2 pcs'],
+        ]);
 
-        file_put_contents($tempPath, $csvContent);
-
-        $service = app(\App\Services\StockOpnameCsvService::class);
-        $result = $service->importCsv($tempPath, [
-            'reference_number' => 'SO-CSV-TEST-001',
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $result = $service->importExcel($tempPath, [
+            'reference_number' => 'SO-EX-TEST-001',
             'date' => now()->toDateString(),
-            'notes' => 'Import CSV Opname Test',
+            'notes' => 'Import Excel Opname Test',
             'post_immediately' => false,
         ]);
 
@@ -746,7 +782,7 @@ class StockOpnameTest extends TestCase
 
         $opname = $result['stock_opname'];
         $this->assertEquals('draft', $opname->status);
-        $this->assertEquals('SO-CSV-TEST-001', $opname->reference_number);
+        $this->assertEquals('SO-EX-TEST-001', $opname->reference_number);
 
         // Verify items
         $this->assertDatabaseHas('bl_stock_opname_items_t', [
@@ -772,13 +808,13 @@ class StockOpnameTest extends TestCase
         $this->assertEquals(30, $prodB->fresh()->stok);
     }
 
-    public function test_can_import_stock_opname_via_csv_with_immediate_posting(): void
+    public function test_can_import_stock_opname_via_excel_with_immediate_posting(): void
     {
         $this->actingAs($this->user);
 
         $product = Product::create([
-            'sku' => 'PROD-POST-01',
-            'nama' => 'Bunga Anggrek',
+            'sku' => 'PROD-POST-EX',
+            'nama' => 'Bunga Anggrek Excel',
             'kategori' => 'bunga',
             'harga_beli' => 50000,
             'harga_jual' => 80000,
@@ -786,15 +822,13 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$product->id},PROD-POST-01,Bunga Anggrek,bunga,10,50000,8,Rusak 2 tangkai\n";
+        $tempPath = $this->createTestExcelFile([
+            ['product_id' => $product->id, 'sku' => 'PROD-POST-EX', 'nama_produk' => 'Bunga Anggrek Excel', 'stok_fisik' => '8', 'catatan' => 'Rusak 2 tangkai'],
+        ]);
 
-        file_put_contents($tempPath, $csvContent);
-
-        $service = app(\App\Services\StockOpnameCsvService::class);
-        $result = $service->importCsv($tempPath, [
-            'reference_number' => 'SO-POST-IMM-001',
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $result = $service->importExcel($tempPath, [
+            'reference_number' => 'SO-POST-EX-001',
             'date' => now()->toDateString(),
             'notes' => 'Direct post test',
             'post_immediately' => true,
@@ -816,13 +850,13 @@ class StockOpnameTest extends TestCase
         ]);
     }
 
-    public function test_import_rejects_csv_if_sku_tampered_or_invalid(): void
+    public function test_import_rejects_excel_if_sku_tampered_or_invalid(): void
     {
         $this->actingAs($this->user);
 
         $product = Product::create([
-            'sku' => 'SKU-ORIGINAL',
-            'nama' => 'Produk Asli',
+            'sku' => 'SKU-ORIGINAL-EX',
+            'nama' => 'Produk Asli Excel',
             'kategori' => 'bunga',
             'harga_beli' => 10000,
             'harga_jual' => 15000,
@@ -830,19 +864,17 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
-        // SKU in CSV does not match SKU in DB for that product_id
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$product->id},SKU-MANIPULATED,Produk Asli,bunga,20,10000,18,Catatan\n";
-
-        file_put_contents($tempPath, $csvContent);
+        // SKU in Excel does not match SKU in DB for that product_id
+        $tempPath = $this->createTestExcelFile([
+            ['product_id' => $product->id, 'sku' => 'SKU-MANIPULATED-EX', 'nama_produk' => 'Produk Asli Excel', 'stok_fisik' => '18'],
+        ]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Ketidakcocokan data terdeteksi');
 
         try {
-            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
-                'reference_number' => 'SO-TAMPER-001',
+            app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+                'reference_number' => 'SO-TAMPER-EX-001',
                 'date' => now()->toDateString(),
             ]);
         } finally {
@@ -850,13 +882,13 @@ class StockOpnameTest extends TestCase
         }
     }
 
-    public function test_import_rejects_negative_physical_qty(): void
+    public function test_import_rejects_negative_or_non_integer_physical_qty(): void
     {
         $this->actingAs($this->user);
 
         $product = Product::create([
-            'sku' => 'SKU-NEG-001',
-            'nama' => 'Produk Negatif',
+            'sku' => 'SKU-NEG-EX',
+            'nama' => 'Produk Negatif Excel',
             'kategori' => 'bunga',
             'harga_beli' => 10000,
             'harga_jual' => 15000,
@@ -864,18 +896,16 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$product->id},SKU-NEG-001,Produk Negatif,bunga,20,10000,-5,Invalid\n";
-
-        file_put_contents($tempPath, $csvContent);
+        $tempPath = $this->createTestExcelFile([
+            ['product_id' => $product->id, 'sku' => 'SKU-NEG-EX', 'nama_produk' => 'Produk Negatif Excel', 'stok_fisik' => '-5'],
+        ]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('tidak valid. Harus berupa angka bulat >= 0');
 
         try {
-            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
-                'reference_number' => 'SO-NEG-001',
+            app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+                'reference_number' => 'SO-NEG-EX-001',
                 'date' => now()->toDateString(),
             ]);
         } finally {
@@ -890,8 +920,8 @@ class StockOpnameTest extends TestCase
         $this->period->update(['status' => 'closed']);
 
         $product = Product::create([
-            'sku' => 'SKU-CLOSED-01',
-            'nama' => 'Produk Closed',
+            'sku' => 'SKU-CLOSED-EX',
+            'nama' => 'Produk Closed Excel',
             'kategori' => 'bunga',
             'harga_beli' => 10000,
             'harga_jual' => 15000,
@@ -899,18 +929,16 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$product->id},SKU-CLOSED-01,Produk Closed,bunga,20,10000,19,Closed period\n";
-
-        file_put_contents($tempPath, $csvContent);
+        $tempPath = $this->createTestExcelFile([
+            ['product_id' => $product->id, 'sku' => 'SKU-CLOSED-EX', 'nama_produk' => 'Produk Closed Excel', 'stok_fisik' => '19'],
+        ]);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('sudah ditutup (Closed)');
 
         try {
-            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
-                'reference_number' => 'SO-CLOSED-001',
+            app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+                'reference_number' => 'SO-CLOSED-EX-001',
                 'date' => now()->toDateString(),
             ]);
         } finally {
@@ -918,24 +946,25 @@ class StockOpnameTest extends TestCase
         }
     }
 
-    public function test_filament_list_page_has_csv_actions(): void
+    public function test_filament_list_page_has_excel_actions_and_no_csv(): void
     {
         $this->actingAs($this->user);
 
         Livewire::test(ListStockOpnames::class)
             ->assertActionExists('downloadTemplate')
-            ->assertActionExists('importCsv');
+            ->assertActionExists('importExcel')
+            ->assertActionDoesNotExist('downloadTemplateCsv');
     }
 
-    public function test_filament_list_page_can_execute_import_csv_action(): void
+    public function test_filament_list_page_can_execute_import_excel_action(): void
     {
         $this->actingAs($this->user);
 
         \Illuminate\Support\Facades\Storage::fake('local');
 
         $product = Product::create([
-            'sku' => 'SKU-LW-IMPORT',
-            'nama' => 'Produk Livewire Import',
+            'sku' => 'SKU-LW-EXCEL',
+            'nama' => 'Produk Livewire Excel',
             'kategori' => 'bunga',
             'harga_beli' => 15000,
             'harga_jual' => 25000,
@@ -943,24 +972,36 @@ class StockOpnameTest extends TestCase
             'is_active' => true,
         ]);
 
-        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
-            ."{$product->id},SKU-LW-IMPORT,Produk Livewire Import,bunga,40,15000,38,Kurang 2 tangkai\n";
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $tempXlsx = tempnam(sys_get_temp_dir(), 'test_lw_xlsx_');
+        $response = $service->generateTemplateExcel();
+        copy($response->getFile()->getPathname(), $tempXlsx);
 
-        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('opname_test.csv', $csvContent);
-        $storedPath = $file->store('temp-stock-opname', 'local');
+        // Edit cell G2 in xlsx to enter 38
+        $zip = new \ZipArchive;
+        $zip->open($tempXlsx);
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $sheetXml = str_replace('<c r="G2"></c>', '<c r="G2"><v>38</v></c>', $sheetXml);
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+        $zip->close();
+
+        $uploadedFile = new \Illuminate\Http\UploadedFile($tempXlsx, 'opname_test.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+        $storedPath = $uploadedFile->store('temp-stock-opname', 'local');
 
         Livewire::test(ListStockOpnames::class)
-            ->callAction('importCsv', data: [
+            ->callAction('importExcel', data: [
                 'date' => now()->toDateString(),
-                'reference_number' => 'SO-LW-TEST-999',
-                'notes' => 'Imported via modal',
+                'reference_number' => 'SO-LW-EXCEL-001',
+                'notes' => 'Imported via Excel modal',
                 'file' => [$storedPath],
                 'post_immediately' => false,
             ])
             ->assertHasNoActionErrors();
 
+        @unlink($tempXlsx);
+
         $this->assertDatabaseHas('bl_stock_opnames_t', [
-            'reference_number' => 'SO-LW-TEST-999',
+            'reference_number' => 'SO-LW-EXCEL-001',
             'status' => 'draft',
         ]);
 
@@ -968,6 +1009,164 @@ class StockOpnameTest extends TestCase
             'product_id' => $product->id,
             'physical_qty' => 38,
             'variance' => -2,
+        ]);
+    }
+
+    public function test_can_download_stock_opname_xlsx_template(): void
+    {
+        $this->actingAs($this->user);
+
+        Product::create([
+            'sku' => 'FLW-XLSX-01',
+            'nama' => 'Mawar Hitam',
+            'kategori' => 'bunga',
+            'harga_beli' => 25000,
+            'harga_jual' => 40000,
+            'stok' => 12,
+            'is_active' => true,
+        ]);
+
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $response = $service->generateTemplateExcel();
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertTrue(str_contains($response->headers->get('Content-Type'), 'spreadsheetml.sheet'));
+
+        $filePath = $response->getFile()->getPathname();
+        $this->assertFileExists($filePath);
+
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($filePath));
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $this->assertNotFalse($sheetXml);
+        $this->assertStringContainsString('FLW-XLSX-01', $sheetXml);
+        $this->assertStringContainsString('Mawar Hitam', $sheetXml);
+        $zip->close();
+    }
+
+    public function test_can_import_stock_opname_via_xlsx_as_draft(): void
+    {
+        $this->actingAs($this->user);
+
+        $prodA = Product::create([
+            'sku' => 'PROD-XLSX-A',
+            'nama' => 'Produk XLSX A',
+            'kategori' => 'bunga',
+            'harga_beli' => 12000,
+            'harga_jual' => 18000,
+            'stok' => 25,
+            'is_active' => true,
+        ]);
+
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $tempXlsx = tempnam(sys_get_temp_dir(), 'test_import_xlsx_');
+
+        // Generate template
+        $response = $service->generateTemplateExcel();
+        copy($response->getFile()->getPathname(), $tempXlsx);
+
+        // Modify sheet1.xml in zip to fill physical_qty for prodA
+        $zip = new \ZipArchive;
+        $zip->open($tempXlsx);
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $sheetXml = str_replace('<c r="G2"></c>', '<c r="G2"><v>20</v></c>', $sheetXml);
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+        $zip->close();
+
+        $result = $service->importExcel($tempXlsx, [
+            'reference_number' => 'SO-XLSX-TEST-001',
+            'date' => now()->toDateString(),
+            'notes' => 'Imported via XLSX',
+            'post_immediately' => false,
+        ]);
+
+        @unlink($tempXlsx);
+
+        $this->assertGreaterThanOrEqual(1, $result['total_items']);
+        $this->assertFalse($result['posted']);
+
+        $this->assertDatabaseHas('bl_stock_opnames_t', [
+            'reference_number' => 'SO-XLSX-TEST-001',
+            'status' => 'draft',
+        ]);
+
+        $this->assertDatabaseHas('bl_stock_opname_items_t', [
+            'product_id' => $prodA->id,
+            'system_qty' => 25,
+            'physical_qty' => 20,
+            'variance' => -5,
+            'total_value' => -60000,
+        ]);
+    }
+
+    public function test_import_excel_rejects_corrupted_file(): void
+    {
+        $this->actingAs($this->user);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'corrupt_');
+        file_put_contents($tempPath, 'THIS IS NOT AN EXCEL FILE');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('bukan file Excel (.xlsx) yang valid');
+
+        try {
+            app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+                'reference_number' => 'SO-CORRUPT-001',
+                'date' => now()->toDateString(),
+            ]);
+        } finally {
+            @unlink($tempPath);
+        }
+    }
+
+    public function test_import_excel_rejects_missing_headers(): void
+    {
+        $this->actingAs($this->user);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'no_headers_');
+        $zip = new \ZipArchive;
+        $zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $sheetXml = '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>wrong_column</t></is></c></row></sheetData></worksheet>';
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+        $zip->close();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Format kolom Excel tidak valid');
+
+        try {
+            app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+                'reference_number' => 'SO-HDR-001',
+                'date' => now()->toDateString(),
+            ]);
+        } finally {
+            @unlink($tempPath);
+        }
+    }
+
+    public function test_import_excel_rejects_empty_physical_qty(): void
+    {
+        $this->actingAs($this->user);
+
+        Product::create([
+            'sku' => 'SKU-EMPTY-01',
+            'nama' => 'Produk Tanpa Opname',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 10,
+            'is_active' => true,
+        ]);
+
+        $service = app(\App\Services\StockOpnameExcelService::class);
+        $response = $service->generateTemplateExcel();
+        $tempPath = $response->getFile()->getPathname();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Tidak ada produk dengan kolom 'stok_fisik' yang diisi");
+
+        app(\App\Services\StockOpnameExcelService::class)->importExcel($tempPath, [
+            'reference_number' => 'SO-BLANK-001',
+            'date' => now()->toDateString(),
         ]);
     }
 }

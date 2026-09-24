@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\StockOpnames\Pages;
 
 use App\Filament\Resources\StockOpnames\StockOpnameResource;
-use App\Services\StockOpnameCsvService;
+use App\Services\StockOpnameExcelService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
@@ -23,18 +23,18 @@ class ListStockOpnames extends ListRecords
     {
         return [
             Action::make('downloadTemplate')
-                ->label('Download Template CSV')
+                ->label('Download Template Excel')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->tooltip('Unduh template CSV yang telah otomatis terisi seluruh produk aktif terbaru')
-                ->action(fn (StockOpnameCsvService $service) => $service->generateTemplateCsvStream()),
+                ->color('success')
+                ->tooltip('Unduh template Excel (.xlsx) resmi yang telah otomatis terisi seluruh produk aktif terbaru')
+                ->action(fn (StockOpnameExcelService $service) => $service->generateTemplateExcel()),
 
-            Action::make('importCsv')
-                ->label('Import CSV Opname')
+            Action::make('importExcel')
+                ->label('Import Hasil Opname (Excel)')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
-                ->modalHeading('Import Hasil Stock Opname (CSV)')
-                ->modalDescription('Unggah file CSV yang telah Anda lengkapi kolom stok fisiknya. Sistem akan mencocokkan integritas SKU & ID produk serta menghitung varians secara otomatis.')
+                ->modalHeading('Import Hasil Stock Opname (Excel)')
+                ->modalDescription('Unggah file Excel (.xlsx) yang telah Anda lengkapi kolom stok fisiknya. Sistem akan mencocokkan integritas SKU & ID produk serta menghitung varians secara otomatis.')
                 ->modalWidth('xl')
                 ->schema([
                     DatePicker::make('date')
@@ -53,19 +53,23 @@ class ListStockOpnames extends ListRecords
                         ->placeholder('Contoh: Opname Rutin Akhir Bulan Gudang Utama'),
 
                     FileUpload::make('file')
-                        ->label('File CSV Stock Opname')
+                        ->label('File Excel Stock Opname (.xlsx)')
                         ->disk('local')
                         ->directory('temp-stock-opname')
-                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/csv'])
+                        ->acceptedFileTypes([
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            'application/vnd.ms-excel',
+                            'application/zip',
+                        ])
                         ->required()
-                        ->helperText('Unggah file CSV template yang telah Anda isi kolom stok_fisik-nya.'),
+                        ->helperText('Unggah file template Excel (.xlsx) yang telah Anda isi kolom stok_fisik-nya.'),
 
                     Toggle::make('post_immediately')
                         ->label('Langsung Posting ke Akuntansi')
                         ->helperText('Jika aktif, stok produk langsung disesuaikan dan jurnal penyesuaian otomatis dibuat. Jika nonaktif, akan disimpan sebagai Draft.')
                         ->default(false),
                 ])
-                ->action(function (array $data, StockOpnameCsvService $service) {
+                ->action(function (array $data, StockOpnameExcelService $service) {
                     $fileData = $data['file'] ?? null;
                     if (is_array($fileData)) {
                         $fileData = reset($fileData);
@@ -87,7 +91,7 @@ class ListStockOpnames extends ListRecords
 
                     if (! $fullPath || ! file_exists($fullPath)) {
                         Notification::make()
-                            ->title('File CSV Tidak Ditemukan')
+                            ->title('File Excel Tidak Ditemukan')
                             ->danger()
                             ->send();
 
@@ -95,7 +99,7 @@ class ListStockOpnames extends ListRecords
                     }
 
                     try {
-                        $result = $service->importCsv($fullPath, [
+                        $result = $service->importExcel($fullPath, [
                             'date' => $data['date'],
                             'reference_number' => $data['reference_number'],
                             'notes' => $data['notes'] ?? null,
@@ -109,7 +113,7 @@ class ListStockOpnames extends ListRecords
                             ->send();
                     } catch (\Throwable $e) {
                         Notification::make()
-                            ->title('Gagal Mengimpor CSV Stock Opname')
+                            ->title('Gagal Mengimpor File Excel Stock Opname')
                             ->body($e->getMessage())
                             ->danger()
                             ->persistent()
