@@ -186,4 +186,26 @@ class StockTransferTest extends TestCase
             'kredit' => 0,
         ]);
     }
+
+    public function test_stock_transfer_overview_widget_renders_successfully()
+    {
+        $user = User::create([
+            'name' => 'Admin Test Widget',
+            'email' => 'admin_widget@example.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $this->actingAs($user);
+
+        \Livewire\Livewire::test(\App\Filament\Resources\StockTransfers\Widgets\StockTransferOverview::class)
+            ->assertStatus(200)
+            ->assertSee('Nilai Hasil Transfer')
+            ->assertSee('Nilai Barang Asal')
+            ->assertSee('Total Qty Ditransfer')
+            ->assertSee('Selisih Nilai (Varians)');
+
+        \Livewire\Livewire::test(\App\Filament\Resources\StockTransfers\Pages\ManageStockTransfers::class)
+            ->assertSuccessful()
+            ->assertSee('Nilai Hasil Transfer');
+    }
 }

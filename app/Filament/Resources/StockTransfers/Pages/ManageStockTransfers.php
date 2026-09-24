@@ -20,4 +20,11 @@ class ManageStockTransfers extends ManageRecords
                 }),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\StockTransfers\Widgets\StockTransferOverview::class,
+        ];
+    }
 }

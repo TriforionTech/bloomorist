@@ -105,6 +105,15 @@ class StockTransferResource extends Resource
                     ->label('Qty')
                     ->numeric()
                     ->sortable(),
+                \Filament\Tables\Columns\TextColumn::make('target_value')
+                    ->label('Nilai Hasil Transfer')
+                    ->state(function (StockTransfer $record) {
+                        $cost = (float) ($record->targetProduct?->harga_beli ?? 0);
+
+                        return 'Rp '.number_format($record->quantity * $cost, 0, ',', '.');
+                    })
+                    ->color('success')
+                    ->weight('bold'),
                 \Filament\Tables\Columns\TextColumn::make('keterangan')
                     ->label('Keterangan')
                     ->limit(30)
@@ -119,6 +128,13 @@ class StockTransferResource extends Resource
             ->toolbarActions([
                 //
             ]);
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            Widgets\StockTransferOverview::class,
+        ];
     }
 
     public static function getPages(): array
