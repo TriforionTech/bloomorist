@@ -32,7 +32,6 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->heading(view('filament.products.price-tier-selector'))
             // Default: hanya tampilkan produk aktif dan hitung stok yang dibooking
             ->modifyQueryUsing(function (Builder $query) {
                 $query->where('is_active', true)
@@ -190,8 +189,29 @@ class ProductsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // filter stok
+                SelectFilter::make('stock_status')
+                    ->label('Status Stok')
+                    ->options([
+                        'habis' => '🔴 Habis (0)',
+                        'hampir_habis' => '🟠 Hampir Habis (1–10)',
+                        'rendah' => '🟡 Rendah (11–30)',
+                        'aman' => '🟢 Aman (>30)',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'habis' => $query->where('stok', 0),
+                            'hampir_habis' => $query->whereBetween('stok', [1, 10]),
+                            'rendah' => $query->whereBetween('stok', [11, 30]),
+                            'aman' => $query->where('stok', '>', 30),
+                            default => $query,
+                        };
+                    })
+                    ->native(false),
+
                 // harga beli
                 Filter::make('harga_beli')
+                    ->label('Rentang Harga Beli')
                     ->schema([
                         Grid::make([
                             'default' => 1,
@@ -238,6 +258,7 @@ class ProductsTable
 
                 // harga jual
                 Filter::make('harga_jual')
+                    ->label('Rentang Harga Jual')
                     ->schema([
                         Grid::make([
                             'default' => 1,
@@ -281,34 +302,21 @@ class ProductsTable
 
                         return $indicators;
                     }),
-
-                // filter stok
-                SelectFilter::make('stock_status')
-                    ->label('Stock Status')
-                    ->options([
-                        'habis' => '🔴 Habis (0)',
-                        'hampir_habis' => '🟠 Hampir Habis (1–10)',
-                        'rendah' => '🟡 Rendah (11–30)',
-                        'aman' => '🟢 Aman (>30)',
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return match ($data['value'] ?? null) {
-                            'habis' => $query->where('stok', 0),
-                            'hampir_habis' => $query->whereBetween('stok', [1, 10]),
-                            'rendah' => $query->whereBetween('stok', [11, 30]),
-                            'aman' => $query->where('stok', '>', 30),
-                            default => $query,
-                        };
-                    })
-                    ->native(false),
             ])
-            ->filtersFormWidth('xl')
+            ->filtersFormWidth('md')
+            ->filtersTriggerAction(
+                fn (Action $action) => $action
+                    ->button()
+                    ->label('Filter')
+                    ->icon('heroicon-m-funnel')
+                    ->size(Size::Small)
+            )
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
                 Action::make('adjustStock')
                     ->hiddenLabel()
                     ->icon('heroicon-o-arrow-path')
-                    ->size('xl')
+                    ->size(Size::Small)
                     ->color('info')
                     ->tooltip('Adjust Stock')
                     ->modalHeading(fn ($record) => 'Adjust Stock: '.$record->nama)
@@ -432,7 +440,6 @@ class ProductsTable
                 ActionGroup::make([
                     EditAction::make()
                         ->hiddenLabel()
-                        ->size('xl')
                         ->authorize(fn () => true)
                         ->visible(fn () => true)
                         ->disabled(fn ($record) => Gate::denies('update', $record))
@@ -468,7 +475,6 @@ class ProductsTable
                     // === SOFT DELETE: set is_active = false instead of real delete ===
                     Action::make('deactivate')
                         ->hiddenLabel()
-                        ->size('xl')
                         ->authorize(fn () => true)
                         ->visible(fn () => true)
                         ->disabled(fn ($record) => Gate::denies('delete', $record))
@@ -538,6 +544,8 @@ class ProductsTable
                     ->tooltip('More Actions'),
             ])
             ->toolbarActions([
+                Action::make('priceTierSelector')
+                    ->view('filament.products.price-tier-selector'),
                 BulkActionGroup::make([
                     // === SOFT DELETE BULK: set is_active = false ===
                     BulkAction::make('deactivateBulk')
