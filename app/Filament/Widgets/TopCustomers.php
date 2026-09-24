@@ -15,12 +15,11 @@ class TopCustomers extends BaseWidget
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
-    protected static ?int $sort = 6;
+    protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = [
         'default' => 1,
-        'lg' => 12,
-        'xl' => 6,
+        'lg' => 6,
     ];
 
     public function table(Table $table): Table

@@ -14,19 +14,21 @@ class SalesInsights extends BaseWidget
     use \App\Filament\Traits\ParsesGlobalFilters;
     use \Filament\Widgets\Concerns\InteractsWithPageFilters;
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 4;
 
     protected int|string|array $columnSpan = [
         'default' => 1,
-        'lg' => 12,
-        'xl' => 4,
+        'lg' => 6,
     ];
 
     protected ?string $heading = 'Sales Insights';
 
     protected function getColumns(): int|array|null
     {
-        return 1; // 1 kolom vertikal
+        return [
+            'default' => 1,
+            'sm' => 2,
+        ];
     }
 
     protected function getStats(): array

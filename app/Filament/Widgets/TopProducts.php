@@ -13,14 +13,13 @@ class TopProducts extends ChartWidget
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
-    protected static ?int $sort = 5;
+    protected static ?int $sort = 3;
 
     protected ?string $heading = 'Top 10 Selling Products';
 
     protected int|string|array $columnSpan = [
         'default' => 1,
-        'lg' => 12,
-        'xl' => 12,
+        'lg' => 6,
     ];
 
     protected ?string $maxHeight = '340px';

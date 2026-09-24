@@ -25,7 +25,6 @@ class SalesChart extends ChartWidget
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 12,
-        'xl' => 8,
     ];
 
     protected ?string $maxHeight = '500px';

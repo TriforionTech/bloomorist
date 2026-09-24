@@ -9,11 +9,11 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class LowStockProducts extends BaseWidget
 {
-    protected static ?int $sort = 7;
+    protected static ?int $sort = 6;
+
     protected int|string|array $columnSpan = [
         'default' => 1,
-        'lg' => 12,
-        'xl' => 6,
+        'lg' => 6,
     ];
 
     public function table(Table $table): Table
@@ -45,9 +45,9 @@ class LowStockProducts extends BaseWidget
                     ->badge()
                     ->color(fn (int $state): string => match (true) {
                         $state === 0 => 'danger',
-                        $state <= 5  => 'danger',
+                        $state <= 5 => 'danger',
                         $state <= 10 => 'warning',
-                        default      => 'success',
+                        default => 'success',
                     })
                     ->sortable(),
             ])
