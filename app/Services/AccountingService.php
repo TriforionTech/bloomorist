@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\GeneralJournal;
 use App\Models\Invoice;
 use App\Models\JournalItem;
+use App\Models\StockOpname;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -590,6 +591,21 @@ class AccountingService
 
             $stockOpname->update(['status' => 'posted']);
 
+            $date = $stockOpname->date ? Carbon::parse($stockOpname->date) : now();
+            $period = AccountingPeriod::where('start_date', '<=', $date->toDateString())
+                ->where('end_date', '>=', $date->toDateString())
+                ->first();
+
+            $physicalValue = (float) $stockOpname->items->sum(function ($item) {
+                return (float) $item->physical_qty * (float) ($item->unit_cost ?? 0);
+            });
+
+            if ($period && ! $period->isClosed()) {
+                $period->update([
+                    'closing_inventory_value' => $physicalValue,
+                ]);
+            }
+
             return $journal;
         });
     }
@@ -716,7 +732,27 @@ class AccountingService
         $openingInventory = $priorPeriod?->closing_inventory_value !== null
             ? (float) $priorPeriod->closing_inventory_value
             : $this->accountBalanceBeforeCode('1104', $end->copy()->addDay());
-        $closingInventory = $this->findPeriodForRange($start, $end)?->closing_inventory_value;
+        $period = $this->findPeriodForRange($start, $end);
+        $closingInventory = $period?->closing_inventory_value;
+
+        if ($closingInventory === null) {
+            $latestPostedOpname = StockOpname::where('status', 'posted')
+                ->whereDate('date', '>=', $start->toDateString())
+                ->whereDate('date', '<=', $end->toDateString())
+                ->latest('date')
+                ->with('items')
+                ->first();
+
+            if ($latestPostedOpname) {
+                $closingInventory = (float) $latestPostedOpname->items->sum(function ($item) {
+                    return (float) $item->physical_qty * (float) ($item->unit_cost ?? 0);
+                });
+
+                if ($period && ! $period->isClosed()) {
+                    $period->update(['closing_inventory_value' => $closingInventory]);
+                }
+            }
+        }
         $goodsAvailable = $openingInventory + $netPurchases + $purchaseFreight;
         $cogs = $hasPeriodicAccounts && $closingInventory !== null
             ? $goodsAvailable - (float) $closingInventory
