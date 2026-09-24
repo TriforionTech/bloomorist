@@ -2,13 +2,13 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\ParsesGlobalFilters;
 use App\Models\Invoice;
 use App\Models\Product;
 use Carbon\Carbon;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use App\Filament\Traits\ParsesGlobalFilters;
 use Illuminate\Support\HtmlString;
 
 class StatsOverview extends BaseWidget
@@ -17,19 +17,20 @@ class StatsOverview extends BaseWidget
     use ParsesGlobalFilters;
 
     protected static ?int $sort = 1;
+
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 12,
     ];
 
-    protected function getColumns(): int | array
+    protected function getColumns(): int|array
     {
         return [
             'default' => 1,
             'sm' => 2,
-            'md' => 3,
-            'lg' => 3,
-            'xl' => 5,
+            'md' => 6,
+            'lg' => 6,
+            'xl' => 6,
         ];
     }
 
@@ -60,7 +61,7 @@ class StatsOverview extends BaseWidget
         $pendingOrders = Invoice::where('status', 'pending')->count();
         $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
 
-        $filterLabel = 'Pendapatan ' . match($preset) {
+        $filterLabel = 'Pendapatan '.match ($preset) {
             'today' => 'Hari Ini',
             'yesterday' => 'Kemarin',
             'this_month' => 'Bulan Ini',
@@ -73,30 +74,55 @@ class StatsOverview extends BaseWidget
         };
 
         return [
-            Stat::make('Total Order Hari Ini', new HtmlString('<span class="text-lg font-bold">' . $totalOrdersToday . '</span>'))
+            Stat::make('Total Order Hari Ini', new HtmlString('<span class="text-lg font-bold">'.$totalOrdersToday.'</span>'))
                 ->description('Jumlah pesanan yang masuk hari ini')
                 ->icon('heroicon-o-document-text')
-                ->color('info'),
+                ->color('info')
+                ->columnSpan([
+                    'default' => 1,
+                    'sm' => 1,
+                    'md' => 2,
+                ]),
 
-            Stat::make('Pendapatan Hari Ini', new HtmlString('<span class="text-lg font-bold">Rp ' . number_format($revenueToday, 0, ',', '.') . '</span>'))
+            Stat::make('Pendapatan Hari Ini', new HtmlString('<span class="text-lg font-bold">Rp '.number_format($revenueToday, 0, ',', '.').'</span>'))
                 ->description("Total dari {$invoiceTodayPaidCount} invoice lunas hari ini")
                 ->icon('heroicon-o-arrow-trending-up')
-                ->color('success'),
+                ->color('success')
+                ->columnSpan([
+                    'default' => 1,
+                    'sm' => 1,
+                    'md' => 2,
+                ]),
 
-            Stat::make($filterLabel, new HtmlString('<span class="text-lg font-bold">Rp ' . number_format($revenueFiltered, 0, ',', '.') . '</span>'))
+            Stat::make($filterLabel, new HtmlString('<span class="text-lg font-bold">Rp '.number_format($revenueFiltered, 0, ',', '.').'</span>'))
                 ->description("Total dari {$invoiceFilteredPaidCount} invoice lunas")
                 ->icon('heroicon-o-banknotes')
-                ->color('primary'),
+                ->color('primary')
+                ->columnSpan([
+                    'default' => 1,
+                    'sm' => 2,
+                    'md' => 2,
+                ]),
 
-            Stat::make('Order Pending', new HtmlString('<span class="text-lg font-bold">' . $pendingOrders . '</span>'))
+            Stat::make('Order Pending', new HtmlString('<span class="text-lg font-bold">'.$pendingOrders.'</span>'))
                 ->description('Menunggu pembayaran')
                 ->icon('heroicon-o-clock')
-                ->color('warning'),
+                ->color('warning')
+                ->columnSpan([
+                    'default' => 1,
+                    'sm' => 1,
+                    'md' => 3,
+                ]),
 
-            Stat::make('Stok Menipis', new HtmlString('<span class="text-lg font-bold">' . $lowStockProducts . '</span>'))
+            Stat::make('Stok Menipis', new HtmlString('<span class="text-lg font-bold">'.$lowStockProducts.'</span>'))
                 ->description('Produk dengan stok kurang dari 10')
                 ->icon('heroicon-o-exclamation-triangle')
-                ->color('danger'),
+                ->color('danger')
+                ->columnSpan([
+                    'default' => 1,
+                    'sm' => 1,
+                    'md' => 3,
+                ]),
         ];
     }
 }
