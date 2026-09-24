@@ -2,60 +2,61 @@
 
 namespace App\Filament\Pages;
 
-use BackedEnum;
-use UnitEnum;
-use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Filament\Resources\Invoices\InvoiceResource;
-use App\Models\Membership;
 use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\Membership;
 use App\Models\Product;
+use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
-use Filament\Pages\Page;
 use Filament\Actions\Action;
-use Illuminate\Support\Number;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Toggle;
+use Filament\Pages\Page;
 use Filament\Schemas\Components\Fieldset;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
-use Filament\Support\RawJs;
+use Filament\Schemas\Schema;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Number;
+use UnitEnum;
 
 class GenerateInvoice extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
 
     protected string $view = 'filament.pages.generate-invoice';
-    protected static ?string $title = 'Create Invoice';
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
-    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
-    protected static ?string $navigationLabel = 'Generate Invoice';
 
-    
+    protected static ?string $title = 'Create Invoice';
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
+
+    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+
+    protected static ?string $navigationLabel = 'Generate Invoice';
 
     public array $data = [];
 
     // Edit & View mode properties
     public ?int $invoiceId = null;
+
     public bool $isViewMode = false;
 
     // Cache untuk mengurangi database queries
     protected array $productPriceCache = [];
+
     protected array $membershipDiscountCache = [];
 
     public function mount(): void
@@ -76,6 +77,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     ->send();
 
                 $this->redirect(\App\Filament\Resources\Invoices\InvoiceResource::getUrl('index'));
+
                 return;
             }
 
@@ -89,7 +91,7 @@ class GenerateInvoice extends Page implements HasSchemas
 
     public function isEditMode(): bool
     {
-        return $this->invoiceId !== null && !$this->isViewMode;
+        return $this->invoiceId !== null && ! $this->isViewMode;
     }
 
     public function getTitle(): string|\Illuminate\Contracts\Support\Htmlable
@@ -97,10 +99,12 @@ class GenerateInvoice extends Page implements HasSchemas
         if ($this->invoiceId !== null) {
             $invoice = Invoice::find($this->invoiceId);
             if ($this->isViewMode) {
-                return 'View Invoice #' . ($invoice?->invoice_number ?? $this->invoiceId);
+                return 'View Invoice #'.($invoice?->invoice_number ?? $this->invoiceId);
             }
-            return 'Edit Invoice #' . ($invoice?->invoice_number ?? $this->invoiceId);
+
+            return 'Edit Invoice #'.($invoice?->invoice_number ?? $this->invoiceId);
         }
+
         return 'Create Invoice';
     }
 
@@ -111,11 +115,11 @@ class GenerateInvoice extends Page implements HasSchemas
         // Bangun data products dari regularItems relasi
         $products = $invoice->regularItems->map(function ($item) {
             return [
-                'product_id'     => $item->product_id,
-                'quantity'       => $item->quantity,
-                'unit_price'     => $item->unit_price,
-                'normal_price'   => $item->normal_price,
-                'item_discount'  => $item->item_discount,
+                'product_id' => $item->product_id,
+                'quantity' => $item->quantity,
+                'unit_price' => $item->unit_price,
+                'normal_price' => $item->normal_price,
+                'item_discount' => $item->item_discount,
                 'discount_price' => $item->discount_price,
             ];
         })->toArray();
@@ -123,11 +127,11 @@ class GenerateInvoice extends Page implements HasSchemas
         // Jika tidak ada items, default 1 row kosong
         if (empty($products)) {
             $products = [[
-                'product_id'     => null,
-                'quantity'       => 1,
-                'unit_price'     => 0,
-                'normal_price'   => 0,
-                'item_discount'  => 0,
+                'product_id' => null,
+                'quantity' => 1,
+                'unit_price' => 0,
+                'normal_price' => 0,
+                'item_discount' => 0,
                 'discount_price' => 0,
             ]];
         }
@@ -135,63 +139,71 @@ class GenerateInvoice extends Page implements HasSchemas
         $boxItem = $invoice->boxItem;
         $wrappingItem = $invoice->wrappingItem;
 
+        $pricingTier = $invoice->pricing_tier ?: ($invoice->customer?->tipe_customer ?? 'toko');
+
         $formData = [
-            'customer_type'         => $invoice->customer_type ?? 'member',
-            'member_id'             => $invoice->customer_id,
-            'name'                  => $invoice->customer?->nama,
-            'alias'                 => $invoice->customer?->alias,
-            'address'               => $invoice->customer?->alamat,
-            'city'                  => $invoice->customer?->kota,
-            'province'              => $invoice->customer?->provinsi,
-            'country'               => $invoice->customer?->negara ?? 'Indonesia',
-            'email'                 => $invoice->customer?->email,
-            'phone_number'          => $invoice->customer?->nomor_hp,
-            'membership_id'         => $invoice->customer?->membership_id,
-            'discount_mode'         => $invoice->discount_mode ?? 'none',
-            'discount_mode_member'  => (bool) $invoice->discount_mode_member,
-            'custom_discount'       => $invoice->custom_discount,
-            'products'              => $products,
-            'ongkir'                => $invoice->ongkir,
-            'use_box'               => (bool) $invoice->use_box,
-            'box_qty'               => $boxItem ? $boxItem->quantity : null,
-            'box_unit_price'        => $boxItem ? $boxItem->unit_price : 0,
-            'box_fee'               => $boxItem ? $boxItem->discount_price : 0,
-            'single_box_fee'        => $boxItem ? $boxItem->unit_price : 0,
-            'use_wrapping'          => (bool) $invoice->use_wrapping,
-            'wrapping_qty'          => $wrappingItem ? $wrappingItem->quantity : null,
-            'wrap_unit_price'       => $wrappingItem ? $wrappingItem->unit_price : 0,
-            'wrapping_fee'          => $wrappingItem ? $wrappingItem->discount_price : 0,
-            'single_wrapping_fee'   => $wrappingItem ? $wrappingItem->unit_price : 0,
+            'customer_type' => $invoice->customer_type ?? 'member',
+            'member_id' => $invoice->customer_id,
+            'pricing_tier' => $pricingTier,
+            'name' => $invoice->customer?->nama,
+            'alias' => $invoice->customer?->alias,
+            'address' => $invoice->customer?->alamat,
+            'city' => $invoice->customer?->kota,
+            'province' => $invoice->customer?->provinsi,
+            'country' => $invoice->customer?->negara ?? 'Indonesia',
+            'email' => $invoice->customer?->email,
+            'phone_number' => $invoice->customer?->nomor_hp,
+            'membership_id' => $invoice->customer?->membership_id,
+            'discount_mode' => $invoice->discount_mode ?? 'none',
+            'discount_mode_member' => (bool) $invoice->discount_mode_member,
+            'custom_discount' => $invoice->custom_discount,
+            'products' => $products,
+            'ongkir' => $invoice->ongkir,
+            'use_box' => (bool) $invoice->use_box,
+            'box_qty' => $boxItem ? $boxItem->quantity : null,
+            'box_unit_price' => $boxItem ? $boxItem->unit_price : 0,
+            'box_fee' => $boxItem ? $boxItem->discount_price : 0,
+            'single_box_fee' => $boxItem ? $boxItem->unit_price : 0,
+            'use_wrapping' => (bool) $invoice->use_wrapping,
+            'wrapping_qty' => $wrappingItem ? $wrappingItem->quantity : null,
+            'wrap_unit_price' => $wrappingItem ? $wrappingItem->unit_price : 0,
+            'wrapping_fee' => $wrappingItem ? $wrappingItem->discount_price : 0,
+            'single_wrapping_fee' => $wrappingItem ? $wrappingItem->unit_price : 0,
             'custom_invoice_number' => $invoice->invoice_number,
-            'issued_date'           => $invoice->issued_date?->format('Y-m-d'),
-            'due_date'              => $invoice->due_date?->format('Y-m-d'),
+            'issued_date' => $invoice->issued_date?->format('Y-m-d'),
+            'due_date' => $invoice->due_date?->format('Y-m-d'),
         ];
 
         $this->getSchema('invoiceForm')->fill($formData);
     }
 
-     
     // Helper method untuk get product price dengan cache
     protected function getProductPrice(int $productId, string $pricingTier = 'toko'): float
     {
         $cacheKey = "{$productId}_{$pricingTier}";
-        if (!isset($this->productPriceCache[$cacheKey])) {
-            $column = match($pricingTier) {
+        if (! isset($this->productPriceCache[$cacheKey])) {
+            $column = match ($pricingTier) {
                 'vendor' => 'harga_vendor',
-                'dekor'  => 'harga_dekor',
-                default  => 'harga_jual',
+                'dekor' => 'harga_dekor',
+                default => 'harga_jual',
             };
-            $this->productPriceCache[$cacheKey] = Product::whereKey($productId)->value($column) ?? 0;
+            $val = (float) (Product::whereKey($productId)->value($column) ?? 0);
+            if ($pricingTier !== 'toko' && $val <= 0) {
+                $val = (float) (Product::whereKey($productId)->value('harga_jual') ?? 0);
+            }
+            $this->productPriceCache[$cacheKey] = $val;
         }
+
         return $this->productPriceCache[$cacheKey];
     }
 
     // Helper method untuk get membership discount dengan cache
     protected function getMembershipDiscount(int $membershipId): float
     {
-        if (!isset($this->membershipDiscountCache[$membershipId])) {
+        if (! isset($this->membershipDiscountCache[$membershipId])) {
             $this->membershipDiscountCache[$membershipId] = Membership::whereKey($membershipId)->value('besaran_diskon_persen') ?? 0;
         }
+
         return $this->membershipDiscountCache[$membershipId];
     }
 
@@ -199,13 +211,13 @@ class GenerateInvoice extends Page implements HasSchemas
     protected function generateInvoiceNumber(): string
     {
         // Format: YYMMDD (contoh dari PDF: 191225)
-        return now()->format('dmy') . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+        return now()->format('dmy').str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
     }
 
     // Fungsi untuk membuat  field readonly jika customer type = member
     protected function isMember(Get $get): bool
     {
-        return $get('customer_type') === 'member';        
+        return $get('customer_type') === 'member';
     }
 
     // Fungsi untuk membuat placeholder dinamis jika customer type = non-member
@@ -216,10 +228,11 @@ class GenerateInvoice extends Page implements HasSchemas
 
     // Fungsi Perhitungan Layer 1
     // Dipakai pada repeater
-    private function calculateItemPrices(Get $get, Set $set): void {
+    private function calculateItemPrices(Get $get, Set $set): void
+    {
         $productId = $get('product_id');
         $quantity = (int) ($get('quantity') ?? 1);
-        
+
         // Dapatkan state dari parent
         $customerType = $get('../../customer_type');
         $pricingTier = $get('../../pricing_tier') ?? 'toko';
@@ -230,18 +243,19 @@ class GenerateInvoice extends Page implements HasSchemas
         if (! $productId) {
             $set('normal_price', 0);
             $set('discount_price', 0);
+
             return;
         }
 
         // ambil harga produk dari cache (sesuai tier kustomer)
         $price = $this->getProductPrice($productId, $pricingTier);
-        
+
         // harga 1 produk
         $set('unit_price', Number::format($price, locale: 'id'));
-        
+
         // harga total sebelum diskon
         $normal = $price * $quantity;
-        
+
         // --- LOGIKA PENENTUAN DISKON ---
         $diskonPersen = 0;
 
@@ -272,10 +286,12 @@ class GenerateInvoice extends Page implements HasSchemas
 
     // Fungsi Perhitungan Layer 2
     // Dipakai saat ada trigger dari luar repeater (ganti customer_type, mode diskon, dll)
-    private function recalculateAllProducts (Get $get, Set $set): void {
+    private function recalculateAllProducts(Get $get, Set $set, ?string $pricingTier = null): void
+    {
         $products = $get('products') ?? [];
 
         $customerType = $get('customer_type');
+        $pricingTier = $pricingTier ?? ($get('pricing_tier') ?? 'toko');
         $membershipId = $get('membership_id');
         $discountMode = $get('discount_mode');
         $discountModeMember = $get('discount_mode_member');
@@ -284,11 +300,11 @@ class GenerateInvoice extends Page implements HasSchemas
         foreach ($products as $index => $product) {
             $productId = $product['product_id'] ?? null;
             $quantity = (int) ($product['quantity'] ?? 1);
-            
+
             if ($productId) {
-                $price = $this->getProductPrice($productId, $customerType);
+                $price = $this->getProductPrice((int) $productId, $pricingTier);
                 $normal = $price * $quantity;
-                
+
                 $diskonPersen = 0;
 
                 // Terapkan logika yang sama persis untuk iterasi array
@@ -308,420 +324,430 @@ class GenerateInvoice extends Page implements HasSchemas
 
                 $discountSubtotal = $normal - ($normal * $diskonPersen / 100);
 
-                $set("products.{$index}.unit_price", Number::format($price, locale:'id'));
-                $set("products.{$index}.normal_price", Number::format($normal, locale:'id'));
-                $set("products.{$index}.discount_price", Number::format($discountSubtotal, locale:'id'));
+                $formattedUnitPrice = Number::format($price, locale: 'id');
+                $formattedNormalPrice = Number::format($normal, locale: 'id');
+                $formattedDiscountPrice = Number::format($discountSubtotal, locale: 'id');
+
+                $products[$index]['unit_price'] = $formattedUnitPrice;
+                $products[$index]['normal_price'] = $formattedNormalPrice;
+                $products[$index]['discount_price'] = $formattedDiscountPrice;
+
+                $set("products.{$index}.unit_price", $formattedUnitPrice);
+                $set("products.{$index}.normal_price", $formattedNormalPrice);
+                $set("products.{$index}.discount_price", $formattedDiscountPrice);
             }
         }
+
+        $set('products', $products);
     }
 
-
     // SCHEMA BUILDERS
-    protected function setCustomerTypeSection(): Section{
+    protected function setCustomerTypeSection(): Section
+    {
         return Section::make('Customer Type')
-        ->icon('heroicon-o-user-circle')
-        ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
-        ->columns(2)
-        ->schema([
-            Select::make('customer_type')
-                ->label('Mode Transaksi')
-                ->options([
-                    'member' => 'Member',
-                    'non_member' => 'Non-Member',
-                ])
-                ->default('member')
-                ->live()                            
-                ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                $set('member_id', null);
-                $set('pricing_tier', 'toko');
-                $set('name', null);
-                $set('alias', null);
-                $set('address', null);
-                $set('city', null);
-                $set('province', null);
-                $set('country', 'Indonesia');
-                $set('email', null);
-                $set('phone_number', null);
-                $set('membership_id', null);
-                
-                $set('products', [
-                    [
-                        'product_id' => null, 
-                        'quantity' => 1,
-                        'unit_price' => 0,
-                        'normal_price' => 0,
-                        'item_discount' => 0,
-                        'discount_price' => 0,
-                    ]
-                ]);
-
-                $this->recalculateAllProducts($get, $set);
-            }),
-
-            Select::make('pricing_tier')
-                ->label('Harga Diterapkan')
-                ->options([
-                    'toko' => 'Harga Toko (Default)',
-                    'vendor' => 'Harga Vendor',
-                    'dekor' => 'Harga Dekorator',
-                ])
-                ->default('toko')
-                ->live()
-                ->afterStateUpdated(fn ($state, Set $set, Get $get) => $this->recalculateAllProducts($get, $set)),
-
-            Select::make('member_id')
-                ->label('Search Customer')
-                ->loadingMessage('Loading customers...')
-                ->searchable(['nama', 'alias'])
-                ->getSearchResultsUsing(function (string $search) {
-                    return Customer::query()
-                        ->where('nama', 'like', "%{$search}%")
-                        ->orWhere('alias', 'like', "%{$search}%")
-                        ->limit(100)
-                        ->get()
-                        ->mapWithKeys(function ($member) {
-                            return [
-                                $member->id => "{$member->nama} [{$member->alias}]"
-                            ];
-                        });
-                })
-                ->getOptionLabelUsing(function ($value) {
-                    $member = Customer::query()->find($value);
-                    return $member
-                        ? "{$member->nama} [{$member->alias}]"
-                        : null;
-                })
-                ->searchingMessage('Searching customer...')
-                ->searchPrompt('Search by name or alias')
-                ->preload()
-                ->noSearchResultsMessage('No customer found.')
-                ->noOptionsMessage('No customer available.')
-                // ->visible(fn (Get $get) => $this->isMember($get))
-                ->live()
-                ->native(false)
-                ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                    // Jika admin memilih member, tarik datanya dari DB
-                    if ($state) {
-                        $member = Customer::query()->find($state);
-                        
-                        if ($member) {
-                            // Autofill semua field
-                            $set('name', $member->nama);
-                            $set('alias', $member->alias);
-                            $set('address', $member->alamat);
-                            $set('city', $member->kota);
-                            $set('province', $member->provinsi);
-                            $set('country', $member->negara);
-                            $set('email', $member->email);
-                            $set('phone_number', $member->nomor_hp);
-                            $set('membership_id', $member->membership_id);
-                            $set('pricing_tier', $member->tipe_customer ?? 'toko');
-                        }
-                    } else {
-                        // Clear dropdown, bersihkan field
+            ->icon('heroicon-o-user-circle')
+            ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
+            ->columns(2)
+            ->schema([
+                Select::make('customer_type')
+                    ->label('Mode Transaksi')
+                    ->options([
+                        'member' => 'Member',
+                        'non_member' => 'Non-Member',
+                    ])
+                    ->default('member')
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        $set('member_id', null);
+                        $set('pricing_tier', 'toko');
                         $set('name', null);
                         $set('alias', null);
                         $set('address', null);
                         $set('city', null);
                         $set('province', null);
-                        $set('country', null);
+                        $set('country', 'Indonesia');
                         $set('email', null);
                         $set('phone_number', null);
-                        $set('membership_id', null);                                    
-                    }
+                        $set('membership_id', null);
 
-                    $this->recalculateAllProducts($get, $set);
-                })
-                ->columnSpanFull(),
-        ]);
-    }
+                        $set('products', [
+                            [
+                                'product_id' => null,
+                                'quantity' => 1,
+                                'unit_price' => 0,
+                                'normal_price' => 0,
+                                'item_discount' => 0,
+                                'discount_price' => 0,
+                            ],
+                        ]);
 
-    protected function setCustomerInformationSection(): Section{
-        return Section::make('Customer Information')
-        ->icon('heroicon-o-identification')
-        ->description('Masukkan data pelanggan yang diperlukan untuk identifikasi dan keperluan transaksi.')
-        ->columns(2)
-        ->schema([
-            TextInput::make('name')
-                ->required()
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'Enter customer name')
-                )
-                ->readOnly(fn (Get $get) => $this->isMember($get)),
+                        $this->recalculateAllProducts($get, $set, 'toko');
+                    }),
 
-            TextInput::make('alias')
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'Enter customer alias (optional)')
-                )
-                ->readOnly(fn (Get $get) => $this->isMember($get)),
+                Select::make('pricing_tier')
+                    ->label('Harga Diterapkan')
+                    ->options([
+                        'toko' => 'Harga Toko (Default)',
+                        'vendor' => 'Harga Vendor',
+                        'dekor' => 'Harga Dekorator',
+                    ])
+                    ->default('toko')
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        $this->recalculateAllProducts($get, $set, $state);
+                    }),
 
-            Textarea::make('address')
-                ->columnSpanFull()
-                ->required()
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'Enter customer address')
-                )
-                ->readOnly(fn (Get $get) => $this->isMember($get)),
+                Select::make('member_id')
+                    ->label('Search Customer')
+                    ->loadingMessage('Loading customers...')
+                    ->searchable(['nama', 'alias'])
+                    ->getSearchResultsUsing(function (string $search) {
+                        return Customer::query()
+                            ->where('nama', 'like', "%{$search}%")
+                            ->orWhere('alias', 'like', "%{$search}%")
+                            ->limit(100)
+                            ->get()
+                            ->mapWithKeys(function ($member) {
+                                return [
+                                    $member->id => "{$member->nama} [{$member->alias}]",
+                                ];
+                            });
+                    })
+                    ->getOptionLabelUsing(function ($value) {
+                        $member = Customer::query()->find($value);
 
-            TextInput::make('city')
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'Enter customer city')
-                )
-                ->readOnly(fn (Get $get) => $this->isMember($get)),
+                        return $member
+                            ? "{$member->nama} [{$member->alias}]"
+                            : null;
+                    })
+                    ->searchingMessage('Searching customer...')
+                    ->searchPrompt('Search by name or alias')
+                    ->preload()
+                    ->noSearchResultsMessage('No customer found.')
+                    ->noOptionsMessage('No customer available.')
+                    // ->visible(fn (Get $get) => $this->isMember($get))
+                    ->live()
+                    ->native(false)
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        $tier = 'toko';
+                        // Jika admin memilih member, tarik datanya dari DB
+                        if ($state) {
+                            $member = Customer::query()->find($state);
 
-            TextInput::make('province')
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'Enter customer province')
-                )
-                ->readOnly(fn (Get $get) => $this->isMember($get)),
-
-            TextInput::make('country')
-                ->readOnly(fn (Get $get) => $this->isMember($get))
-                ->default(fn (Get $get) => 
-                    $get('customer_type') !== 'member' ? 'Indonesia' : null
-                )
-                ->afterStateHydrated(function (Set $set, Get $get, $state) {
-                    if ($get('customer_type') !== 'member' && blank($state)) {
-                        $set('country', 'Indonesia');
-                    }
-                }),
-
-            TextInput::make('email')
-                ->email()
-                ->readOnly(fn (Get $get) => $this->isMember($get))
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'example@domain.com')
-                ),
-
-            TextInput::make('phone_number')
-                ->required()
-                ->tel()
-                ->rule('regex:/^[0-9+\-\s]+$/')
-                ->readOnly(fn (Get $get) => $this->isMember($get))
-                ->placeholder(fn (Get $get) => 
-                    $this->dynamicPlaceholder($get, 'e.g., 081234567890')
-                ),
-
-            Select::make('membership_id')
-                ->label('Membership Category')
-                ->options(Membership::query()->pluck('nama', 'id'))
-                ->searchable()
-                ->preload()
-                ->required(fn (Get $get) => $this->isMember($get))
-                ->live(debounce: 300)
-                ->visible(fn (Get $get) => $this->isMember($get))
-                ->disabled(fn (Get $get) => $this->isMember($get))
-                ->dehydrated(),
-        ]);
-    }
-
-    protected function setProductListSection(): Section{
-        return Section::make('Product List')
-        ->icon('heroicon-o-shopping-bag')
-        ->description('Pilih produk yang akan dimasukkan ke dalam transaksi beserta jumlahnya. Pastikan untuk memeriksa kembali harga dan diskon yang diterapkan sebelum generate invoice.')
-        ->schema([
-            Toggle::make('discount_mode_member')
-                ->label('Custom Discount')
-                ->visible(fn (Get $get) => $this->isMember($get))
-                ->live()
-                ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),
-
-            Radio::make('discount_mode')
-                ->label('Discount Applied')
-                ->options([
-                    'none' => 'No Discount',
-                    'global' => 'Global (All Products)',
-                    'per_item' => 'Per Product (Custom)',
-                ])
-                ->default('none')
-                ->inline()
-                ->live()
-                ->visible(fn (Get $get) => !$this->isMember($get))
-                ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                    // Jika admin berpindah mode, bersihkan field diskon yang tidak relevan agar tidak bocor
-                    if ($state !== 'global') {
-                        $set('custom_discount', null);
-                    }
-                    
-                    if ($state !== 'per_item') {
-                        $products = $get('products') ?? [];
-                        foreach ($products as $index => $product) {
-                            $set("products.{$index}.item_discount", null);
+                            if ($member) {
+                                // Autofill semua field
+                                $set('name', $member->nama);
+                                $set('alias', $member->alias);
+                                $set('address', $member->alamat);
+                                $set('city', $member->kota);
+                                $set('province', $member->provinsi);
+                                $set('country', $member->negara);
+                                $set('email', $member->email);
+                                $set('phone_number', $member->nomor_hp);
+                                $set('membership_id', $member->membership_id);
+                                $tier = $member->tipe_customer ?? 'toko';
+                                $set('pricing_tier', $tier);
+                            }
+                        } else {
+                            // Clear dropdown, bersihkan field
+                            $set('name', null);
+                            $set('alias', null);
+                            $set('address', null);
+                            $set('city', null);
+                            $set('province', null);
+                            $set('country', null);
+                            $set('email', null);
+                            $set('phone_number', null);
+                            $set('membership_id', null);
+                            $set('pricing_tier', 'toko');
+                            $tier = 'toko';
                         }
-                    }
-                    $this->recalculateAllProducts($get, $set);
-                }),
 
-            TextInput::make('custom_discount')
-                ->label('Global Discount (%)')
-                ->extraInputAttributes([
-                    'inputmode' => 'decimal',
-                    'oninput' => "
+                        $this->recalculateAllProducts($get, $set, $tier);
+                    })
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    protected function setCustomerInformationSection(): Section
+    {
+        return Section::make('Customer Information')
+            ->icon('heroicon-o-identification')
+            ->description('Masukkan data pelanggan yang diperlukan untuk identifikasi dan keperluan transaksi.')
+            ->columns(2)
+            ->schema([
+                TextInput::make('name')
+                    ->required()
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer name')
+                    )
+                    ->readOnly(fn (Get $get) => $this->isMember($get)),
+
+                TextInput::make('alias')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer alias (optional)')
+                    )
+                    ->readOnly(fn (Get $get) => $this->isMember($get)),
+
+                Textarea::make('address')
+                    ->columnSpanFull()
+                    ->required()
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer address')
+                    )
+                    ->readOnly(fn (Get $get) => $this->isMember($get)),
+
+                TextInput::make('city')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer city')
+                    )
+                    ->readOnly(fn (Get $get) => $this->isMember($get)),
+
+                TextInput::make('province')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer province')
+                    )
+                    ->readOnly(fn (Get $get) => $this->isMember($get)),
+
+                TextInput::make('country')
+                    ->readOnly(fn (Get $get) => $this->isMember($get))
+                    ->default(fn (Get $get) => $get('customer_type') !== 'member' ? 'Indonesia' : null
+                    )
+                    ->afterStateHydrated(function (Set $set, Get $get, $state) {
+                        if ($get('customer_type') !== 'member' && blank($state)) {
+                            $set('country', 'Indonesia');
+                        }
+                    }),
+
+                TextInput::make('email')
+                    ->email()
+                    ->readOnly(fn (Get $get) => $this->isMember($get))
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'example@domain.com')
+                    ),
+
+                TextInput::make('phone_number')
+                    ->required()
+                    ->tel()
+                    ->rule('regex:/^[0-9+\-\s]+$/')
+                    ->readOnly(fn (Get $get) => $this->isMember($get))
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'e.g., 081234567890')
+                    ),
+
+                Select::make('membership_id')
+                    ->label('Membership Category')
+                    ->options(Membership::query()->pluck('nama', 'id'))
+                    ->searchable()
+                    ->preload()
+                    ->required(fn (Get $get) => $this->isMember($get))
+                    ->live(debounce: 300)
+                    ->visible(fn (Get $get) => $this->isMember($get))
+                    ->disabled(fn (Get $get) => $this->isMember($get))
+                    ->dehydrated(),
+            ]);
+    }
+
+    protected function setProductListSection(): Section
+    {
+        return Section::make('Product List')
+            ->icon('heroicon-o-shopping-bag')
+            ->description('Pilih produk yang akan dimasukkan ke dalam transaksi beserta jumlahnya. Pastikan untuk memeriksa kembali harga dan diskon yang diterapkan sebelum generate invoice.')
+            ->schema([
+                Toggle::make('discount_mode_member')
+                    ->label('Custom Discount')
+                    ->visible(fn (Get $get) => $this->isMember($get))
+                    ->live()
+                    ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),
+
+                Radio::make('discount_mode')
+                    ->label('Discount Applied')
+                    ->options([
+                        'none' => 'No Discount',
+                        'global' => 'Global (All Products)',
+                        'per_item' => 'Per Product (Custom)',
+                    ])
+                    ->default('none')
+                    ->inline()
+                    ->live()
+                    ->visible(fn (Get $get) => ! $this->isMember($get))
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        // Jika admin berpindah mode, bersihkan field diskon yang tidak relevan agar tidak bocor
+                        if ($state !== 'global') {
+                            $set('custom_discount', null);
+                        }
+
+                        if ($state !== 'per_item') {
+                            $products = $get('products') ?? [];
+                            foreach ($products as $index => $product) {
+                                $set("products.{$index}.item_discount", null);
+                            }
+                        }
+                        $this->recalculateAllProducts($get, $set);
+                    }),
+
+                TextInput::make('custom_discount')
+                    ->label('Global Discount (%)')
+                    ->extraInputAttributes([
+                        'inputmode' => 'decimal',
+                        'oninput' => "
                         this.value = this.value.replace(/[^0-9,]/g, '').replace(/(,.*?),(.*)/g, '$1$2');
                         let val = parseFloat(this.value.replace(',', '.'));
                         if (val > 100) this.value = '100';
                     ",
-                ])
-                ->maxLength(6)
-                ->placeholder('Contoh: 10 atau 10,5')
-                ->suffix('%')
-                ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
-                ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
-                ->live(onBlur: true)
-                ->required(fn (Get $get) => $get('discount_mode') === 'global')
-                ->visible(fn (Get $get) => !$this->isMember($get) && $get('discount_mode') === 'global')
-                ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),                        
+                    ])
+                    ->maxLength(6)
+                    ->placeholder('Contoh: 10 atau 10,5')
+                    ->suffix('%')
+                    ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
+                    ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
+                    ->live(onBlur: true)
+                    ->required(fn (Get $get) => $get('discount_mode') === 'global')
+                    ->visible(fn (Get $get) => ! $this->isMember($get) && $get('discount_mode') === 'global')
+                    ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),
 
-            Repeater::make('products')
-                ->columns(fn (Get $get) => 
-                    $get('discount_mode') === 'per_item' && !$this->isMember($get) || 
-                    $get('discount_mode_member') && $this->isMember($get)
-                    ? 6 : 5)
-                ->schema([
-                    Select::make('product_id')
-                        ->label('Item')
-                        ->options(function () {
-                            // Produk aktif selalu muncul (exclude packaging)
-                            $activeOptions = Product::query()
-                                ->where('is_active', true)
-                                ->where('kategori', '!=', 'packaging')
-                                ->orderBy('nama')
-                                ->pluck('nama', 'id');
-
-                            // Saat edit mode: tambahkan produk non-aktif yang sudah ada di invoice ini
-                            // agar label-nya tetap tampil (bukan ID mentah)
-                            if ($this->invoiceId) {
-                                $invoiceProductIds = \App\Models\InvoiceItem::where('invoice_id', $this->invoiceId)
-                                    ->whereNotNull('product_id')
-                                    ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
-                                    ->pluck('product_id');
-
-                                $inactiveOptions = Product::query()
-                                    ->where('is_active', false)
+                Repeater::make('products')
+                    ->columns(fn (Get $get) => $get('discount_mode') === 'per_item' && ! $this->isMember($get) ||
+                        $get('discount_mode_member') && $this->isMember($get)
+                        ? 6 : 5)
+                    ->schema([
+                        Select::make('product_id')
+                            ->label('Item')
+                            ->options(function () {
+                                // Produk aktif selalu muncul (exclude packaging)
+                                $activeOptions = Product::query()
+                                    ->where('is_active', true)
                                     ->where('kategori', '!=', 'packaging')
-                                    ->whereIn('id', $invoiceProductIds)
                                     ->orderBy('nama')
-                                    ->get()
-                                    ->pluck('nama', 'id')
-                                    ->map(fn ($nama) => "{$nama} [Nonaktif]");
+                                    ->pluck('nama', 'id');
 
-                                return $activeOptions->union($inactiveOptions);
-                            }
+                                // Saat edit mode: tambahkan produk non-aktif yang sudah ada di invoice ini
+                                // agar label-nya tetap tampil (bukan ID mentah)
+                                if ($this->invoiceId) {
+                                    $invoiceProductIds = \App\Models\InvoiceItem::where('invoice_id', $this->invoiceId)
+                                        ->whereNotNull('product_id')
+                                        ->whereNotIn('snapshot_name', ['Box', 'Wrapping'])
+                                        ->pluck('product_id');
 
-                            return $activeOptions;
-                        })
-                        ->searchable()
-                        ->preload()
-                        ->required()
-                        ->live(debounce: 300)
-                        ->native(false)
-                        ->disableOptionWhen(function (string $value, Get $get) {
-                            // ambil semua data dari repeater 'products'
-                            $allRepeaterItems = $get('../../products') ?? [];
-                            
-                            // ambil semua produk yang telah dipilih
-                            $selectedProductIds = collect($allRepeaterItems)
-                                ->pluck('product_id')
-                                ->filter() // Buang yang masih null/kosong
-                                ->toArray();
+                                    $inactiveOptions = Product::query()
+                                        ->where('is_active', false)
+                                        ->where('kategori', '!=', 'packaging')
+                                        ->whereIn('id', $invoiceProductIds)
+                                        ->orderBy('nama')
+                                        ->get()
+                                        ->pluck('nama', 'id')
+                                        ->map(fn ($nama) => "{$nama} [Nonaktif]");
 
-                            // ambil product_id yang sedang terisi di baris skrg
-                            $currentSelectedId = $get('product_id');
+                                    return $activeOptions->union($inactiveOptions);
+                                }
 
-                            // disable jika
-                            // - ID-nya sudah ada di keranjang ($selectedProductIds)
-                            // - DAN ID-nya BUKAN milik baris ini (agar pilihan sendiri tidak ikut ter-disable)
-                            return in_array($value, $selectedProductIds) && $value != $currentSelectedId;
-                        })
-                        ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
-                    
-                    TextInput::make('quantity')
-                        ->label('Qty')
-                        ->numeric()
-                        ->default(1)
-                        ->minValue(1)
-                        ->extraInputAttributes(['min' => 1])
-                        ->required()
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
+                                return $activeOptions;
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live(debounce: 300)
+                            ->native(false)
+                            ->disableOptionWhen(function (string $value, Get $get) {
+                                // ambil semua data dari repeater 'products'
+                                $allRepeaterItems = $get('../../products') ?? [];
 
-                    TextInput::make('unit_price')
-                        ->label('Item Price')
-                        ->prefix('Rp') 
-                        ->readOnly()
-                        ->default(0)
-                        ->dehydrated()
-                        ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
-                        ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
+                                // ambil semua produk yang telah dipilih
+                                $selectedProductIds = collect($allRepeaterItems)
+                                    ->pluck('product_id')
+                                    ->filter() // Buang yang masih null/kosong
+                                    ->toArray();
 
-                    TextInput::make('normal_price')
-                        ->label('Normal Price')
-                        ->prefix('Rp')
-                        ->readOnly()
-                        ->default(0)
-                        ->dehydrated()
-                        ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
-                        ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
+                                // ambil product_id yang sedang terisi di baris skrg
+                                $currentSelectedId = $get('product_id');
 
-                    // field diskon per item — mendukung format desimal Indonesia
-                    TextInput::make('item_discount')
-                        ->label('Disc (%)')
-                        ->maxLength(6)
-                        ->extraInputAttributes([
-                            'inputmode' => 'decimal',
-                            'oninput' => "
+                                // disable jika
+                                // - ID-nya sudah ada di keranjang ($selectedProductIds)
+                                // - DAN ID-nya BUKAN milik baris ini (agar pilihan sendiri tidak ikut ter-disable)
+                                return in_array($value, $selectedProductIds) && $value != $currentSelectedId;
+                            })
+                            ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
+
+                        TextInput::make('quantity')
+                            ->label('Qty')
+                            ->numeric()
+                            ->default(1)
+                            ->minValue(1)
+                            ->extraInputAttributes(['min' => 1])
+                            ->required()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
+
+                        TextInput::make('unit_price')
+                            ->label('Item Price')
+                            ->prefix('Rp')
+                            ->readOnly()
+                            ->default(0)
+                            ->dehydrated()
+                            ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
+                            ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
+
+                        TextInput::make('normal_price')
+                            ->label('Normal Price')
+                            ->prefix('Rp')
+                            ->readOnly()
+                            ->default(0)
+                            ->dehydrated()
+                            ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
+                            ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
+
+                        // field diskon per item — mendukung format desimal Indonesia
+                        TextInput::make('item_discount')
+                            ->label('Disc (%)')
+                            ->maxLength(6)
+                            ->extraInputAttributes([
+                                'inputmode' => 'decimal',
+                                'oninput' => "
                                 this.value = this.value.replace(/[^0-9,]/g, '').replace(/(,.*?),(.*)/g, '$1$2');
                                 let val = parseFloat(this.value.replace(',', '.'));
                                 if (val > 100) this.value = '100';
                             ",
-                        ])
-                        ->suffix('%')
-                        ->default(0)
-                        ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
-                        ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
-                        ->live(onBlur: true)
-                        ->visible(
-                            fn (Get $get) => 
-                            $get('../../discount_mode') === 'per_item' && $get('../../customer_type') !== 'member' || 
-                            $get('../../discount_mode_member') && $get('../../customer_type') === 'member')
-                        ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
+                            ])
+                            ->suffix('%')
+                            ->default(0)
+                            ->dehydrateStateUsing(fn ($state) => (float) str_replace(',', '.', (string) ($state ?? 0)))
+                            ->formatStateUsing(fn ($state) => $state ? str_replace('.', ',', (string) $state) : '0')
+                            ->live(onBlur: true)
+                            ->visible(
+                                fn (Get $get) => $get('../../discount_mode') === 'per_item' && $get('../../customer_type') !== 'member' ||
+                                $get('../../discount_mode_member') && $get('../../customer_type') === 'member')
+                            ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
 
-                    TextInput::make('discount_price')
-                        ->label('Discount Price')
-                        ->prefix('Rp')
-                        // ->numeric()
-                        ->readOnly()
-                        ->default(0)
-                        ->dehydrated()
-                        ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
-                        ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state))
-                ])
-                ->extraAttributes([
-                    'style' => 'max-height: 480px; overflow-y: auto; padding-right: 18px; padding-bottom: 5px; scroll-behavior: smooth;',
-                ])
-                ->addActionLabel('Add Product')
-                ->defaultItems(1)
-                ->reorderable(false)
-                ->collapsible()
-                ->live()
-                ->deleteAction(
-                    // Override seluruh action callback untuk mencegah partiallyRender()
-                    // sehingga Livewire melakukan full re-render (bukan partial),
-                    // dan invoice-summary di section berbeda ikut ter-update.
-                    fn (\Filament\Actions\Action $action) => $action->action(
-                        function (array $arguments, \Filament\Forms\Components\Repeater $component): void {
-                            $items = $component->getRawState();
-                            unset($items[$arguments['item']]);
-                            $component->rawState($items);
-                            $component->callAfterStateUpdated();
-                            // Tidak memanggil partiallyRender() → Livewire full re-render
-                        }
-                    )
-                ),
-        ]);
+                        TextInput::make('discount_price')
+                            ->label('Discount Price')
+                            ->prefix('Rp')
+                            // ->numeric()
+                            ->readOnly()
+                            ->default(0)
+                            ->dehydrated()
+                            ->formatStateUsing(fn ($state) => $state ? Number::format($state, locale: 'id') : '0')
+                            ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
+                    ])
+                    ->extraAttributes([
+                        'style' => 'max-height: 480px; overflow-y: auto; padding-right: 18px; padding-bottom: 5px; scroll-behavior: smooth;',
+                    ])
+                    ->addActionLabel('Add Product')
+                    ->defaultItems(1)
+                    ->reorderable(false)
+                    ->collapsible()
+                    ->live()
+                    ->deleteAction(
+                        // Override seluruh action callback untuk mencegah partiallyRender()
+                        // sehingga Livewire melakukan full re-render (bukan partial),
+                        // dan invoice-summary di section berbeda ikut ter-update.
+                        fn (\Filament\Actions\Action $action) => $action->action(
+                            function (array $arguments, \Filament\Forms\Components\Repeater $component): void {
+                                $items = $component->getRawState();
+                                unset($items[$arguments['item']]);
+                                $component->rawState($items);
+                                $component->callAfterStateUpdated();
+                                // Tidak memanggil partiallyRender() → Livewire full re-render
+                            }
+                        )
+                    ),
+            ]);
     }
 
-    protected function setAdditionalSection(): Section{
+    protected function setAdditionalSection(): Section
+    {
         return Section::make('Add Ons')
             ->description('Tambahkan ongkos kirim dan perlengkapan tambahan untuk pesanan ini.')
             ->icon('heroicon-o-plus-circle')
@@ -742,119 +768,119 @@ class GenerateInvoice extends Page implements HasSchemas
                     ->required(),
 
                 Grid::make(2)
-                ->schema([
-                    // Box
-                    Fieldset::make('Packaging Box')
-                        ->schema([
-                            Toggle::make('use_box')
-                                ->label('Tambahkan Box')
-                                ->inline(false)
-                                ->live()
-                                ->helperText(fn (Get $get) => $get('use_box') 
-                                    ? 'Biaya Per Box: Rp ' . number_format($get('single_box_fee'), 0, ',', '.') 
-                                    : 'Tanpa Box'
-                                )
-                                ->afterStateUpdated(function ($state, Set $set) {
-                                    if ($state) {
-                                        // Fetch harga dari DB
-                                        $hargaBox = Product::query()->where('nama', 'Box')->value('harga_jual') ?? 0;
-                                        $set('box_unit_price', $hargaBox);
-                                        $set('box_qty', 1);
-                                        $set('single_box_fee', $hargaBox);
-                                        $set('box_fee', $hargaBox);
-                                    } else {
-                                        $set('box_qty', null);
-                                        $set('box_unit_price', 0);
-                                        $set('single_box_fee', 0);
-                                        $set('box_fee', 0);
-                                    }
-                                }),
-                            TextInput::make('box_qty')
-                                ->label('Jumlah Box')
-                                ->numeric()
-                                ->default(1)
-                                ->minValue(1)
-                                ->maxValue(999)
-                                ->required()
-                                ->rules(['required', 'integer', 'min:1', 'max:999'])
-                                ->maxLength(3)
-                                ->extraInputAttributes([
-                                    'inputmode' => 'numeric',
-                                    'min' => 1, 
-                                    'max' => 999,
-                                    'pattern' => '[0-9]*',
-                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
-                                ])
-                                ->live(onBlur: true)
-                                ->visible(fn (Get $get) => $get('use_box')) // Hanya muncul jika toggle nyala
-                                ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                    $qty = (int) ($state ?: 0);
-                                    $price = (int) $get('box_unit_price');
-                                    $set('box_fee', $qty * $price);
-                                })
-                                ->helperText(fn (Get $get) => 'Subtotal Box: Rp ' . number_format((int) $get('box_fee'), 0, ',', '.')),
+                    ->schema([
+                        // Box
+                        Fieldset::make('Packaging Box')
+                            ->schema([
+                                Toggle::make('use_box')
+                                    ->label('Tambahkan Box')
+                                    ->inline(false)
+                                    ->live()
+                                    ->helperText(fn (Get $get) => $get('use_box')
+                                        ? 'Biaya Per Box: Rp '.number_format($get('single_box_fee'), 0, ',', '.')
+                                        : 'Tanpa Box'
+                                    )
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        if ($state) {
+                                            // Fetch harga dari DB
+                                            $hargaBox = Product::query()->where('nama', 'Box')->value('harga_jual') ?? 0;
+                                            $set('box_unit_price', $hargaBox);
+                                            $set('box_qty', 1);
+                                            $set('single_box_fee', $hargaBox);
+                                            $set('box_fee', $hargaBox);
+                                        } else {
+                                            $set('box_qty', null);
+                                            $set('box_unit_price', 0);
+                                            $set('single_box_fee', 0);
+                                            $set('box_fee', 0);
+                                        }
+                                    }),
+                                TextInput::make('box_qty')
+                                    ->label('Jumlah Box')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->maxValue(999)
+                                    ->required()
+                                    ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                    ->maxLength(3)
+                                    ->extraInputAttributes([
+                                        'inputmode' => 'numeric',
+                                        'min' => 1,
+                                        'max' => 999,
+                                        'pattern' => '[0-9]*',
+                                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
+                                    ])
+                                    ->live(onBlur: true)
+                                    ->visible(fn (Get $get) => $get('use_box')) // Hanya muncul jika toggle nyala
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                        $qty = (int) ($state ?: 0);
+                                        $price = (int) $get('box_unit_price');
+                                        $set('box_fee', $qty * $price);
+                                    })
+                                    ->helperText(fn (Get $get) => 'Subtotal Box: Rp '.number_format((int) $get('box_fee'), 0, ',', '.')),
 
-                            // Hidden state untuk menyimpan perhitungan
-                            Hidden::make('box_unit_price')->default(0),
-                            Hidden::make('box_fee')->default(0),
-                        ])
-                        ->columns(1), // Memastikan elemen di dalam fieldset berbaris vertikal ke bawah
+                                // Hidden state untuk menyimpan perhitungan
+                                Hidden::make('box_unit_price')->default(0),
+                                Hidden::make('box_fee')->default(0),
+                            ])
+                            ->columns(1), // Memastikan elemen di dalam fieldset berbaris vertikal ke bawah
 
-                    // Wrapping
-                    Fieldset::make('Kertas Wrapping')
-                        ->schema([
-                            Toggle::make('use_wrapping')
-                                ->label('Tambahkan Wrapping')
-                                ->inline(false)
-                                ->live()
-                                ->helperText(fn (Get $get) => $get('use_wrapping') 
-                                    ? 'Biaya Wrapping: Rp ' . number_format($get('single_wrapping_fee'), 0, ',', '.') 
-                                    : 'Tanpa Wrapping'
-                                )
-                                ->afterStateUpdated(function ($state, Set $set) {
-                                    if ($state) {
-                                        $hargaWrap = Product::query()->where('nama', 'Wrapping')->value('harga_jual') ?? 0;
-                                        $set('wrap_unit_price', $hargaWrap);
-                                        $set('wrapping_qty', 1);
-                                        $set('single_wrapping_fee', $hargaWrap);
-                                        $set('wrapping_fee', $hargaWrap);
-                                    } else {
-                                        $set('wrapping_qty', null);
-                                        $set('wrap_unit_price', 0);
-                                        $set('single_wrapping_fee', 0);
-                                        $set('wrapping_fee', 0);
-                                    }
-                                }),
-                            TextInput::make('wrapping_qty')
-                                ->label('Jumlah Wrapping')
-                                ->numeric()
-                                ->default(1)
-                                ->minValue(1)
-                                ->maxValue(999)
-                                ->required()
-                                ->rules(['required', 'integer', 'min:1', 'max:999'])
-                                ->maxLength(3)
-                                ->extraInputAttributes([
-                                    'inputmode' => 'numeric',
-                                    'min' => 1, 
-                                    'max' => 999,
-                                    'pattern' => '[0-9]*',
-                                    'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
-                                ])
-                                ->live(onBlur: true)
-                                ->visible(fn (Get $get) => $get('use_wrapping'))
-                                ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                    $qty = (int) ($state ?: 0);
-                                    $price = (int) $get('wrap_unit_price');
-                                    $set('wrapping_fee', $qty * $price);
-                                })
-                                ->helperText(fn (Get $get) => 'Subtotal Wrapping: Rp ' . number_format((int) $get('wrapping_fee'), 0, ',', '.')),
+                        // Wrapping
+                        Fieldset::make('Kertas Wrapping')
+                            ->schema([
+                                Toggle::make('use_wrapping')
+                                    ->label('Tambahkan Wrapping')
+                                    ->inline(false)
+                                    ->live()
+                                    ->helperText(fn (Get $get) => $get('use_wrapping')
+                                        ? 'Biaya Wrapping: Rp '.number_format($get('single_wrapping_fee'), 0, ',', '.')
+                                        : 'Tanpa Wrapping'
+                                    )
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        if ($state) {
+                                            $hargaWrap = Product::query()->where('nama', 'Wrapping')->value('harga_jual') ?? 0;
+                                            $set('wrap_unit_price', $hargaWrap);
+                                            $set('wrapping_qty', 1);
+                                            $set('single_wrapping_fee', $hargaWrap);
+                                            $set('wrapping_fee', $hargaWrap);
+                                        } else {
+                                            $set('wrapping_qty', null);
+                                            $set('wrap_unit_price', 0);
+                                            $set('single_wrapping_fee', 0);
+                                            $set('wrapping_fee', 0);
+                                        }
+                                    }),
+                                TextInput::make('wrapping_qty')
+                                    ->label('Jumlah Wrapping')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->maxValue(999)
+                                    ->required()
+                                    ->rules(['required', 'integer', 'min:1', 'max:999'])
+                                    ->maxLength(3)
+                                    ->extraInputAttributes([
+                                        'inputmode' => 'numeric',
+                                        'min' => 1,
+                                        'max' => 999,
+                                        'pattern' => '[0-9]*',
+                                        'oninput' => "this.value=this.value.replace(/[^0-9]/g,'').replace(/^0+(?=\\d)/,'');this.value=this.value.slice(0,3);",
+                                    ])
+                                    ->live(onBlur: true)
+                                    ->visible(fn (Get $get) => $get('use_wrapping'))
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                        $qty = (int) ($state ?: 0);
+                                        $price = (int) $get('wrap_unit_price');
+                                        $set('wrapping_fee', $qty * $price);
+                                    })
+                                    ->helperText(fn (Get $get) => 'Subtotal Wrapping: Rp '.number_format((int) $get('wrapping_fee'), 0, ',', '.')),
 
-                            Hidden::make('wrap_unit_price')->default(0),
-                            Hidden::make('wrapping_fee')->default(0),
-                        ])
-                        ->columns(1),
-                ]),
+                                Hidden::make('wrap_unit_price')->default(0),
+                                Hidden::make('wrapping_fee')->default(0),
+                            ])
+                            ->columns(1),
+                    ]),
             ]);
     }
 
@@ -864,12 +890,12 @@ class GenerateInvoice extends Page implements HasSchemas
             ->icon('heroicon-o-document-text')
             ->description('Periksa ringkasan pesanan sebelum generate invoice. Anda juga dapat melakukan custom nomor dan tanggal penerbitan/jatuh tempo sesuai kebutuhan.')
             ->schema([
-    
+
                 // Ringkasan Transaksi
                 View::make('filament.forms.invoice-summary')
                     ->columnSpanFull()
                     ->live(),
-    
+
                 // Custom Fields
                 Grid::make(3)
                     ->schema([
@@ -880,18 +906,18 @@ class GenerateInvoice extends Page implements HasSchemas
                             ->numeric()
                             ->maxLength(10)
                             ->extraInputAttributes([
-                                'min'     => 0,
-                                'max'     => 9999999999,
+                                'min' => 0,
+                                'max' => 9999999999,
                                 'oninput' => 'this.value = this.value.slice(0, 10);',
                             ]),
-    
+
                         DatePicker::make('issued_date')
                             ->label('Issued On')
                             ->placeholder(now()->format('d M Y'))
                             ->helperText('Leave blank to use today')
                             ->native(false)
                             ->displayFormat('d M Y'),
-    
+
                         DatePicker::make('due_date')
                             ->label('Due By')
                             ->placeholder(now()->format('d M Y'))
@@ -901,7 +927,6 @@ class GenerateInvoice extends Page implements HasSchemas
                     ]),
             ]);
     }
-    
 
     // MAIN WRAPPER
     public function invoiceForm(Schema $schema): Schema
@@ -917,7 +942,6 @@ class GenerateInvoice extends Page implements HasSchemas
                 $this->setInvoiceDetailSection(),
             ]);
     }
-
 
     // Download Logic
     public function getHeaderActions(): array
@@ -946,78 +970,79 @@ class GenerateInvoice extends Page implements HasSchemas
             ->action(fn () => $this->getSchema('invoiceForm')->fill());
     }
 
-    public function generateAction(): Action{
+    public function generateAction(): Action
+    {
         return Action::make('generate')
-                ->label($this->isEditMode() ? 'Save Changes' : 'Save Invoice')
-                ->icon('heroicon-o-check-circle')
-                ->requiresConfirmation()
-                ->modalHeading($this->isEditMode() ? 'Konfirmasi Simpan Perubahan' : 'Konfirmasi Simpan Invoice')
-                ->modalDescription(function () {
-                    $warnings = [];
+            ->label($this->isEditMode() ? 'Save Changes' : 'Save Invoice')
+            ->icon('heroicon-o-check-circle')
+            ->requiresConfirmation()
+            ->modalHeading($this->isEditMode() ? 'Konfirmasi Simpan Perubahan' : 'Konfirmasi Simpan Invoice')
+            ->modalDescription(function () {
+                $warnings = [];
 
-                    // validasi minimal ada 1 product yang diinsert
-                    $products = $this->data['products'] ?? [];
-                    $hasProduct = collect($products)->contains(
-                        fn($item) => !empty($item['product_id'])
-                    );
+                // validasi minimal ada 1 product yang diinsert
+                $products = $this->data['products'] ?? [];
+                $hasProduct = collect($products)->contains(
+                    fn ($item) => ! empty($item['product_id'])
+                );
 
-                    if (!$hasProduct) {
-                        $warnings[] = '⚠️ Belum ada produk yang ditambahkan. Harap isi minimal satu produk sebelum menyimpan invoice.';
+                if (! $hasProduct) {
+                    $warnings[] = '⚠️ Belum ada produk yang ditambahkan. Harap isi minimal satu produk sebelum menyimpan invoice.';
+                }
+
+                // validasi issued on dan due by
+                $issuedDate = $this->data['issued_date'] ?? null;
+                $dueDate = $this->data['due_date'] ?? null;
+
+                if (! empty($issuedDate) && ! empty($dueDate)) {
+                    $issued = Carbon::parse($issuedDate);
+                    $due = Carbon::parse($dueDate);
+
+                    if ($due->lt($issued)) {
+                        $warnings[] = '⚠️ Due By ('.$due->format('d M Y').') lebih awal dari Issued On ('.$issued->format('d M Y').'). Pastikan tanggalnya sudah benar.';
                     }
+                }
 
-                    // validasi issued on dan due by
-                    $issuedDate = $this->data['issued_date'] ?? null;
-                    $dueDate    = $this->data['due_date'] ?? null;
+                // validasi ongkir = 0
+                $ongkir = (float) ($this->data['ongkir'] ?? 0);
 
-                    if (!empty($issuedDate) && !empty($dueDate)) {
-                        $issued = Carbon::parse($issuedDate);
-                        $due    = Carbon::parse($dueDate);
+                if ($ongkir == 0) {
+                    $warnings[] = '⚠️ Ongkos kirim saat ini bernilai Rp 0. Pastikan ini sudah disengaja.';
+                }
 
-                        if ($due->lt($issued)) {
-                            $warnings[] = '⚠️ Due By (' . $due->format('d M Y') . ') lebih awal dari Issued On (' . $issued->format('d M Y') . '). Pastikan tanggalnya sudah benar.';
-                        }
-                    }
+                if (! empty($warnings)) {
+                    return new HtmlString(implode('<br><br>', $warnings));
+                }
 
-                    // validasi ongkir = 0
-                    $ongkir = (float) ($this->data['ongkir'] ?? 0);
+                if ($this->isEditMode()) {
+                    return 'Apakah semua perubahan sudah dipastikan benar? Data invoice akan diperbarui.';
+                }
 
-                    if ($ongkir == 0) {
-                        $warnings[] = '⚠️ Ongkos kirim saat ini bernilai Rp 0. Pastikan ini sudah disengaja.';
-                    }
-
-                    if (!empty($warnings)) {
-                        return new HtmlString(implode('<br><br>', $warnings));
-                    }
-
-                    if ($this->isEditMode()) {
-                        return 'Apakah semua perubahan sudah dipastikan benar? Data invoice akan diperbarui.';
-                    }
-
-                    return 'Apakah semua data sudah dipastikan benar? Invoice akan disimpan ke sistem.';
-                })
-                ->modalSubmitActionLabel($this->isEditMode() ? 'Ya, Simpan Perubahan' : 'Ya, Buat Invoice')
-                ->action(function () {
+                return 'Apakah semua data sudah dipastikan benar? Invoice akan disimpan ke sistem.';
+            })
+            ->modalSubmitActionLabel($this->isEditMode() ? 'Ya, Simpan Perubahan' : 'Ya, Buat Invoice')
+            ->action(function () {
                 $data = $this->getSchema('invoiceForm')->getState();
-                
+
                 // konfigurasi invoice details
-                $invoiceNumber = !empty($data['custom_invoice_number']) 
-                    ? $data['custom_invoice_number'] 
+                $invoiceNumber = ! empty($data['custom_invoice_number'])
+                    ? $data['custom_invoice_number']
                     : $this->generateInvoiceNumber();
 
-                $issuedDate = !empty($data['issued_date']) 
-                    ? Carbon::parse($data['issued_date'])->format('d M Y') 
+                $issuedDate = ! empty($data['issued_date'])
+                    ? Carbon::parse($data['issued_date'])->format('d M Y')
                     : now()->format('d M Y');
 
-                $dueDate = !empty($data['due_date']) 
-                    ? Carbon::parse($data['due_date'])->format('d M Y') 
+                $dueDate = ! empty($data['due_date'])
+                    ? Carbon::parse($data['due_date'])->format('d M Y')
                     : now()->format('d M Y');
 
                 // konfigurasi jenis member
-                $isMember = !empty($data['membership_id']);
+                $isMember = ! empty($data['membership_id']);
                 $membershipName = '-';
                 if ($isMember) {
-                    $membershipName = Membership::whereKey($data['membership_id'])->value('nama') ?? 'Member';                        
-                } 
+                    $membershipName = Membership::whereKey($data['membership_id'])->value('nama') ?? 'Member';
+                }
 
                 // ambil datanya
                 $customer = [
@@ -1029,7 +1054,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     'country' => $data['country'] ?? 'Indonesia',
                     'email' => $data['email'] ?? '-',
                     'phone_number' => $data['phone_number'] ?? '-',
-                    'membership' => $membershipName
+                    'membership' => $membershipName,
                 ];
 
                 // konfigurasi diskon
@@ -1062,26 +1087,26 @@ class GenerateInvoice extends Page implements HasSchemas
                     'is_per_item_discount' => $isPerItemDiscount,
                     'table_colspan' => $tableColspan,
                 ];
-                
+
                 // START PROSES
                 $products = [];
                 $itemsData = [];
                 $subtotal = 0;
                 $totalNormalPrice = 0;
 
-                $cleanNumber = function($val) {
+                $cleanNumber = function ($val) {
                     return (float) str_replace('.', '', (string) ($val ?? 0));
                 };
 
                 foreach ($data['products'] ?? [] as $item) {
                     $product = Product::find($item['product_id']);
                     $productName = $product->nama ?? 'Unknown Product';
-                    
+
                     $unitPrice = $cleanNumber($item['unit_price']);
                     $normalPrice = $cleanNumber($item['normal_price']);
                     $discountPrice = $cleanNumber($item['discount_price']);
                     $itemDiscountPercent = (float) str_replace(',', '.', (string) ($item['item_discount'] ?? 0));
-                    
+
                     $products[] = [
                         'name' => $productName,
                         'unit_price' => $unitPrice,
@@ -1093,19 +1118,19 @@ class GenerateInvoice extends Page implements HasSchemas
                     ];
 
                     $itemsData[] = [
-                        'product_id'     => $item['product_id'],
-                        'snapshot_sku'   => $product->sku ?? 'UNKNOWN',
-                        'snapshot_name'  => $productName,
-                        'quantity'       => (int) ($item['quantity'] ?? 1),
-                        'unit_price'     => $unitPrice,
-                        'normal_price'   => $normalPrice,
-                        'item_discount'  => $itemDiscountPercent,
+                        'product_id' => $item['product_id'],
+                        'snapshot_sku' => $product->sku ?? 'UNKNOWN',
+                        'snapshot_name' => $productName,
+                        'quantity' => (int) ($item['quantity'] ?? 1),
+                        'unit_price' => $unitPrice,
+                        'normal_price' => $normalPrice,
+                        'item_discount' => $itemDiscountPercent,
                         'discount_price' => $discountPrice,
                     ];
-                    
+
                     $subtotal += $discountPrice;
                     $totalNormalPrice += $normalPrice;
-                }                    
+                }
 
                 // hitung add ons dan total akhir
                 $ongkir = (float) ($data['ongkir'] ?? 0);
@@ -1116,13 +1141,13 @@ class GenerateInvoice extends Page implements HasSchemas
                     $boxProduct = Product::query()->where('nama', 'Box')->first();
                     if ($boxProduct) {
                         $itemsData[] = [
-                            'product_id'     => $boxProduct->id,
-                            'snapshot_sku'   => $boxProduct->sku ?? 'PKG-BOX-001',
-                            'snapshot_name'  => 'Box',
-                            'quantity'       => (int) ($data['box_qty'] ?? 1),
-                            'unit_price'     => (float) ($data['box_unit_price'] ?? 0),
-                            'normal_price'   => $box_fee,
-                            'item_discount'  => 0,
+                            'product_id' => $boxProduct->id,
+                            'snapshot_sku' => $boxProduct->sku ?? 'PKG-BOX-001',
+                            'snapshot_name' => 'Box',
+                            'quantity' => (int) ($data['box_qty'] ?? 1),
+                            'unit_price' => (float) ($data['box_unit_price'] ?? 0),
+                            'normal_price' => $box_fee,
+                            'item_discount' => 0,
                             'discount_price' => $box_fee,
                         ];
                     }
@@ -1132,13 +1157,13 @@ class GenerateInvoice extends Page implements HasSchemas
                     $wrapProduct = Product::query()->where('nama', 'Wrapping')->first();
                     if ($wrapProduct) {
                         $itemsData[] = [
-                            'product_id'     => $wrapProduct->id,
-                            'snapshot_sku'   => $wrapProduct->sku ?? 'PKG-WRP-001',
-                            'snapshot_name'  => 'Wrapping',
-                            'quantity'       => (int) ($data['wrapping_qty'] ?? 1),
-                            'unit_price'     => (float) ($data['wrap_unit_price'] ?? 0),
-                            'normal_price'   => $wrapping_fee,
-                            'item_discount'  => 0,
+                            'product_id' => $wrapProduct->id,
+                            'snapshot_sku' => $wrapProduct->sku ?? 'PKG-WRP-001',
+                            'snapshot_name' => 'Wrapping',
+                            'quantity' => (int) ($data['wrapping_qty'] ?? 1),
+                            'unit_price' => (float) ($data['wrap_unit_price'] ?? 0),
+                            'normal_price' => $wrapping_fee,
+                            'item_discount' => 0,
                             'discount_price' => $wrapping_fee,
                         ];
                     }
@@ -1154,11 +1179,11 @@ class GenerateInvoice extends Page implements HasSchemas
                     'ongkir' => $ongkir,
                     'box_fee' => $box_fee,
                     'wrapping_fee' => $wrapping_fee,
-                    'total' => $grand_total
+                    'total' => $grand_total,
                 ];
 
                 $customerId = $data['member_id'] ?? null;
-                if (!$customerId && !empty($data['name'])) {
+                if (! $customerId && ! empty($data['name'])) {
                     $customer = Customer::create([
                         'nama' => $data['name'],
                         'alias' => $data['alias'] ?? null,
@@ -1175,20 +1200,21 @@ class GenerateInvoice extends Page implements HasSchemas
 
                 // === DATA INVOICE UNTUK SIMPAN KE DB ===
                 $invoiceData = [
-                    'invoice_number'      => $invoiceNumber,
-                    'customer_type'       => $data['customer_type'] ?? 'non_member',
-                    'customer_id'         => $customerId,
-                    'discount_mode'       => $data['discount_mode'] ?? 'none',
-                    'discount_mode_member'=> $data['discount_mode_member'] ?? false,
-                    'custom_discount'     => $data['custom_discount'] ?? 0,
-                    'ongkir'              => $ongkir,
-                    'use_box'             => $data['use_box'] ?? false,
-                    'use_wrapping'        => $data['use_wrapping'] ?? false,
-                    'subtotal'            => $subtotal,
-                    'discount_total'      => $discount_total,
-                    'grand_total'         => $grand_total,
-                    'issued_date'         => $issuedDate ? Carbon::parse($issuedDate) : null,
-                    'due_date'            => $dueDate ? Carbon::parse($dueDate) : null,
+                    'invoice_number' => $invoiceNumber,
+                    'customer_type' => $data['customer_type'] ?? 'non_member',
+                    'customer_id' => $customerId,
+                    'pricing_tier' => $data['pricing_tier'] ?? 'toko',
+                    'discount_mode' => $data['discount_mode'] ?? 'none',
+                    'discount_mode_member' => $data['discount_mode_member'] ?? false,
+                    'custom_discount' => $data['custom_discount'] ?? 0,
+                    'ongkir' => $ongkir,
+                    'use_box' => $data['use_box'] ?? false,
+                    'use_wrapping' => $data['use_wrapping'] ?? false,
+                    'subtotal' => $subtotal,
+                    'discount_total' => $discount_total,
+                    'grand_total' => $grand_total,
+                    'issued_date' => $issuedDate ? Carbon::parse($issuedDate) : null,
+                    'due_date' => $dueDate ? Carbon::parse($dueDate) : null,
                 ];
 
                 // === BRANCHING: CREATE vs EDIT ===
@@ -1202,7 +1228,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             if (! $invoice->isEditable()) {
                                 throw new \RuntimeException(
                                     'Invoice tidak dapat diedit karena statusnya sudah '
-                                    . strtoupper($invoice->status) . '.'
+                                    .strtoupper($invoice->status).'.'
                                 );
                             }
 
@@ -1253,7 +1279,7 @@ class GenerateInvoice extends Page implements HasSchemas
                         ->body($e->getMessage())
                         ->danger()
                         ->send();
-                    
+
                     return null; // Return null to stay on the page
                 }
             });
@@ -1261,10 +1287,9 @@ class GenerateInvoice extends Page implements HasSchemas
 
     // Untuk validasi field kosong atau kondisi lain sebelum generate
     public function validateThenGenerate(): void
-    {        
+    {
         $this->getSchema('invoiceForm')->getState();
-    
+
         $this->mountAction('generate');
     }
 }
-

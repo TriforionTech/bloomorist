@@ -13,6 +13,7 @@ class Invoice extends Model
         'invoice_number',
         'customer_type',
         'customer_id',
+        'pricing_tier',
         'discount_mode',
         'discount_mode_member',
         'custom_discount',
@@ -91,7 +92,7 @@ class Invoice extends Model
             if ($invoice->getOriginal('status') !== 'pending') {
                 throw new \RuntimeException(
                     "Invoice #{$invoice->invoice_number} tidak dapat diedit karena statusnya sudah "
-                    . strtoupper($invoice->getOriginal('status')) . '.'
+                    .strtoupper($invoice->getOriginal('status')).'.'
                 );
             }
         });
@@ -103,7 +104,7 @@ class Invoice extends Model
             if (! $invoice->isDeletable()) {
                 throw new \RuntimeException(
                     "Invoice #{$invoice->invoice_number} tidak dapat dihapus karena statusnya sudah "
-                    . strtoupper($invoice->status) . '.'
+                    .strtoupper($invoice->status).'.'
                 );
             }
         });
