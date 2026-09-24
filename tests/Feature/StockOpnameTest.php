@@ -670,4 +670,304 @@ class StockOpnameTest extends TestCase
             ->assertSee('1 Dokumen')
             ->assertSee('+5 pcs');
     }
+
+    public function test_can_download_stock_opname_csv_template(): void
+    {
+        $this->actingAs($this->user);
+
+        Product::create([
+            'sku' => 'FLW-LIL-001',
+            'nama' => 'Lily Putih',
+            'kategori' => 'bunga',
+            'harga_beli' => 20000,
+            'harga_jual' => 35000,
+            'stok' => 15,
+            'is_active' => true,
+        ]);
+
+        $service = app(\App\Services\StockOpnameCsvService::class);
+        $response = $service->generateTemplateCsvStream();
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertTrue(str_contains($response->headers->get('Content-Type'), 'text/csv'));
+
+        ob_start();
+        $response->sendContent();
+        $csvContent = ob_get_clean();
+
+        $this->assertStringContainsString('product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan', $csvContent);
+        $this->assertStringContainsString('FLW-LIL-001', $csvContent);
+        $this->assertStringContainsString('Lily Putih', $csvContent);
+    }
+
+    public function test_can_import_stock_opname_via_csv_as_draft(): void
+    {
+        $this->actingAs($this->user);
+
+        $prodA = Product::create([
+            'sku' => 'PROD-CSV-A',
+            'nama' => 'Produk A',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 50,
+            'is_active' => true,
+        ]);
+
+        $prodB = Product::create([
+            'sku' => 'PROD-CSV-B',
+            'nama' => 'Produk B',
+            'kategori' => 'bunga',
+            'harga_beli' => 20000,
+            'harga_jual' => 30000,
+            'stok' => 30,
+            'is_active' => true,
+        ]);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$prodA->id},PROD-CSV-A,Produk A,bunga,50,10000,45,Kurang 5 pcs\n"
+            ."{$prodB->id},PROD-CSV-B,Produk B,bunga,30,20000,32,Surplus 2 pcs\n";
+
+        file_put_contents($tempPath, $csvContent);
+
+        $service = app(\App\Services\StockOpnameCsvService::class);
+        $result = $service->importCsv($tempPath, [
+            'reference_number' => 'SO-CSV-TEST-001',
+            'date' => now()->toDateString(),
+            'notes' => 'Import CSV Opname Test',
+            'post_immediately' => false,
+        ]);
+
+        @unlink($tempPath);
+
+        $this->assertEquals(2, $result['total_items']);
+        $this->assertFalse($result['posted']);
+
+        $opname = $result['stock_opname'];
+        $this->assertEquals('draft', $opname->status);
+        $this->assertEquals('SO-CSV-TEST-001', $opname->reference_number);
+
+        // Verify items
+        $this->assertDatabaseHas('bl_stock_opname_items_t', [
+            'stock_opname_id' => $opname->id,
+            'product_id' => $prodA->id,
+            'system_qty' => 50,
+            'physical_qty' => 45,
+            'variance' => -5,
+            'total_value' => -50000,
+        ]);
+
+        $this->assertDatabaseHas('bl_stock_opname_items_t', [
+            'stock_opname_id' => $opname->id,
+            'product_id' => $prodB->id,
+            'system_qty' => 30,
+            'physical_qty' => 32,
+            'variance' => 2,
+            'total_value' => 40000,
+        ]);
+
+        // Stock in products table should NOT have changed yet because status is draft
+        $this->assertEquals(50, $prodA->fresh()->stok);
+        $this->assertEquals(30, $prodB->fresh()->stok);
+    }
+
+    public function test_can_import_stock_opname_via_csv_with_immediate_posting(): void
+    {
+        $this->actingAs($this->user);
+
+        $product = Product::create([
+            'sku' => 'PROD-POST-01',
+            'nama' => 'Bunga Anggrek',
+            'kategori' => 'bunga',
+            'harga_beli' => 50000,
+            'harga_jual' => 80000,
+            'stok' => 10,
+            'is_active' => true,
+        ]);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$product->id},PROD-POST-01,Bunga Anggrek,bunga,10,50000,8,Rusak 2 tangkai\n";
+
+        file_put_contents($tempPath, $csvContent);
+
+        $service = app(\App\Services\StockOpnameCsvService::class);
+        $result = $service->importCsv($tempPath, [
+            'reference_number' => 'SO-POST-IMM-001',
+            'date' => now()->toDateString(),
+            'notes' => 'Direct post test',
+            'post_immediately' => true,
+        ]);
+
+        @unlink($tempPath);
+
+        $this->assertTrue($result['posted']);
+        $opname = $result['stock_opname'];
+        $this->assertEquals('posted', $opname->status);
+
+        // Product physical stock must be updated to 8
+        $this->assertEquals(8, $product->fresh()->stok);
+
+        // General journal must exist
+        $this->assertDatabaseHas('bl_general_journals_t', [
+            'source_type' => 'STOCK_OPNAME',
+            'reference_id' => $opname->id,
+        ]);
+    }
+
+    public function test_import_rejects_csv_if_sku_tampered_or_invalid(): void
+    {
+        $this->actingAs($this->user);
+
+        $product = Product::create([
+            'sku' => 'SKU-ORIGINAL',
+            'nama' => 'Produk Asli',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 20,
+            'is_active' => true,
+        ]);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
+        // SKU in CSV does not match SKU in DB for that product_id
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$product->id},SKU-MANIPULATED,Produk Asli,bunga,20,10000,18,Catatan\n";
+
+        file_put_contents($tempPath, $csvContent);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Ketidakcocokan data terdeteksi');
+
+        try {
+            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
+                'reference_number' => 'SO-TAMPER-001',
+                'date' => now()->toDateString(),
+            ]);
+        } finally {
+            @unlink($tempPath);
+        }
+    }
+
+    public function test_import_rejects_negative_physical_qty(): void
+    {
+        $this->actingAs($this->user);
+
+        $product = Product::create([
+            'sku' => 'SKU-NEG-001',
+            'nama' => 'Produk Negatif',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 20,
+            'is_active' => true,
+        ]);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$product->id},SKU-NEG-001,Produk Negatif,bunga,20,10000,-5,Invalid\n";
+
+        file_put_contents($tempPath, $csvContent);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('tidak valid. Harus berupa angka bulat >= 0');
+
+        try {
+            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
+                'reference_number' => 'SO-NEG-001',
+                'date' => now()->toDateString(),
+            ]);
+        } finally {
+            @unlink($tempPath);
+        }
+    }
+
+    public function test_import_rejects_if_accounting_period_is_closed(): void
+    {
+        $this->actingAs($this->user);
+
+        $this->period->update(['status' => 'closed']);
+
+        $product = Product::create([
+            'sku' => 'SKU-CLOSED-01',
+            'nama' => 'Produk Closed',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 20,
+            'is_active' => true,
+        ]);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'csv_opname_');
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$product->id},SKU-CLOSED-01,Produk Closed,bunga,20,10000,19,Closed period\n";
+
+        file_put_contents($tempPath, $csvContent);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('sudah ditutup (Closed)');
+
+        try {
+            app(\App\Services\StockOpnameCsvService::class)->importCsv($tempPath, [
+                'reference_number' => 'SO-CLOSED-001',
+                'date' => now()->toDateString(),
+            ]);
+        } finally {
+            @unlink($tempPath);
+        }
+    }
+
+    public function test_filament_list_page_has_csv_actions(): void
+    {
+        $this->actingAs($this->user);
+
+        Livewire::test(ListStockOpnames::class)
+            ->assertActionExists('downloadTemplate')
+            ->assertActionExists('importCsv');
+    }
+
+    public function test_filament_list_page_can_execute_import_csv_action(): void
+    {
+        $this->actingAs($this->user);
+
+        \Illuminate\Support\Facades\Storage::fake('local');
+
+        $product = Product::create([
+            'sku' => 'SKU-LW-IMPORT',
+            'nama' => 'Produk Livewire Import',
+            'kategori' => 'bunga',
+            'harga_beli' => 15000,
+            'harga_jual' => 25000,
+            'stok' => 40,
+            'is_active' => true,
+        ]);
+
+        $csvContent = "product_id,sku,nama_produk,kategori,stok_sistem,harga_beli,stok_fisik,catatan\n"
+            ."{$product->id},SKU-LW-IMPORT,Produk Livewire Import,bunga,40,15000,38,Kurang 2 tangkai\n";
+
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('opname_test.csv', $csvContent);
+        $storedPath = $file->store('temp-stock-opname', 'local');
+
+        Livewire::test(ListStockOpnames::class)
+            ->callAction('importCsv', data: [
+                'date' => now()->toDateString(),
+                'reference_number' => 'SO-LW-TEST-999',
+                'notes' => 'Imported via modal',
+                'file' => [$storedPath],
+                'post_immediately' => false,
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('bl_stock_opnames_t', [
+            'reference_number' => 'SO-LW-TEST-999',
+            'status' => 'draft',
+        ]);
+
+        $this->assertDatabaseHas('bl_stock_opname_items_t', [
+            'product_id' => $product->id,
+            'physical_qty' => 38,
+            'variance' => -2,
+        ]);
+    }
 }

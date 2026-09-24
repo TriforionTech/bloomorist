@@ -39,18 +39,35 @@ class StockOpnameInfolist
                         RepeatableEntry::make('items')
                             ->schema([
                                 TextEntry::make('product.nama')
-                                    ->label('Product'),
+                                    ->label('Product')
+                                    ->formatStateUsing(fn ($state, $record) => $record->product?->sku ? "{$state} ({$record->product->sku})" : $state),
                                 TextEntry::make('system_qty')
-                                    ->label('System Qty'),
+                                    ->label('System Qty')
+                                    ->formatStateUsing(fn ($state) => "{$state} pcs"),
                                 TextEntry::make('physical_qty')
-                                    ->label('Physical Qty'),
+                                    ->label('Physical Qty')
+                                    ->weight('bold')
+                                    ->formatStateUsing(fn ($state) => "{$state} pcs"),
                                 TextEntry::make('variance')
-                                    ->label('Variance'),
+                                    ->label('Variance')
+                                    ->badge()
+                                    ->color(fn (int $state): string => match (true) {
+                                        $state > 0 => 'success',
+                                        $state < 0 => 'danger',
+                                        default => 'gray',
+                                    })
+                                    ->formatStateUsing(fn ($state) => ($state > 0 ? "+{$state}" : "{$state}").' pcs'),
                                 TextEntry::make('unit_cost')
-                                    ->label('Cost')
+                                    ->label('Cost Satuan')
                                     ->money('IDR'),
                                 TextEntry::make('total_value')
-                                    ->label('Total Value')
+                                    ->label('Total Nilai Varians')
+                                    ->badge()
+                                    ->color(fn (float $state): string => match (true) {
+                                        $state > 0 => 'success',
+                                        $state < 0 => 'danger',
+                                        default => 'gray',
+                                    })
                                     ->money('IDR'),
                             ])
                             ->columns(6),
