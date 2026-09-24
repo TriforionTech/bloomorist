@@ -78,12 +78,20 @@ class StockOpnamesTable
                             return;
                         }
 
-                        app(AccountingService::class)->createStockOpnameJournal($record);
+                        try {
+                            app(AccountingService::class)->createStockOpnameJournal($record);
 
-                        Notification::make()
-                            ->title('Posted Successfully')
-                            ->success()
-                            ->send();
+                            Notification::make()
+                                ->title('Posted Successfully')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Gagal Memposting Stock Opname')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ])
             ->bulkActions([

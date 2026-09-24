@@ -62,14 +62,22 @@ class EditStockOpname extends EditRecord
                         return;
                     }
 
-                    app(AccountingService::class)->createStockOpnameJournal($record);
+                    try {
+                        app(AccountingService::class)->createStockOpnameJournal($record);
 
-                    Notification::make()
-                        ->title('Posted Successfully')
-                        ->success()
-                        ->send();
+                        Notification::make()
+                            ->title('Posted Successfully')
+                            ->success()
+                            ->send();
 
-                    $this->refreshFormData(['status']);
+                        $this->refreshFormData(['status']);
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Gagal Memposting Stock Opname')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
         ];
     }

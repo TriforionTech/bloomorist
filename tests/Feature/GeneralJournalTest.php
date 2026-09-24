@@ -86,7 +86,7 @@ class GeneralJournalTest extends TestCase
             'closed_at' => now(),
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\App\Exceptions\AccountingPeriodClosedException::class);
         $this->expectExceptionMessage('sudah ditutup. Jurnal tidak bisa disimpan.');
 
         GeneralJournal::create([

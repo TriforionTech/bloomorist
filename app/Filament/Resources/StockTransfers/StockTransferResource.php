@@ -33,7 +33,36 @@ class StockTransferResource extends Resource
                         \Filament\Forms\Components\DatePicker::make('tanggal')
                             ->label('Tanggal Transfer')
                             ->default(now())
-                            ->required(),
+                            ->required()
+                            ->live()
+                            ->rules([
+                                function () {
+                                    return function (string $attribute, $value, \Closure $fail) {
+                                        if (! $value) {
+                                            return;
+                                        }
+                                        $period = \App\Models\AccountingPeriod::where('start_date', '<=', $value)
+                                            ->where('end_date', '>=', $value)
+                                            ->first();
+                                        if ($period && $period->isClosed()) {
+                                            $fail("Periode akuntansi '{$period->label}' sudah ditutup (Tutup Buku). Transaksi transfer stok tidak dapat dicatat pada tanggal ini.");
+                                        }
+                                    };
+                                },
+                            ])
+                            ->helperText(function ($state) {
+                                if (! $state) {
+                                    return null;
+                                }
+                                $period = \App\Models\AccountingPeriod::where('start_date', '<=', $state)
+                                    ->where('end_date', '>=', $state)
+                                    ->first();
+                                if ($period && $period->isClosed()) {
+                                    return "⚠️ PERINGATAN: Periode '{$period->label}' telah ditutup. Tidak dapat melakukan transfer pada tanggal ini.";
+                                }
+
+                                return null;
+                            }),
                         \Filament\Forms\Components\Select::make('source_product_id')
                             ->label('Produk Asal (Sumber)')
                             ->relationship('sourceProduct', 'nama')

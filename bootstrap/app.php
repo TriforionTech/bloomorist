@@ -14,8 +14,23 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\App\Exceptions\AccountingPeriodClosedException $e, \Illuminate\Http\Request $request) {
+            \Filament\Notifications\Notification::make()
+                ->title('Periode Akuntansi Sudah Ditutup')
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            if ($request->hasHeader('X-Livewire')) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'accounting_period' => $e->getMessage(),
+                ]);
+            }
+
+            return back()->with('error', $e->getMessage());
+        });
     })->create()
     ->usePublicPath(
-        dirname(__DIR__) . '/public'
+        dirname(__DIR__).'/public'
     );

@@ -84,7 +84,7 @@ class GeneralJournal extends Model
             }
 
             if ($period->isClosed()) {
-                throw new \RuntimeException("Periode akuntansi '{$period->label}' sudah ditutup. Jurnal tidak bisa disimpan.");
+                throw new \App\Exceptions\AccountingPeriodClosedException("Periode akuntansi '{$period->label}' sudah ditutup. Jurnal tidak bisa disimpan.");
             }
         });
 
@@ -94,7 +94,7 @@ class GeneralJournal extends Model
                 ->first();
 
             if ($period && $period->isClosed()) {
-                throw new \RuntimeException("Periode akuntansi '{$period->label}' sudah ditutup. Jurnal tidak bisa dihapus.");
+                throw new \App\Exceptions\AccountingPeriodClosedException("Periode akuntansi '{$period->label}' sudah ditutup. Jurnal tidak bisa dihapus.");
             }
         });
     }
