@@ -23,15 +23,15 @@ class FinancialReports extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
 
-    protected static ?string $title = 'Financial Report';
+    protected static ?string $title = 'Laporan Keuangan';
 
-    protected static ?string $navigationLabel = 'Financial Report';
+    protected static ?string $navigationLabel = 'Laporan Keuangan';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 6;
 
     protected string $view = 'filament.pages.financial-reports';
 

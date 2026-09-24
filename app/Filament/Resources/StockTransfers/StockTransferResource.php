@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\StockTransfers;
 
 use App\Filament\Resources\StockTransfers\Pages\ManageStockTransfers;
+use App\Filament\Resources\StockTransfers\Schemas\StockTransferForm;
+use App\Filament\Resources\StockTransfers\Tables\StockTransfersTable;
 use App\Models\StockTransfer;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -18,145 +20,22 @@ class StockTransferResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Inventory';
 
-    protected static ?string $modelLabel = 'Stock Transfer';
+    protected static ?string $navigationLabel = 'Transfer Stok';
 
-    protected static ?string $pluralModelLabel = 'Stock Transfers';
+    protected static ?string $modelLabel = 'Transfer Stok';
+
+    protected static ?string $pluralModelLabel = 'Transfer Stok';
 
     protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                \Filament\Schemas\Components\Section::make('Informasi Transfer')
-                    ->components([
-                        \Filament\Forms\Components\DatePicker::make('tanggal')
-                            ->label('Tanggal Transfer')
-                            ->default(now())
-                            ->required()
-                            ->live()
-                            ->rules([
-                                function () {
-                                    return function (string $attribute, $value, \Closure $fail) {
-                                        if (! $value) {
-                                            return;
-                                        }
-                                        $period = \App\Models\AccountingPeriod::where('start_date', '<=', $value)
-                                            ->where('end_date', '>=', $value)
-                                            ->first();
-                                        if ($period && $period->isClosed()) {
-                                            $fail("Periode akuntansi '{$period->label}' sudah ditutup (Tutup Buku). Transaksi transfer stok tidak dapat dicatat pada tanggal ini.");
-                                        }
-                                    };
-                                },
-                            ])
-                            ->helperText(function ($state) {
-                                if (! $state) {
-                                    return null;
-                                }
-                                $period = \App\Models\AccountingPeriod::where('start_date', '<=', $state)
-                                    ->where('end_date', '>=', $state)
-                                    ->first();
-                                if ($period && $period->isClosed()) {
-                                    return "⚠️ PERINGATAN: Periode '{$period->label}' telah ditutup. Tidak dapat melakukan transfer pada tanggal ini.";
-                                }
-
-                                return null;
-                            }),
-                        \Filament\Forms\Components\Select::make('source_product_id')
-                            ->label('Produk Asal (Sumber)')
-                            ->relationship('sourceProduct', 'nama')
-                            ->searchable()
-                            ->preload()
-                            ->live(onBlur: true)
-                            ->required()
-                            ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                                if (! $get('source_product_id')) {
-                                    return null;
-                                }
-                                $product = \App\Models\Product::find($get('source_product_id'));
-
-                                return $product ? "Sisa Stok: {$product->stok} (Cost: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
-                            }),
-                        \Filament\Forms\Components\Select::make('target_product_id')
-                            ->label('Produk Tujuan')
-                            ->relationship('targetProduct', 'nama')
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->different('source_product_id')
-                            ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                                if (! $get('target_product_id')) {
-                                    return null;
-                                }
-                                $product = \App\Models\Product::find($get('target_product_id'));
-
-                                return $product ? "Sisa Stok: {$product->stok} (Cost: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
-                            }),
-                        \Filament\Forms\Components\TextInput::make('quantity')
-                            ->label('Jumlah Transfer')
-                            ->numeric()
-                            ->required()
-                            ->minValue(1)
-                            ->maxValue(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                                if (! $get('source_product_id')) {
-                                    return null;
-                                }
-                                $product = \App\Models\Product::find($get('source_product_id'));
-
-                                return $product ? $product->stok : null;
-                            }),
-                        \Filament\Forms\Components\Textarea::make('keterangan')
-                            ->label('Keterangan / Alasan Transfer')
-                            ->nullable()
-                            ->columnSpanFull(),
-                    ])->columns(2),
-            ]);
+        return StockTransferForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                \Filament\Tables\Columns\TextColumn::make('tanggal')
-                    ->label('Tanggal')
-                    ->date('d M Y')
-                    ->sortable(),
-                \Filament\Tables\Columns\TextColumn::make('sourceProduct.nama')
-                    ->label('Dari Produk')
-                    ->sortable()
-                    ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('targetProduct.nama')
-                    ->label('Ke Produk')
-                    ->sortable()
-                    ->searchable(),
-                \Filament\Tables\Columns\TextColumn::make('quantity')
-                    ->label('Qty')
-                    ->numeric()
-                    ->sortable(),
-                \Filament\Tables\Columns\TextColumn::make('target_value')
-                    ->label('Nilai Hasil Transfer')
-                    ->state(function (StockTransfer $record) {
-                        $cost = (float) ($record->targetProduct?->harga_beli ?? 0);
-
-                        return 'Rp '.number_format($record->quantity * $cost, 0, ',', '.');
-                    })
-                    ->color('success')
-                    ->weight('bold'),
-                \Filament\Tables\Columns\TextColumn::make('keterangan')
-                    ->label('Keterangan')
-                    ->limit(30)
-                    ->searchable(),
-            ])
-            ->filters([
-                //
-            ])
-            ->recordActions([
-                // Edit and Delete are disabled for accounting integrity
-            ])
-            ->toolbarActions([
-                //
-            ]);
+        return StockTransfersTable::configure($table);
     }
 
     public static function getWidgets(): array

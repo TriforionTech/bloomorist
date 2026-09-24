@@ -2,26 +2,29 @@
 
 namespace App\Filament\Resources;
 
-use App\Models\AccountingPeriod;
 use App\Filament\Resources\AccountingPeriods\Schemas\AccountingPeriodForm;
 use App\Filament\Resources\AccountingPeriods\Tables\AccountingPeriodsTable;
+use App\Models\AccountingPeriod;
 use BackedEnum;
-use UnitEnum;
 use Filament\Resources\Resource;
-use Filament\Tables\Table;
 use Filament\Schemas\Schema;
+use Filament\Tables\Table;
+use UnitEnum;
 
 class AccountingPeriodResource extends Resource
 {
     protected static ?string $model = AccountingPeriod::class;
-    
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
-    
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    
-    protected static ?string $modelLabel = 'Accounting Period';
-    protected static ?string $pluralModelLabel = 'Accounting Periods';
-    
+
+    protected static ?string $navigationLabel = 'Periode Akuntansi';
+
+    protected static ?string $modelLabel = 'Periode Akuntansi';
+
+    protected static ?string $pluralModelLabel = 'Periode Akuntansi';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema

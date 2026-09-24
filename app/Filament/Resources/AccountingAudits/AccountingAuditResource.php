@@ -18,11 +18,11 @@ class AccountingAuditResource extends Resource
 {
     protected static ?string $model = AccountingAudit::class;
 
-    protected static ?string $navigationLabel = 'Accounting Audit Trail';
+    protected static ?string $navigationLabel = 'Audit Trail Akuntansi';
 
-    protected static ?string $modelLabel = 'Accounting Audit';
+    protected static ?string $modelLabel = 'Audit Trail Akuntansi';
 
-    protected static ?string $pluralModelLabel = 'Accounting Audits';
+    protected static ?string $pluralModelLabel = 'Audit Trail Akuntansi';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shield-check';
 

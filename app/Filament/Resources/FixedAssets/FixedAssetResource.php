@@ -17,12 +17,18 @@ use UnitEnum;
 class FixedAssetResource extends Resource
 {
     protected static ?string $model = FixedAsset::class;
+
     protected static ?string $navigationLabel = 'Penyusutan Peralatan';
+
     protected static ?string $modelLabel = 'Penyusutan Peralatan';
+
     protected static ?string $pluralModelLabel = 'Penyusutan Peralatan';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 5;
+
+    protected static ?int $navigationSort = 7;
 
     public static function form(Schema $schema): Schema
     {

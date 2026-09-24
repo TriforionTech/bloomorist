@@ -2,8 +2,8 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\ChartOfAccount;
 use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Services\AccountingService;
 use BackedEnum;
 use Carbon\Carbon;
@@ -22,16 +22,21 @@ class BukuBesar extends Page implements HasSchemas
     use InteractsWithSchemas;
 
     protected static ?string $title = 'Buku Besar';
+
     protected static ?string $navigationLabel = 'Buku Besar';
+
     protected static ?string $pluralLabel = 'Buku Besar';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 3;
+
+    protected static ?int $navigationSort = 4;
 
     protected string $view = 'filament.pages.buku-besar';
 
     public ?int $selectedCoaId = null;
+
     public ?int $selectedPeriodId = null;
 
     /**
@@ -89,14 +94,14 @@ class BukuBesar extends Page implements HasSchemas
      */
     public function getLedgerData(): Collection
     {
-        if (!$this->selectedCoaId) {
+        if (! $this->selectedCoaId) {
             return collect();
         }
 
         $service = app(AccountingService::class);
 
         $period = AccountingPeriod::find($this->selectedPeriodId);
-        if (!$period) {
+        if (! $period) {
             return collect();
         }
 
@@ -119,7 +124,7 @@ class BukuBesar extends Page implements HasSchemas
      */
     public function getSelectedCoa(): ?ChartOfAccount
     {
-        if (!$this->selectedCoaId) {
+        if (! $this->selectedCoaId) {
             return null;
         }
 

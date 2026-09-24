@@ -19,10 +19,15 @@ class NeracaSaldo extends Page implements HasSchemas
     use InteractsWithSchemas;
 
     protected static ?string $title = 'Neraca Saldo';
+
     protected static ?string $navigationLabel = 'Neraca Saldo';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-scale';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 3;
+
+    protected static ?int $navigationSort = 5;
+
     protected string $view = 'filament.pages.neraca-saldo';
 
     public ?int $selectedPeriodId = null;
@@ -61,7 +66,7 @@ class NeracaSaldo extends Page implements HasSchemas
 
     public function getTrialBalanceData(): ?array
     {
-        if (!$this->selectedPeriodId) {
+        if (! $this->selectedPeriodId) {
             return null;
         }
 
