@@ -1186,6 +1186,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 if (! $customerId && ! empty($data['name'])) {
                     $customer = Customer::create([
                         'nama' => $data['name'],
+                        'tipe_customer' => $data['pricing_tier'] ?? 'toko',
                         'alias' => $data['alias'] ?? null,
                         'alamat' => $data['address'] ?? null,
                         'kota' => $data['city'] ?? null,

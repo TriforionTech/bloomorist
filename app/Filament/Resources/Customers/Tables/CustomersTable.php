@@ -101,6 +101,13 @@ class CustomersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('tipe_customer')
+                    ->label('Customer Type')
+                    ->options([
+                        'toko' => 'Toko',
+                        'vendor' => 'Vendor',
+                        'dekor' => 'Dekorator',
+                    ]),
                 SelectFilter::make('membership_id')
                     ->label('Membership Category')
                     ->options([
@@ -126,7 +133,7 @@ class CustomersTable
                     ->modalDescription('Apakah Anda yakin ingin menghapus customer ini? Tindakan ini tidak dapat dibatalkan.')
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal'),
-            ])            
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
