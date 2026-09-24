@@ -17,13 +17,17 @@ class StockTransferForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Informasi Transfer')
-                    ->components([
+                    ->columnSpanFull()
+                    ->columns(2)
+                    ->schema([
                         DatePicker::make('tanggal')
                             ->label('Tanggal Transfer')
                             ->default(now())
                             ->required()
+                            ->native(false)
                             ->live()
                             ->rules([
                                 function () {
@@ -52,6 +56,20 @@ class StockTransferForm
                                 }
 
                                 return null;
+                            }),
+
+                        TextInput::make('quantity')
+                            ->label('Jumlah Transfer')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->maxValue(function (Get $get) {
+                                if (! $get('source_product_id')) {
+                                    return null;
+                                }
+                                $product = Product::find($get('source_product_id'));
+
+                                return $product ? $product->stok : null;
                             }),
 
                         Select::make('source_product_id')
@@ -86,25 +104,12 @@ class StockTransferForm
                                 return $product ? "Sisa Stok: {$product->stok} (Cost: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
                             }),
 
-                        TextInput::make('quantity')
-                            ->label('Jumlah Transfer')
-                            ->numeric()
-                            ->required()
-                            ->minValue(1)
-                            ->maxValue(function (Get $get) {
-                                if (! $get('source_product_id')) {
-                                    return null;
-                                }
-                                $product = Product::find($get('source_product_id'));
-
-                                return $product ? $product->stok : null;
-                            }),
-
                         Textarea::make('keterangan')
                             ->label('Keterangan / Alasan Transfer')
                             ->nullable()
+                            ->rows(3)
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ]),
             ]);
     }
 }

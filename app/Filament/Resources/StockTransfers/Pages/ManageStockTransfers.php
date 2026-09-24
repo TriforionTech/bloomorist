@@ -14,6 +14,7 @@ class ManageStockTransfers extends ManageRecords
     {
         return [
             CreateAction::make()
+                ->modalWidth('2xl')
                 ->before(function (CreateAction $action, array $data) {
                     $tanggal = $data['tanggal'] ?? now()->toDateString();
                     $period = \App\Models\AccountingPeriod::where('start_date', '<=', $tanggal)

@@ -101,7 +101,8 @@ class StockTransfersTable
             ->recordActions([
                 ViewAction::make()
                     ->label('Lihat Detail')
-                    ->modalHeading('Rincian Transfer Stok'),
+                    ->modalHeading('Rincian Transfer Stok')
+                    ->modalWidth('2xl'),
             ]);
     }
 }
