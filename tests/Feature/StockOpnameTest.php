@@ -792,6 +792,7 @@ class StockOpnameTest extends TestCase
             'physical_qty' => 45,
             'variance' => -5,
             'total_value' => -50000,
+            'notes' => 'Kurang 5 pcs',
         ]);
 
         $this->assertDatabaseHas('bl_stock_opname_items_t', [
@@ -801,6 +802,7 @@ class StockOpnameTest extends TestCase
             'physical_qty' => 32,
             'variance' => 2,
             'total_value' => 40000,
+            'notes' => 'Surplus 2 pcs',
         ]);
 
         // Stock in products table should NOT have changed yet because status is draft

@@ -19,6 +19,7 @@ class StockOpnameItem extends Model
         'variance',
         'unit_cost',
         'total_value',
+        'notes',
     ];
 
     public function stockOpname()

@@ -99,7 +99,13 @@ class StockOpnameForm
                                     ->dehydrated()
                                     ->prefix('Rp')
                                     ->columnSpan(1),
+                                TextInput::make('notes')
+                                    ->label('Catatan Item')
+                                    ->placeholder('Alasan selisih/kondisi')
+                                    ->nullable()
+                                    ->columnSpan(1),
                             ])
+                            ->columns(8)
                             ->defaultItems(0)
                             ->addActionLabel('Add Item'),
                     ]),

@@ -508,6 +508,7 @@ class StockOpnameExcelService
                     'variance' => $item['variance'],
                     'unit_cost' => $item['unit_cost'],
                     'total_value' => $item['total_value'],
+                    'notes' => $item['note'],
                 ]);
             }
 

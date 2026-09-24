@@ -69,8 +69,11 @@ class StockOpnameInfolist
                                         default => 'gray',
                                     })
                                     ->money('IDR'),
+                                TextEntry::make('notes')
+                                    ->label('Catatan / Alasan')
+                                    ->placeholder('-'),
                             ])
-                            ->columns(6),
+                            ->columns(7),
                     ]),
             ]);
     }
