@@ -49,7 +49,14 @@ class StatsOverview extends BaseWidget
         // --- Pendapatan Berdasarkan Filter ---
         $paidFilterQuery = Invoice::where('status', 'paid');
         if ($startDate && $endDate) {
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+            }
             $paidFilterQuery->whereBetween('issued_date', [$startDate, $endDate]);
+        } elseif ($startDate) {
+            $paidFilterQuery->where('issued_date', '>=', $startDate);
+        } elseif ($endDate) {
+            $paidFilterQuery->where('issued_date', '<=', $endDate);
         }
         $revenueFiltered = $paidFilterQuery->sum('grand_total');
         $invoiceFilteredPaidCount = $paidFilterQuery->count();

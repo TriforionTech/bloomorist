@@ -2,14 +2,13 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\ParsesGlobalFilters;
 use App\Models\Customer;
-use Carbon\Carbon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Support\Facades\DB;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use App\Filament\Traits\ParsesGlobalFilters;
 
 class TopCustomers extends BaseWidget
 {
@@ -17,6 +16,7 @@ class TopCustomers extends BaseWidget
     use ParsesGlobalFilters;
 
     protected static ?int $sort = 6;
+
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 12,
@@ -38,13 +38,20 @@ class TopCustomers extends BaseWidget
             ->where('bl_invoices_t.status', 'paid');
 
         if ($startDate && $endDate) {
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+            }
             $query->whereBetween('bl_invoices_t.issued_date', [$startDate, $endDate]);
+        } elseif ($startDate) {
+            $query->where('bl_invoices_t.issued_date', '>=', $startDate);
+        } elseif ($endDate) {
+            $query->where('bl_invoices_t.issued_date', '<=', $endDate);
         }
 
         $query->groupBy(
-                'bl_customers_t.id',
-                'bl_customers_t.nama'
-            )
+            'bl_customers_t.id',
+            'bl_customers_t.nama'
+        )
             ->orderByDesc('total_spend')
             ->limit(10);
 
@@ -68,7 +75,7 @@ class TopCustomers extends BaseWidget
 
                 Tables\Columns\TextColumn::make('total_spend')
                     ->label('Total Belanja')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->weight('bold')
                     ->color('success')
                     ->sortable(),

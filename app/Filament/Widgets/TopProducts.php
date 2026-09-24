@@ -2,18 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\ParsesGlobalFilters;
 use App\Models\Product;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Facades\DB;
-use App\Filament\Pages\ProductSalesReport;
-use Filament\Tables\Filters\Filter;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\DatePicker;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use App\Filament\Traits\ParsesGlobalFilters;
 
 class TopProducts extends ChartWidget
 {
@@ -21,6 +14,7 @@ class TopProducts extends ChartWidget
     use ParsesGlobalFilters;
 
     protected static ?int $sort = 5;
+
     protected ?string $heading = 'Top 10 Selling Products';
 
     protected int|string|array $columnSpan = [
@@ -33,15 +27,16 @@ class TopProducts extends ChartWidget
 
     public function getDescription(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
-        $html = "Berdasarkan total qty terjual dari invoice lunas";
+        $html = 'Berdasarkan total qty terjual dari invoice lunas';
+
         return new \Illuminate\Support\HtmlString($html);
     }
 
     protected function getData(): array
     {
-        $productTable     = (new Product)->getTable();
+        $productTable = (new Product)->getTable();
         $invoiceItemTable = 'bl_invoice_items_t';
-        $invoiceTable     = 'bl_invoices_t';
+        $invoiceTable = 'bl_invoices_t';
 
         [$startDate, $endDate] = $this->parseFilterDates();
 
@@ -53,7 +48,14 @@ class TopProducts extends ChartWidget
             ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping']);
 
         if ($startDate && $endDate) {
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+            }
             $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date BETWEEN ? AND ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$startDate, $endDate]);
+        } elseif ($startDate) {
+            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date >= ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$startDate]);
+        } elseif ($endDate) {
+            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date <= ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$endDate]);
         } else {
             $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold");
         }
@@ -70,25 +72,25 @@ class TopProducts extends ChartWidget
 
         $results = $query->get();
 
-        $labels     = $results->pluck('nama')->toArray();
-        $quantities = $results->pluck('total_sold')->map(fn($v) => (int) $v)->toArray();
-        $colors     = array_fill(0, count($results), 'rgba(219, 39, 119, 0.75)');
-        $borders    = array_fill(0, count($results), 'rgba(190, 24, 93, 0.9)');
+        $labels = $results->pluck('nama')->toArray();
+        $quantities = $results->pluck('total_sold')->map(fn ($v) => (int) $v)->toArray();
+        $colors = array_fill(0, count($results), 'rgba(219, 39, 119, 0.75)');
+        $borders = array_fill(0, count($results), 'rgba(190, 24, 93, 0.9)');
 
         return [
             'datasets' => [
                 [
-                    'label'           => 'Qty Terjual',
-                    'data'            => $quantities,
+                    'label' => 'Qty Terjual',
+                    'data' => $quantities,
                     'backgroundColor' => $colors,
-                    'borderColor'     => $borders,
-                    'borderWidth'     => 1,
+                    'borderColor' => $borders,
+                    'borderWidth' => 1,
                 ],
             ],
             'labels' => $labels,
         ];
     }
- 
+
     protected function getOptions(): array|RawJs
     {
         return RawJs::make(<<<'JS'
