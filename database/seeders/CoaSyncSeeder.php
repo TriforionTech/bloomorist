@@ -3,9 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use App\Models\JournalItem;
-use App\Models\Expense;
 
 class CoaSyncSeeder extends Seeder
 {
@@ -48,18 +45,11 @@ class CoaSyncSeeder extends Seeder
             ['kode_akun' => '6110', 'nama_akun' => 'Beban Pesangon', 'kategori' => 'Beban Operasional', 'saldo_normal' => 'Debit'],
         ];
 
-        // Ensure we don't truncate if there are foreign key constraints from active journals,
-        // but typically in dev we can disable fk checks.
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        DB::table('bl_coa_t')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-
-        $now = now();
-        foreach ($coas as &$coa) {
-            $coa['created_at'] = $now;
-            $coa['updated_at'] = $now;
+        foreach ($coas as $coa) {
+            \App\Models\ChartOfAccount::updateOrCreate(
+                ['kode_akun' => $coa['kode_akun']],
+                $coa
+            );
         }
-
-        DB::table('bl_coa_t')->insert($coas);
     }
 }

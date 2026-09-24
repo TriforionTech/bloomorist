@@ -61,7 +61,7 @@ class GeneralJournal extends Model
         });
 
         static::saving(function (GeneralJournal $journal) {
-            if (!$journal->tanggal) {
+            if (! $journal->tanggal) {
                 $journal->tanggal = now()->toDateString();
             }
 
@@ -69,8 +69,18 @@ class GeneralJournal extends Model
                 ->where('end_date', '>=', $journal->tanggal)
                 ->first();
 
-            if (!$period) {
-                throw new \RuntimeException("Tanggal jurnal ({$journal->tanggal->format('Y-m-d')}) tidak masuk ke dalam Periode Akuntansi manapun.");
+            if (! $period) {
+                $date = \Carbon\Carbon::parse($journal->tanggal);
+                $period = \App\Models\AccountingPeriod::firstOrCreate(
+                    [
+                        'start_date' => $date->copy()->startOfMonth()->toDateString(),
+                        'end_date' => $date->copy()->endOfMonth()->toDateString(),
+                    ],
+                    [
+                        'label' => $date->format('F Y'),
+                        'status' => 'open',
+                    ]
+                );
             }
 
             if ($period->isClosed()) {

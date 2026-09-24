@@ -35,9 +35,9 @@ class CashFlowTest extends TestCase
 
         $data = app(CashFlowService::class)->getForPeriod($period->id);
 
-        $this->assertSame(3000.0, $data['operating']->firstWhere('key', 'sales_receipts')['amount']);
-        $this->assertSame(-500.0, $data['operating']->firstWhere('key', 'operating_expenses')['amount']);
-        $this->assertSame(1000.0, $data['financing']->firstWhere('key', 'owner_capital')['amount']);
+        $this->assertSame(3000.0, $data['operating']->firstWhere('key', '4101')['amount']);
+        $this->assertSame(-500.0, $data['operating']->firstWhere('key', '61xx')['amount']);
+        $this->assertSame(1000.0, $data['financing']->firstWhere('key', '3101')['amount']);
         $this->assertSame(4500.0, $data['ending_cash']);
         $this->assertTrue($data['is_reconciled']);
         $this->assertTrue(app(FinancialHealthCheckService::class)->checkCashFlow($period->id)['is_healthy']);
@@ -57,7 +57,7 @@ class CashFlowTest extends TestCase
     {
         $journal = GeneralJournal::create([
             'tanggal' => $period->start_date,
-            'no_bukti' => 'CF-' . md5($description),
+            'no_bukti' => 'CF-'.md5($description),
             'keterangan' => $description,
             'source_type' => 'MANUAL',
         ]);

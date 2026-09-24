@@ -5,9 +5,7 @@ namespace Tests\Feature;
 use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\GeneralJournal;
-use App\Models\AccountingAudit;
 use App\Services\JournalEntryService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -26,19 +24,19 @@ class GeneralJournalTest extends TestCase
             'end_date' => now()->endOfMonth()->toDateString(),
             'status' => 'open',
         ]);
-        
+
         // Create some COAs
         ChartOfAccount::create([
             'kode_akun' => '1102',
             'nama_akun' => 'Bank',
             'kategori' => 'Aset',
-            'saldo_normal' => 'Debit'
+            'saldo_normal' => 'Debit',
         ]);
         ChartOfAccount::create([
             'kode_akun' => '3101',
             'nama_akun' => 'Modal Pemilik',
             'kategori' => 'Ekuitas',
-            'saldo_normal' => 'Kredit'
+            'saldo_normal' => 'Kredit',
         ]);
     }
 
@@ -96,6 +94,28 @@ class GeneralJournalTest extends TestCase
             'no_bukti' => 'JU-CLOSED',
             'keterangan' => 'Test',
             'source_type' => 'MANUAL',
+        ]);
+    }
+
+    public function test_general_journal_auto_creates_open_period_when_missing()
+    {
+        $futureDate = now()->addMonths(6)->startOfMonth();
+
+        $this->assertDatabaseMissing('bl_accounting_periods_t', [
+            'start_date' => $futureDate->toDateString(),
+        ]);
+
+        $journal = GeneralJournal::create([
+            'tanggal' => $futureDate->toDateString(),
+            'no_bukti' => 'JU-FUTURE',
+            'keterangan' => 'Test Future Date',
+            'source_type' => 'MANUAL',
+        ]);
+
+        $this->assertNotNull($journal->id);
+        $this->assertDatabaseHas('bl_accounting_periods_t', [
+            'label' => $futureDate->format('F Y'),
+            'status' => 'open',
         ]);
     }
 }

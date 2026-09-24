@@ -335,6 +335,14 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadCashFlowCsv(): StreamedResponse
     {
         $data = $this->getCashFlowData();
+        if (! $data) {
+            return response()->streamDownload(function () {
+                $handle = fopen('php://output', 'w');
+                fwrite($handle, "\xEF\xBB\xBF");
+                fputcsv($handle, ['Belum ada periode akuntansi yang dipilih atau tersedia.']);
+                fclose($handle);
+            }, 'arus-kas-empty.csv');
+        }
 
         return response()->streamDownload(function () use ($data) {
             $handle = fopen('php://output', 'w');
