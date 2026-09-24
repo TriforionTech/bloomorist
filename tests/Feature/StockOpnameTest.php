@@ -625,4 +625,49 @@ class StockOpnameTest extends TestCase
             'id' => $opname->id,
         ]);
     }
+
+    public function test_stock_opname_overview_widget_renders_correct_stats(): void
+    {
+        $this->actingAs($this->user);
+
+        // 1. Initial empty state
+        Livewire::test(\App\Filament\Resources\StockOpnames\Widgets\StockOpnameOverview::class)
+            ->assertSee('Total Fisik Terinput')
+            ->assertSee('0 pcs')
+            ->assertSee('Dokumen Opname');
+
+        // 2. Create Stock Opnames with items
+        $product = Product::create([
+            'sku' => 'FLW-ROS-001',
+            'nama' => 'Mawar Merah',
+            'kategori' => 'bunga',
+            'harga_beli' => 10000,
+            'harga_jual' => 15000,
+            'stok' => 20,
+            'is_active' => true,
+        ]);
+
+        $opname = StockOpname::create([
+            'reference_number' => 'SO-STATS-001',
+            'date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        StockOpnameItem::create([
+            'stock_opname_id' => $opname->id,
+            'product_id' => $product->id,
+            'system_qty' => 20,
+            'physical_qty' => 25,
+            'variance' => 5,
+            'unit_cost' => 10000,
+            'total_value' => 50000,
+        ]);
+
+        Livewire::test(\App\Filament\Resources\StockOpnames\Widgets\StockOpnameOverview::class)
+            ->assertSee('Total Fisik Terinput')
+            ->assertSee('25 pcs')
+            ->assertSee('1 Produk')
+            ->assertSee('1 Dokumen')
+            ->assertSee('+5 pcs');
+    }
 }

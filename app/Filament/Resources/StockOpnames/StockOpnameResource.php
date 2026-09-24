@@ -52,6 +52,13 @@ class StockOpnameResource extends Resource
         ];
     }
 
+    public static function getWidgets(): array
+    {
+        return [
+            Widgets\StockOpnameOverview::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
