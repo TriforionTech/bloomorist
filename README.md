@@ -121,7 +121,8 @@ php artisan migrate:fresh --seed
 | 8 | **Stock Transfer** | Transfer stok dari satu produk ke produk lain | Stok sumber berkurang, target bertambah |
 | 9 | **Buku Besar & Neraca Saldo** | Buka halaman Buku Besar & Neraca Saldo | Filter periode bekerja, saldo Debit & Kredit seimbang |
 | 10 | **Financial Reports** | Cek Laba Rugi, Neraca, dan Arus Kas | Nilai sinkron, tombol Download PDF & CSV berjalan |
-| 11 | **Tutup Buku** | Buka menu *Accounting Periods* & klik **Tutup Buku** | Periode terkunci (`CLOSED`), persediaan akhir dibawa ke bulan depan |
+| 11 | **Accounting Periods** | Buka menu *Accounting Periods* & buat periode baru | Pilih Bulan & Tahun, tanggal 1 s/d akhir bulan & label terisi otomatis |
+| 12 | **Tutup Buku** | Buka menu *Accounting Periods* & klik **Tutup Buku** | Periode terkunci (`CLOSED`), persediaan akhir dibawa ke bulan depan |
 
 ---
 
@@ -129,7 +130,7 @@ php artisan migrate:fresh --seed
 
 | Kategori | Fitur / Sub-Sistem | Status | Deskripsi |
 |---|---|:---:|---|
-| **Dashboard** | Executive Metrics & Visual Insights | `SELESAI` | Ringkasan omset, AOV, grafik tren harian/bulanan, top 10 produk, kategori pelanggan. |
+| **Dashboard** | Executive Metrics & Visual Insights | `SELESAI` | Ringkasan omset, AOV, grafik tren, top 10 produk. Layout 2-baris simetris lega di layar laptop. |
 | **Master Data** | Manajemen Produk & SKU Otomatis | `SELESAI` | Katalog produk, harga 3-tier (Toko, Vendor, Dekorator), multi-kategori, SKU generator otomatis. |
 | | Manajemen Pelanggan & Membership | `SELESAI` | Pelanggan reguler & member, riwayat belanja, tier diskon membership otomatis. |
 | | Chart of Accounts (COA) | `SELESAI` | Standar akuntansi florist (Aktiva Lancar, Tetap, Kewajiban, Modal, Pendapatan, HPP, Beban). |
@@ -137,9 +138,10 @@ php artisan migrate:fresh --seed
 | | Cetak Invoice PDF | `SELESAI` | Template struk / invoice PDF rapi dan siap cetak/kirim ke pelanggan. |
 | | Status Lifecycle & Integrasi Stok | `SELESAI` | Validasi stok saat pelunasan (`Pending` &rarr; `Paid`), pengembalian stok saat `Cancelled`. |
 | **Inventaris** | Real-Time Stock Tracking | `SELESAI` | Pengurangan stok otomatis dari invoice lunas dan penyesuaian manual. |
-| | Stock Opname (Fisik) | `SELESAI` | Perhitungan varians sistem vs fisik, pencatatan kerugian/keuntungan bunga rusak/layu. |
+| | Stock Opname (Fisik) | `SELESAI` | Input 2-kolom ringkas, kalkulasi varians otomatis, kartu overview total fisik & varians di header. |
 | | Stock Transfer | `SELESAI` | Konversi antar produk bunga dengan penyesuaian nilai harga pokok. |
-| **Akuntansi** | Jurnal Umum Otomatis (Double-entry) | `SELESAI` | Integrasi jurnal dari penjualan invoice, pengeluaran kas, stock opname, dan depresiasi aset. |
+| **Akuntansi** | Periode Akuntansi (Sistem Kalender) | `SELESAI` | Pemilihan Bulan & Tahun kalender otomatis (tanggal 1 s/d akhir bulan, pencegahan duplikasi). |
+| | Jurnal Umum Otomatis (Double-entry) | `SELESAI` | Integrasi jurnal dari penjualan invoice, pengeluaran kas, stock opname, dan depresiasi aset. |
 | | Buku Besar (General Ledger) | `SELESAI` | Rekap mutasi debit/kredit dan saldo berjalan per akun COA per periode. |
 | | Neraca Saldo (Trial Balance) | `SELESAI` | Validasi keseimbangan saldo debit dan kredit secara real-time. |
 | | Laporan Laba Rugi (Metode Periodik) | `SELESAI` | Penjualan Bersih - HPP (Persediaan Awal + Pembelian - Persediaan Akhir) - Beban Operasional. |
@@ -163,6 +165,12 @@ Jalankan pengujian spesifik:
 ```bash
 # Uji migrasi fresh & penanganan data kosong:
 php artisan test --compact tests/Feature/FreshMigrationAndEmptyStateTest.php
+
+# Uji manajemen periode akuntansi berbasis kalender:
+php artisan test --compact tests/Feature/AccountingPeriodResourceTest.php
+
+# Uji tampilan dan layout widget dashboard:
+php artisan test --compact tests/Feature/DashboardWidgetTest.php
 
 # Uji penutupan periode akuntansi (Tutup Buku):
 php artisan test --compact tests/Feature/PeriodClosingTest.php
