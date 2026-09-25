@@ -16,16 +16,27 @@ class PeriodClosingService
         private readonly CashFlowService $cashFlowService,
     ) {}
 
+    private ?float $cachedPhysicalInventoryValue = null;
+
     /**
      * Calculate closing inventory value from physical warehouse stock.
      */
     public function calculateClosingInventoryValue(AccountingPeriod $period): float
     {
+        if ($this->cachedPhysicalInventoryValue !== null) {
+            return $this->cachedPhysicalInventoryValue;
+        }
+
         $total = (float) Product::active()
             ->selectRaw('COALESCE(SUM(stok * harga_beli), 0) as total')
             ->value('total');
 
-        return max(0, $total);
+        return $this->cachedPhysicalInventoryValue = max(0, $total);
+    }
+
+    public function clearInventoryValueCache(): void
+    {
+        $this->cachedPhysicalInventoryValue = null;
     }
 
     public function close(AccountingPeriod $period): MonthlySummary
@@ -40,6 +51,7 @@ class PeriodClosingService
                 'closing_inventory_value' => $this->calculateClosingInventoryValue($period),
             ]);
             $period->refresh();
+            $this->clearInventoryValueCache();
         }
 
         $checks = [

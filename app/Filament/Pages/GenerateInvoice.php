@@ -110,7 +110,7 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function fillFormFromInvoice(): void
     {
-        $invoice = Invoice::with(['regularItems', 'boxItem', 'wrappingItem', 'customer'])->findOrFail($this->invoiceId);
+        $invoice = Invoice::with(['regularItems', 'boxItem', 'wrappingItem', 'customer.membership'])->findOrFail($this->invoiceId);
 
         // Bangun data products dari regularItems relasi
         $products = $invoice->regularItems->map(function ($item) {

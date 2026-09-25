@@ -14,6 +14,13 @@ class ViewStockOpname extends ViewRecord
 {
     protected static string $resource = StockOpnameResource::class;
 
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $this->record->loadMissing(['items.product']);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

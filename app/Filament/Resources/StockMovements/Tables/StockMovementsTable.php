@@ -15,6 +15,7 @@ class StockMovementsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['product', 'user']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('no')

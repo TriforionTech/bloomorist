@@ -17,6 +17,7 @@ class StockTransfersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['sourceProduct', 'targetProduct']))
             ->defaultSort('tanggal', 'desc')
             ->columns([
                 TextColumn::make('no')

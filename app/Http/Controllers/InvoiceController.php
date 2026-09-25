@@ -9,6 +9,8 @@ class InvoiceController extends Controller
 {
     public function download(Invoice $invoice)
     {
+        $invoice->loadMissing(['customer.membership', 'items.product']);
+
         $customer = [
             'name' => $invoice->customer->nama ?? $invoice->customer_name ?? 'Unknown',
             'alias' => $invoice->customer->alias ?? '',
@@ -57,7 +59,7 @@ class InvoiceController extends Controller
         // ALL items (including Box/Wrapping) go into the product list
         // Menggunakan snapshot_name untuk immutability
         $products = [];
-        foreach ($invoice->items()->get() as $item) {
+        foreach ($invoice->items as $item) {
             $productName = $item->snapshot_name ?: ($item->product->nama ?? 'Unknown Product');
 
             $products[] = [
