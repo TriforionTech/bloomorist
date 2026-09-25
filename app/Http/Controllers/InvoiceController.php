@@ -10,7 +10,7 @@ class InvoiceController extends Controller
     public function download(Invoice $invoice)
     {
         $customer = [
-            'name' => $invoice->customer->nama ?? 'Unknown',
+            'name' => $invoice->customer->nama ?? $invoice->customer_name ?? 'Unknown',
             'alias' => $invoice->customer->alias ?? '',
             'address' => $invoice->customer->alamat ?? '-',
             'city' => $invoice->customer->kota ?? '-',

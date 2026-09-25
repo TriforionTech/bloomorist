@@ -145,7 +145,7 @@ class GenerateInvoice extends Page implements HasSchemas
             'customer_type' => $invoice->customer_type ?? 'member',
             'member_id' => $invoice->customer_id,
             'pricing_tier' => $pricingTier,
-            'name' => $invoice->customer?->nama,
+            'name' => $invoice->customer?->nama ?? $invoice->customer_name,
             'alias' => $invoice->customer?->alias,
             'address' => $invoice->customer?->alamat,
             'city' => $invoice->customer?->kota,
@@ -1199,11 +1199,17 @@ class GenerateInvoice extends Page implements HasSchemas
                     $customerId = $customer->id;
                 }
 
+                $customerName = $data['name'] ?? null;
+                if (! $customerName && $customerId) {
+                    $customerName = Customer::withTrashed()->find($customerId)?->nama;
+                }
+
                 // === DATA INVOICE UNTUK SIMPAN KE DB ===
                 $invoiceData = [
                     'invoice_number' => $invoiceNumber,
                     'customer_type' => $data['customer_type'] ?? 'non_member',
                     'customer_id' => $customerId,
+                    'customer_name' => $customerName,
                     'pricing_tier' => $data['pricing_tier'] ?? 'toko',
                     'discount_mode' => $data['discount_mode'] ?? 'none',
                     'discount_mode_member' => $data['discount_mode_member'] ?? false,

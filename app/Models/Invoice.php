@@ -13,6 +13,7 @@ class Invoice extends Model
         'invoice_number',
         'customer_type',
         'customer_id',
+        'customer_name',
         'pricing_tier',
         'discount_mode',
         'discount_mode_member',
@@ -143,9 +144,9 @@ class Invoice extends Model
             ->where('snapshot_name', 'Wrapping');
     }
 
-    public function customer()
+    public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class, 'customer_id')->withTrashed();
     }
 
     /**
