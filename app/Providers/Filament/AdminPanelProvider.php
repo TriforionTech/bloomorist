@@ -67,7 +67,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->brandName('Bloomorist')
-            ->brandLogo(asset(asset('img/BloomoristLogo.png')))
+            ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('img/BloomoristLogo.png'))
             ->sidebarCollapsibleOnDesktop()
