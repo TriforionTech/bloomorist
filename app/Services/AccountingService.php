@@ -345,86 +345,6 @@ class AccountingService
     }
 
     /**
-     * Create journal entries for a manual stock adjustment.
-     * Stock In:  Debit 1030 Persediaan, Kredit 1010 Kas & Bank
-     * Stock Out: Debit 5010 Beban Operasional, Kredit 1030 Persediaan
-     */
-    public function createStockMovementJournal(
-        string $type,
-        int $quantity,
-        int $unitCost,
-        string $productName,
-        ?string $notes = null
-    ): ?GeneralJournal {
-        return DB::transaction(function () use ($type, $quantity, $unitCost, $productName, $notes) {
-            $coaPersediaan = ChartOfAccount::where('kode_akun', '1104')->first();
-            $coaKas = ChartOfAccount::where('kode_akun', '1101')->first();
-            $coaBeban = ChartOfAccount::where('kode_akun', '6106')->first();
-
-            if (! $coaPersediaan || ! $coaKas || ! $coaBeban) {
-                return null;
-            }
-
-            $amount = $quantity * $unitCost;
-
-            if ($amount <= 0) {
-                return null;
-            }
-
-            $prefix = $type === 'in' ? 'STK-IN' : 'STK-OUT';
-            $label = $type === 'in' ? 'Stock In' : 'Stock Out';
-            $description = "{$label}: {$productName} ({$quantity} unit)";
-            if ($notes) {
-                $description .= " — {$notes}";
-            }
-
-            $journal = GeneralJournal::create([
-                'tanggal' => now()->toDateString(),
-                'no_bukti' => $this->generateNoBukti($prefix),
-                'keterangan' => $description,
-                'reference_id' => null,
-                'source_type' => 'STOCK',
-            ]);
-
-            if ($type === 'in') {
-                // Stock In: Debit Persediaan, Kredit Kas
-                JournalItem::create([
-                    'journal_id' => $journal->id,
-                    'coa_id' => $coaPersediaan->id,
-                    'kode_coa' => $coaPersediaan->kode_akun,
-                    'debit' => $amount,
-                    'kredit' => 0,
-                ]);
-                JournalItem::create([
-                    'journal_id' => $journal->id,
-                    'coa_id' => $coaKas->id,
-                    'kode_coa' => $coaKas->kode_akun,
-                    'debit' => 0,
-                    'kredit' => $amount,
-                ]);
-            } else {
-                // Stock Out: Debit Beban Operasional, Kredit Persediaan
-                JournalItem::create([
-                    'journal_id' => $journal->id,
-                    'coa_id' => $coaBeban->id,
-                    'kode_coa' => $coaBeban->kode_akun,
-                    'debit' => $amount,
-                    'kredit' => 0,
-                ]);
-                JournalItem::create([
-                    'journal_id' => $journal->id,
-                    'coa_id' => $coaPersediaan->id,
-                    'kode_coa' => $coaPersediaan->kode_akun,
-                    'debit' => 0,
-                    'kredit' => $amount,
-                ]);
-            }
-
-            return $journal;
-        });
-    }
-
-    /**
      * Create journal entries for a stock transfer.
      * Records the transfer between two products and records any price variance as gain/loss.
      */
@@ -731,7 +651,7 @@ class AccountingService
 
         $openingInventory = $priorPeriod?->closing_inventory_value !== null
             ? (float) $priorPeriod->closing_inventory_value
-            : $this->accountBalanceBeforeCode('1104', $end->copy()->addDay());
+            : $this->accountBalanceBeforeCode('1104', $start);
         $period = $this->findPeriodForRange($start, $end);
         $closingInventory = $period?->closing_inventory_value;
 
@@ -754,8 +674,11 @@ class AccountingService
             }
         }
         $goodsAvailable = $openingInventory + $netPurchases + $purchaseFreight;
+        $shrinkageLoss = $hasPeriodicAccounts
+            ? $this->accountBalanceByCode('6106', $start, $end, true)
+            : 0.0;
         $cogs = $hasPeriodicAccounts && $closingInventory !== null
-            ? $goodsAvailable - (float) $closingInventory
+            ? max(0.0, $goodsAvailable - (float) $closingInventory - $shrinkageLoss)
             : 0;
 
         $operatingExpenses = $hasPeriodicAccounts
@@ -787,6 +710,7 @@ class AccountingService
             'beban_angkut_pembelian' => $purchaseFreight,
             'barang_tersedia_dijual' => $goodsAvailable,
             'persediaan_akhir' => $closingInventory,
+            'bunga_rusak' => $shrinkageLoss,
             'hpp' => $cogs,
             'laba_kotor' => $grossProfit,
             'beban_operasional' => $operatingExpenses,

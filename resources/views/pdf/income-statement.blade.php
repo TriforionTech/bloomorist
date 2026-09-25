@@ -30,6 +30,9 @@
             <tr><td class="detail-label">Persediaan Awal</td><td class="amount">Rp {{ number_format($data['persediaan_awal'], 0, ',', '.') }}</td></tr>
             <tr class="total-row"><td class="detail-label">Barang Tersedia Dijual</td><td class="amount">Rp {{ number_format($data['barang_tersedia_dijual'], 0, ',', '.') }}</td></tr>
             <tr><td class="detail-label negative">Persediaan Bunga Akhir (hasil stock opname)</td><td class="amount negative">(Rp {{ number_format($data['persediaan_akhir'] ?? 0, 0, ',', '.') }})</td></tr>
+            @if (($data['bunga_rusak'] ?? 0) > 0)
+                <tr><td class="detail-label negative">Kerugian Bunga Rusak/Layu (dialihkan ke Beban Operasional)</td><td class="amount negative">(Rp {{ number_format($data['bunga_rusak'], 0, ',', '.') }})</td></tr>
+            @endif
             <tr class="total-row"><td class="detail-label">Harga Pokok Penjualan (HPP)</td><td class="amount">Rp {{ number_format($data['hpp'], 0, ',', '.') }}</td></tr>
             <tr class="spacer"><td colspan="2"></td></tr>
 

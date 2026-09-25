@@ -72,6 +72,9 @@
                         <tr><td class="py-2 px-4 pl-8">Persediaan Awal</td><td class="py-2 px-4 text-right">{{ number_format($income['persediaan_awal'], 0, ',', '.') }}</td></tr>
                         <tr class="font-bold"><td class="py-2 px-4 pl-8">Barang Tersedia Dijual</td><td class="py-2 px-4 text-right">{{ number_format($income['barang_tersedia_dijual'], 0, ',', '.') }}</td></tr>
                         <tr><td class="py-2 px-4 pl-8 text-danger-600">Persediaan Bunga Akhir (hasil stock opname)</td><td class="py-2 px-4 text-right text-danger-600">({{ number_format($income['persediaan_akhir'] ?? 0, 0, ',', '.') }})</td></tr>
+                        @if (($income['bunga_rusak'] ?? 0) > 0)
+                            <tr><td class="py-2 px-4 pl-8 text-amber-600 dark:text-amber-400">Kerugian Bunga Rusak/Layu (dialihkan ke Beban Operasional)</td><td class="py-2 px-4 text-right text-amber-600 dark:text-amber-400">({{ number_format($income['bunga_rusak'], 0, ',', '.') }})</td></tr>
+                        @endif
                         <tr class="font-bold"><td class="py-2 px-4 pl-8">Harga Pokok Penjualan (HPP)</td><td class="py-2 px-4 text-right">{{ number_format($income['hpp'], 0, ',', '.') }}</td></tr>
                         <tr><td colspan="2" class="py-2"></td></tr>
 

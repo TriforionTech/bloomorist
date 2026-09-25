@@ -435,6 +435,86 @@ class PeriodicFinancialReportTest extends TestCase
         $this->assertSame(6000000.0, (float) $report['persediaan_akhir']);
     }
 
+    public function test_income_statement_separates_bunga_rusak_from_cogs_without_double_count(): void
+    {
+        $period = AccountingPeriod::create([
+            'label' => 'Oktober 2026',
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-31',
+            'status' => 'open',
+            'closing_inventory_value' => 4000000,
+        ]);
+
+        $accounts = [];
+        foreach ([
+            ['1101', 'Kas', 'Aset', 'Debit'],
+            ['1104', 'Persediaan Bunga', 'Aset', 'Debit'],
+            ['4101', 'Penjualan', 'Pendapatan', 'Kredit'],
+            ['5101', 'Pembelian Bunga', 'Beban', 'Debit'],
+            ['5103', 'Beban Angkut Pembelian', 'Beban', 'Debit'],
+            ['6101', 'Beban Gaji', 'Beban', 'Debit'],
+            ['6106', 'Beban Kerugian Bunga Rusak/Layu', 'Beban', 'Debit'],
+        ] as [$code, $name, $category, $normal]) {
+            $accounts[$code] = ChartOfAccount::create([
+                'kode_akun' => $code,
+                'nama_akun' => $name,
+                'kategori' => $category,
+                'saldo_normal' => $normal,
+            ]);
+        }
+
+        // Persediaan awal sebelum Oktober: 2.000.000
+        $this->createJournal($period, '2026-09-30', 'Saldo awal persediaan', [
+            [$accounts['1104'], 2000000, 0],
+            [$accounts['1101'], 0, 2000000],
+        ]);
+        // Pembelian: 10.000.000
+        $this->createJournal($period, '2026-10-02', 'Pembelian bunga', [
+            [$accounts['5101'], 10000000, 0],
+            [$accounts['1101'], 0, 10000000],
+        ]);
+        // Beban angkut: 500.000
+        $this->createJournal($period, '2026-10-03', 'Angkut pembelian', [
+            [$accounts['5103'], 500000, 0],
+            [$accounts['1101'], 0, 500000],
+        ]);
+        // Penjualan: 15.000.000
+        $this->createJournal($period, '2026-10-15', 'Penjualan', [
+            [$accounts['1101'], 15000000, 0],
+            [$accounts['4101'], 0, 15000000],
+        ]);
+        // Stock Adjustment bunga layu/rusak: 500.000 (Debit 6106, Kredit 1104)
+        $this->createJournal($period, '2026-10-20', 'Bunga layu dibuang', [
+            [$accounts['6106'], 500000, 0],
+            [$accounts['1104'], 0, 500000],
+        ]);
+        // Beban Gaji: 2.000.000
+        $this->createJournal($period, '2026-10-25', 'Beban gaji', [
+            [$accounts['6101'], 2000000, 0],
+            [$accounts['1101'], 0, 2000000],
+        ]);
+
+        $report = app(AccountingService::class)->getIncomeStatement(
+            $period->start_date->startOfDay(),
+            $period->end_date->endOfDay(),
+        );
+
+        // Barang Tersedia = 2.000.000 + 10.000.000 + 500.000 = 12.500.000
+        $this->assertSame(12500000.0, $report['barang_tersedia_dijual']);
+        // Bunga rusak = 500.000
+        $this->assertSame(500000.0, $report['bunga_rusak']);
+        // HPP Murni Bunga Terjual = 12.500.000 - 4.000.000 - 500.000 = 8.000.000
+        $this->assertSame(8000000.0, $report['hpp']);
+        // Laba Kotor = 15.000.000 - 8.000.000 = 7.000.000
+        $this->assertSame(7000000.0, $report['laba_kotor']);
+        // Beban Operasional = Gaji (2.000.000) + Bunga Rusak (500.000) = 2.500.000
+        $this->assertSame(2500000.0, $report['beban_operasional']);
+        // Laba Usaha / Laba Bersih = 7.000.000 - 2.500.000 = 4.500.000
+        $this->assertSame(4500000.0, $report['laba_rugi']);
+        // Total beban = HPP (8.000.000) + Beban Op (2.500.000) = 10.500.000 (tidak double count)
+        $this->assertSame(10500000.0, $report['total_beban']);
+    }
+
     private function createJournal(AccountingPeriod $period, string $date, string $description, array $lines): void
     {
         $journal = GeneralJournal::create([
