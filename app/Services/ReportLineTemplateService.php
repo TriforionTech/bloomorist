@@ -59,17 +59,17 @@ class ReportLineTemplateService
 
     private function evaluateFormula(?string $formula, array $results): float
     {
-        if (!$formula) {
+        if (! $formula) {
             throw new RuntimeException('Subtotal template harus memiliki formula.');
         }
 
         preg_match_all('/[A-Za-z][A-Za-z0-9_]*/', $formula, $keys);
         $expression = $formula;
         foreach (array_unique($keys[0]) as $key) {
-            if (!array_key_exists($key, $results)) {
+            if (! array_key_exists($key, $results)) {
                 throw new RuntimeException("Line key '{$key}' belum tersedia untuk formula subtotal.");
             }
-            $expression = preg_replace('/\b' . preg_quote($key, '/') . '\b/', (string) $results[$key], $expression);
+            $expression = preg_replace('/\b'.preg_quote($key, '/').'\b/', (string) $results[$key], $expression);
         }
 
         return $this->evaluateArithmetic($expression);
@@ -89,11 +89,12 @@ class ReportLineTemplateService
             if (($token === '+' || $token === '-')
                 && ($index === 0 || in_array($tokens[$index - 1], ['+', '-', '*', '/', '('], true))) {
                 $next = $tokens[$index + 1] ?? null;
-                if ($next === null || !is_numeric($next)) {
+                if ($next === null || ! is_numeric($next)) {
                     throw new RuntimeException('Formula subtotal tidak valid.');
                 }
-                $normalizedTokens[] = $token === '-' ? '-' . $next : $next;
+                $normalizedTokens[] = $token === '-' ? '-'.$next : $next;
                 $index++;
+
                 continue;
             }
             if ($index > 0 && is_numeric($tokens[$index - 1]) && is_numeric($token)) {
@@ -107,7 +108,7 @@ class ReportLineTemplateService
         $operators = [];
         $precedence = ['+' => 1, '-' => 1, '*' => 2, '/' => 2];
         $apply = function () use (&$values, &$operators): void {
-            if (count($values) < 2 || !$operators) {
+            if (count($values) < 2 || ! $operators) {
                 throw new RuntimeException('Formula subtotal tidak valid.');
             }
             $operator = array_pop($operators);
@@ -133,7 +134,7 @@ class ReportLineTemplateService
                 while ($operators && end($operators) !== '(') {
                     $apply();
                 }
-                if (!$operators || array_pop($operators) !== '(') {
+                if (! $operators || array_pop($operators) !== '(') {
                     throw new RuntimeException('Kurung formula subtotal tidak seimbang.');
                 }
             } else {
@@ -163,6 +164,6 @@ class ReportLineTemplateService
         $regex = preg_quote($pattern, '/');
         $regex = str_replace('\*', '.*', $regex);
 
-        return preg_match('/^' . $regex . '$/', $code) === 1;
+        return preg_match('/^'.$regex.'$/', $code) === 1;
     }
 }

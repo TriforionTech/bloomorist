@@ -12,9 +12,7 @@ use RuntimeException;
 
 class WorkbookImportService
 {
-    public function __construct(private readonly WorkbookReconciliationService $workbookReader)
-    {
-    }
+    public function __construct(private readonly WorkbookReconciliationService $workbookReader) {}
 
     public function import(string $path): array
     {
@@ -32,6 +30,7 @@ class WorkbookImportService
             $existing = GeneralJournal::where('no_bukti', $noBukti)->first();
             if ($existing && $existing->keterangan === $group['description']) {
                 $skipped++;
+
                 continue;
             }
             if ($existing) {
@@ -39,10 +38,11 @@ class WorkbookImportService
                 $existing = GeneralJournal::where('no_bukti', $noBukti)->first();
                 if ($existing && $existing->keterangan === $group['description']) {
                     $skipped++;
+
                     continue;
                 }
                 if ($existing) {
-                    $noBukti .= '-' . substr(sha1($group['description']), 0, 6);
+                    $noBukti .= '-'.substr(sha1($group['description']), 0, 6);
                 }
             }
 
@@ -80,7 +80,7 @@ class WorkbookImportService
     {
         $accounts = [];
         foreach ($rows as $cell => $value) {
-            if (!preg_match('/^A(\d+)$/', $cell, $match) || !is_numeric($value)) {
+            if (! preg_match('/^A(\d+)$/', $cell, $match) || ! is_numeric($value)) {
                 continue;
             }
             $row = (int) $match[1];
@@ -100,6 +100,7 @@ class WorkbookImportService
             );
             $accounts[$code] = $account;
         }
+
         return $accounts;
     }
 
@@ -108,18 +109,18 @@ class WorkbookImportService
         $groups = [];
         $current = null;
         foreach ($rows as $cell => $value) {
-            if (!preg_match('/^A(\d+)$/', $cell, $match) || !is_numeric($value)) {
+            if (! preg_match('/^A(\d+)$/', $cell, $match) || ! is_numeric($value)) {
                 continue;
             }
             $row = (int) $match[1];
             $date = $this->date($value);
             $code = $this->code($rows["D{$row}"] ?? '');
             $description = trim((string) ($rows["C{$row}"] ?? ''));
-            if (!$date || !$code || $description === '') {
+            if (! $date || ! $code || $description === '') {
                 continue;
             }
             $reference = trim((string) ($rows["B{$row}"] ?? ''));
-            $key = $date . '|' . strtolower(preg_replace('/\s+/', ' ', $reference ?: $description));
+            $key = $date.'|'.strtolower(preg_replace('/\s+/', ' ', $reference ?: $description));
             if ($current === null || $current['key'] !== $key) {
                 if ($current !== null) {
                     $groups[] = $current;
@@ -141,12 +142,13 @@ class WorkbookImportService
         if ($current !== null) {
             $groups[] = $current;
         }
+
         return $groups;
     }
 
     private function generatedNoBukti(array $group): string
     {
-        return 'WB-' . Carbon::parse($group['date'])->format('ymd') . '-' . substr(sha1($group['key']), 0, 10);
+        return 'WB-'.Carbon::parse($group['date'])->format('ymd').'-'.substr(sha1($group['key']), 0, 10);
     }
 
     private function code(mixed $value): string
@@ -159,7 +161,7 @@ class WorkbookImportService
         if (is_numeric($value)) {
             return Carbon::create(1899, 12, 30)->addDays((int) $value)->toDateString();
         }
+
         return $value ? Carbon::parse((string) $value)->toDateString() : null;
     }
-
 }

@@ -6,8 +6,8 @@ use App\Models\AccountingPeriod;
 use App\Models\MonthlySummary;
 use App\Services\AccountingService;
 use Carbon\Carbon;
-use Filament\Widgets\ChartWidget;
 use Filament\Support\RawJs;
+use Filament\Widgets\ChartWidget;
 
 class MonthlyTrendChartWidget extends ChartWidget
 {
@@ -17,15 +17,20 @@ class MonthlyTrendChartWidget extends ChartWidget
     }
 
     protected ?string $heading = 'Tren Keuangan Bulanan';
+
     protected string $view = 'filament.widgets.sales-chart';
+
     protected static ?int $sort = 4;
+
     protected int|string|array $columnSpan = [
         'default' => 1,
         'md' => 12,
         'lg' => 8,
         'xl' => 8,
     ];
+
     protected ?string $maxHeight = '500px';
+
     protected ?string $pollingInterval = null;
 
     protected function getData(): array
@@ -58,7 +63,7 @@ class MonthlyTrendChartWidget extends ChartWidget
                 );
 
                 return [
-                    'label' => $period->label . ' (berjalan)',
+                    'label' => $period->label.' (berjalan)',
                     'net_sales' => (float) $income['penjualan_bersih'],
                     'net_income' => (float) $income['laba_rugi'],
                 ];

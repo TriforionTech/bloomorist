@@ -344,44 +344,143 @@ class GenerateInvoice extends Page implements HasSchemas
     // SCHEMA BUILDERS
     protected function setCustomerTypeSection(): Section
     {
-        return Section::make('Customer Type')
+        return Section::make('Customer & Transaksi')
             ->icon('heroicon-o-user-circle')
-            ->description('Tentukan kategori pelanggan untuk menyesuaikan harga, benefit, dan aturan transaksi.')
+            ->description('Pilih pelanggan terdaftar untuk otomatis menerapkan kategori harga, benefit membership, dan identitas pelanggan.')
             ->columns(2)
             ->schema([
+                Select::make('member_id')
+                    ->label('Pilih / Cari Customer')
+                    ->placeholder('Pilih customer terdaftar atau cari nama / alias / HP (kosongkan jika pelanggan baru)...')
+                    ->options(fn () => Customer::query()
+                        ->with('membership')
+                        ->orderBy('nama')
+                        ->limit(100)
+                        ->get()
+                        ->mapWithKeys(function (Customer $member) {
+                            $label = $member->nama;
+                            if ($member->alias) {
+                                $label .= " [{$member->alias}]";
+                            }
+                            if ($member->tipe_customer && $member->tipe_customer !== 'toko') {
+                                $label .= ' • '.ucfirst($member->tipe_customer);
+                            }
+                            if ($member->membership) {
+                                $label .= ' • '.$member->membership->nama;
+                            }
+
+                            return [$member->id => $label];
+                        }))
+                    ->searchable(['nama', 'alias', 'nomor_hp'])
+                    ->getSearchResultsUsing(function (string $search) {
+                        return Customer::query()
+                            ->with('membership')
+                            ->where('nama', 'like', "%{$search}%")
+                            ->orWhere('alias', 'like', "%{$search}%")
+                            ->orWhere('nomor_hp', 'like', "%{$search}%")
+                            ->limit(50)
+                            ->get()
+                            ->mapWithKeys(function (Customer $member) {
+                                $label = $member->nama;
+                                if ($member->alias) {
+                                    $label .= " [{$member->alias}]";
+                                }
+                                if ($member->tipe_customer && $member->tipe_customer !== 'toko') {
+                                    $label .= ' • '.ucfirst($member->tipe_customer);
+                                }
+                                if ($member->membership) {
+                                    $label .= ' • '.$member->membership->nama;
+                                }
+
+                                return [$member->id => $label];
+                            });
+                    })
+                    ->getOptionLabelUsing(function ($value) {
+                        $member = Customer::with('membership')->find($value);
+                        if (! $member) {
+                            return null;
+                        }
+
+                        $label = $member->nama;
+                        if ($member->alias) {
+                            $label .= " [{$member->alias}]";
+                        }
+                        if ($member->tipe_customer && $member->tipe_customer !== 'toko') {
+                            $label .= ' • '.ucfirst($member->tipe_customer);
+                        }
+                        if ($member->membership) {
+                            $label .= ' • '.$member->membership->nama;
+                        }
+
+                        return $label;
+                    })
+                    ->searchingMessage('Mencari customer...')
+                    ->searchPrompt('Ketik nama, alias, atau nomor HP')
+                    ->noSearchResultsMessage('Customer tidak ditemukan.')
+                    ->noOptionsMessage('Belum ada data customer.')
+                    ->preload()
+                    ->live()
+                    ->native(false)
+                    ->columnSpanFull()
+                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                        if ($state) {
+                            $member = Customer::query()->with('membership')->find($state);
+
+                            if ($member) {
+                                // 1. Mode Transaksi otomatis: jika punya membership -> member, jika tidak -> non_member
+                                $mode = $member->membership_id ? 'member' : 'non_member';
+                                $set('customer_type', $mode);
+
+                                // 2. Harga Diterapkan otomatis dari data default tipe_customer
+                                $tier = $member->tipe_customer ?? 'toko';
+                                $set('pricing_tier', $tier);
+
+                                // 3. Autofill identitas customer
+                                $set('name', $member->nama);
+                                $set('alias', $member->alias);
+                                $set('address', $member->alamat);
+                                $set('city', $member->kota);
+                                $set('province', $member->provinsi);
+                                $set('country', $member->negara ?? 'Indonesia');
+                                $set('email', $member->email);
+                                $set('phone_number', $member->nomor_hp);
+                                $set('membership_id', $member->membership_id);
+
+                                $this->recalculateAllProducts($get, $set, $tier);
+                            }
+                        } else {
+                            // Clear dropdown, bersihkan field jika user membatalkan pilihan
+                            $set('customer_type', 'non_member');
+                            $set('pricing_tier', 'toko');
+                            $set('name', null);
+                            $set('alias', null);
+                            $set('address', null);
+                            $set('city', null);
+                            $set('province', null);
+                            $set('country', 'Indonesia');
+                            $set('email', null);
+                            $set('phone_number', null);
+                            $set('membership_id', null);
+
+                            $this->recalculateAllProducts($get, $set, 'toko');
+                        }
+                    }),
+
                 Select::make('customer_type')
                     ->label('Mode Transaksi')
                     ->options([
-                        'member' => 'Member',
-                        'non_member' => 'Non-Member',
+                        'member' => 'Member (Benefit Diskon Membership)',
+                        'non_member' => 'Non-Member (Reguler / Pelanggan Baru)',
                     ])
-                    ->default('member')
+                    ->default('non_member')
+                    ->helperText('Otomatis terisi dari status customer. Dapat diubah jika diperlukan.')
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                        $set('member_id', null);
-                        $set('pricing_tier', 'toko');
-                        $set('name', null);
-                        $set('alias', null);
-                        $set('address', null);
-                        $set('city', null);
-                        $set('province', null);
-                        $set('country', 'Indonesia');
-                        $set('email', null);
-                        $set('phone_number', null);
-                        $set('membership_id', null);
-
-                        $set('products', [
-                            [
-                                'product_id' => null,
-                                'quantity' => 1,
-                                'unit_price' => 0,
-                                'normal_price' => 0,
-                                'item_discount' => 0,
-                                'discount_price' => 0,
-                            ],
-                        ]);
-
-                        $this->recalculateAllProducts($get, $set, 'toko');
+                        if ($state === 'non_member') {
+                            $set('membership_id', null);
+                        }
+                        $tier = $get('pricing_tier') ?? 'toko';
+                        $this->recalculateAllProducts($get, $set, $tier);
                     }),
 
                 Select::make('pricing_tier')
@@ -392,80 +491,11 @@ class GenerateInvoice extends Page implements HasSchemas
                         'dekor' => 'Harga Dekorator',
                     ])
                     ->default('toko')
+                    ->helperText('Otomatis terisi dari tipe customer. Dapat diubah jika ingin memberi harga khusus.')
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                         $this->recalculateAllProducts($get, $set, $state);
                     }),
-
-                Select::make('member_id')
-                    ->label('Search Customer')
-                    ->loadingMessage('Loading customers...')
-                    ->searchable(['nama', 'alias'])
-                    ->getSearchResultsUsing(function (string $search) {
-                        return Customer::query()
-                            ->where('nama', 'like', "%{$search}%")
-                            ->orWhere('alias', 'like', "%{$search}%")
-                            ->limit(100)
-                            ->get()
-                            ->mapWithKeys(function ($member) {
-                                return [
-                                    $member->id => "{$member->nama} [{$member->alias}]",
-                                ];
-                            });
-                    })
-                    ->getOptionLabelUsing(function ($value) {
-                        $member = Customer::query()->find($value);
-
-                        return $member
-                            ? "{$member->nama} [{$member->alias}]"
-                            : null;
-                    })
-                    ->searchingMessage('Searching customer...')
-                    ->searchPrompt('Search by name or alias')
-                    ->preload()
-                    ->noSearchResultsMessage('No customer found.')
-                    ->noOptionsMessage('No customer available.')
-                    // ->visible(fn (Get $get) => $this->isMember($get))
-                    ->live()
-                    ->native(false)
-                    ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                        $tier = 'toko';
-                        // Jika admin memilih member, tarik datanya dari DB
-                        if ($state) {
-                            $member = Customer::query()->find($state);
-
-                            if ($member) {
-                                // Autofill semua field
-                                $set('name', $member->nama);
-                                $set('alias', $member->alias);
-                                $set('address', $member->alamat);
-                                $set('city', $member->kota);
-                                $set('province', $member->provinsi);
-                                $set('country', $member->negara);
-                                $set('email', $member->email);
-                                $set('phone_number', $member->nomor_hp);
-                                $set('membership_id', $member->membership_id);
-                                $tier = $member->tipe_customer ?? 'toko';
-                                $set('pricing_tier', $tier);
-                            }
-                        } else {
-                            // Clear dropdown, bersihkan field
-                            $set('name', null);
-                            $set('alias', null);
-                            $set('address', null);
-                            $set('city', null);
-                            $set('province', null);
-                            $set('country', null);
-                            $set('email', null);
-                            $set('phone_number', null);
-                            $set('membership_id', null);
-                            $set('pricing_tier', 'toko');
-                            $tier = 'toko';
-                        }
-
-                        $this->recalculateAllProducts($get, $set, $tier);
-                    })
-                    ->columnSpanFull(),
             ]);
     }
 

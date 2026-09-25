@@ -85,8 +85,8 @@ class StockMovementsTable
                         \Filament\Forms\Components\Select::make('preset')
                             ->label('Quick Filter')
                             ->options([
-                                'today'      => 'Today',
-                                'this_week'  => 'This Week',
+                                'today' => 'Today',
+                                'this_week' => 'This Week',
                                 'this_month' => 'This Month',
                                 'last_month' => 'Last Month',
                             ])
@@ -96,23 +96,27 @@ class StockMovementsTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $preset = $data['preset'] ?? null;
+
                         return match ($preset) {
-                            'today'      => $query->whereDate('created_at', \Carbon\Carbon::today()),
-                            'this_week'  => $query->whereBetween('created_at', [\Carbon\Carbon::now()->startOfWeek(), \Carbon\Carbon::now()->endOfWeek()]),
+                            'today' => $query->whereDate('created_at', \Carbon\Carbon::today()),
+                            'this_week' => $query->whereBetween('created_at', [\Carbon\Carbon::now()->startOfWeek(), \Carbon\Carbon::now()->endOfWeek()]),
                             'this_month' => $query->whereMonth('created_at', \Carbon\Carbon::now()->month)->whereYear('created_at', \Carbon\Carbon::now()->year),
                             'last_month' => $query->whereMonth('created_at', \Carbon\Carbon::now()->subMonth()->month)->whereYear('created_at', \Carbon\Carbon::now()->subMonth()->year),
-                            default      => $query,
+                            default => $query,
                         };
                     })
                     ->indicateUsing(function (array $data): array {
                         $preset = $data['preset'] ?? null;
-                        if (!$preset) return [];
-                        return ['preset' => 'Period: ' . match ($preset) {
-                            'today'      => 'Today',
-                            'this_week'  => 'This Week',
+                        if (! $preset) {
+                            return [];
+                        }
+
+                        return ['preset' => 'Period: '.match ($preset) {
+                            'today' => 'Today',
+                            'this_week' => 'This Week',
                             'this_month' => 'This Month',
                             'last_month' => 'Last Month',
-                            default      => $preset,
+                            default => $preset,
                         }];
                     }),
                 Filter::make('date_range')
@@ -142,11 +146,12 @@ class StockMovementsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['from'] ?? null) {
-                            $indicators['from'] = 'From: ' . \Carbon\Carbon::parse($data['from'])->format('d M Y');
+                            $indicators['from'] = 'From: '.\Carbon\Carbon::parse($data['from'])->format('d M Y');
                         }
                         if ($data['until'] ?? null) {
-                            $indicators['until'] = 'Until: ' . \Carbon\Carbon::parse($data['until'])->format('d M Y');
+                            $indicators['until'] = 'Until: '.\Carbon\Carbon::parse($data['until'])->format('d M Y');
                         }
+
                         return $indicators;
                     }),
             ])

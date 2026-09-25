@@ -39,7 +39,14 @@ class CustomerForm
                 TextInput::make('email')
                     ->label('Email')
                     ->email()
-                    ->placeholder('example@domain.com'),
+                    ->placeholder('example@domain.com')
+                    ->unique(
+                        ignoreRecord: true,
+                        modifyRuleUsing: fn ($rule) => $rule->whereNull('deleted_at')
+                    )
+                    ->validationMessages([
+                        'unique' => 'Email ini sudah digunakan oleh customer aktif lain.',
+                    ]),
                 Textarea::make('alamat')
                     ->label('Address')
                     ->placeholder('Enter member address')

@@ -28,18 +28,18 @@ class ChartOfAccountForm
                 ->label('Kategori')
                 ->required()
                 ->options([
-                    'Aktiva Lancar'                  => 'Aktiva Lancar',
-                    'Aktiva Tetap'                   => 'Aktiva Tetap',
-                    'Aktiva Tetap (Kontra)'          => 'Aktiva Tetap (Kontra)',
-                    'Kewajiban Lancar'               => 'Kewajiban Lancar',
-                    'Modal'                          => 'Modal',
-                    'Modal (Kontra)'                 => 'Modal (Kontra)',
-                    'Pendapatan'                     => 'Pendapatan',
-                    'Pendapatan (Kontra)'            => 'Pendapatan (Kontra)',
-                    'Pendapatan Lain-Lain'           => 'Pendapatan Lain-Lain',
-                    'Beban Pokok Penjualan'          => 'Beban Pokok Penjualan',
+                    'Aktiva Lancar' => 'Aktiva Lancar',
+                    'Aktiva Tetap' => 'Aktiva Tetap',
+                    'Aktiva Tetap (Kontra)' => 'Aktiva Tetap (Kontra)',
+                    'Kewajiban Lancar' => 'Kewajiban Lancar',
+                    'Modal' => 'Modal',
+                    'Modal (Kontra)' => 'Modal (Kontra)',
+                    'Pendapatan' => 'Pendapatan',
+                    'Pendapatan (Kontra)' => 'Pendapatan (Kontra)',
+                    'Pendapatan Lain-Lain' => 'Pendapatan Lain-Lain',
+                    'Beban Pokok Penjualan' => 'Beban Pokok Penjualan',
                     'Beban Pokok Penjualan (Kontra)' => 'Beban Pokok Penjualan (Kontra)',
-                    'Beban Operasional'              => 'Beban Operasional',
+                    'Beban Operasional' => 'Beban Operasional',
                 ])
                 ->native(false),
 
@@ -47,7 +47,7 @@ class ChartOfAccountForm
                 ->label('Saldo Normal')
                 ->required()
                 ->options([
-                    'Debit'  => 'Debit',
+                    'Debit' => 'Debit',
                     'Kredit' => 'Kredit',
                 ])
                 ->native(false),

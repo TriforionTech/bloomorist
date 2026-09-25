@@ -20,6 +20,7 @@ class ImportWorkbookCommand extends Command
             $result = $service->import($this->argument('path'));
         } catch (RuntimeException $exception) {
             $this->error($exception->getMessage());
+
             return self::FAILURE;
         }
 
@@ -27,6 +28,7 @@ class ImportWorkbookCommand extends Command
         $this->info("COA diproses: {$result['accounts']}");
         $this->info("Jurnal dibuat: {$result['created']}");
         $this->info("Jurnal dilewati (sudah ada): {$result['skipped']}");
+
         return self::SUCCESS;
     }
 }

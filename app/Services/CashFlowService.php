@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\JournalItem;
-use Illuminate\Support\Collection;
 
 class CashFlowService
 {
@@ -44,6 +43,7 @@ class CashFlowService
         foreach ($lines as $section => $sectionLines) {
             $result[$section] = collect($sectionLines)->map(function (array $line) use ($period): array {
                 $line['amount'] = $this->cashFlowLine($period, $line['patterns']);
+
                 return $line;
             });
             $result["{$section}_total"] = $result[$section]->sum('amount');
@@ -127,7 +127,7 @@ class CashFlowService
         }
 
         foreach ($patterns as $pattern) {
-            $regex = '/^' . str_replace(['*', '/'], ['.*', '\/'], $pattern) . '$/';
+            $regex = '/^'.str_replace(['*', '/'], ['.*', '\/'], $pattern).'$/';
             if (preg_match($regex, $code) === 1) {
                 return true;
             }

@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\JournalItem;
-use Illuminate\Support\Collection;
 
 class TrialBalanceService
 {

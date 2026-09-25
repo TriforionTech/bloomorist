@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\ReportLineTemplates\Schemas;
 
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -30,7 +29,7 @@ class ReportLineTemplateForm
                 ->helperText('Contoh: ["4101"] atau ["6*"]')
                 ->formatStateUsing(fn ($state) => $state ? json_encode($state) : '[]')
                 ->dehydrateStateUsing(fn ($state) => json_decode($state ?: '[]', true, 512, JSON_THROW_ON_ERROR))
-                ->required(fn ($get) => !$get('is_subtotal')),
+                ->required(fn ($get) => ! $get('is_subtotal')),
             TextInput::make('sign')->label('Sign')->numeric()->integer()->default(1)->required(),
             TextInput::make('sort_order')->label('Urutan')->numeric()->integer()->default(0)->required(),
             Toggle::make('is_subtotal')->label('Subtotal')->live(),

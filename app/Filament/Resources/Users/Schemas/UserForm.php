@@ -41,8 +41,7 @@ class UserForm
                         0 => 'No',
                         1 => 'Yes',
                     ])
-                    ->visible(fn ($record) =>
-                        Filament::auth()->user()?->is_super_admin &&
+                    ->visible(fn ($record) => Filament::auth()->user()?->is_super_admin &&
                         Filament::auth()->id() !== $record?->id
                     )
                     ->default(0)

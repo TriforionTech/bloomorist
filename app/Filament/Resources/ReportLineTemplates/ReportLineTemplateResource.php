@@ -17,12 +17,19 @@ use UnitEnum;
 class ReportLineTemplateResource extends Resource
 {
     protected static ?string $model = ReportLineTemplate::class;
+
     protected static ?string $navigationLabel = 'Report Templates';
+
     protected static ?string $modelLabel = 'Report Template';
+
     protected static ?string $pluralModelLabel = 'Report Templates';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
+
     protected static string|UnitEnum|null $navigationGroup = 'Controls & Audit';
+
     protected static ?int $navigationSort = 7;
+
     protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema

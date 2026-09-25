@@ -3,12 +3,12 @@
 namespace App\Filament\Pages;
 
 use Filament\Forms\Components\DatePicker;
-use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Schema;
-use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
 
 class Dashboard extends BaseDashboard
 {
@@ -38,7 +38,7 @@ class Dashboard extends BaseDashboard
                             ->default('this_month')
                             ->columnSpan(fn (Get $get) => $get('filter_preset') === 'custom' ? 1 : ['default' => 1, 'sm' => 3])
                             ->live(),
-                        
+
                         DatePicker::make('startDate')
                             ->label('From')
                             ->native(false)
@@ -52,14 +52,14 @@ class Dashboard extends BaseDashboard
                             ->displayFormat('d M Y')
                             ->visible(fn (Get $get) => $get('filter_preset') === 'custom')
                             ->live(),
-                    ])
+                    ]),
             ]);
     }
 
     /**
      * Menggunakan sistem grid 12 kolom agar ukuran tiap widget bisa diatur lebih detail.
      */
-    public function getColumns(): int | array
+    public function getColumns(): int|array
     {
         return [
             'default' => 1,
@@ -67,7 +67,7 @@ class Dashboard extends BaseDashboard
         ];
     }
 
-    public function getSubheading(): string | \Illuminate\Contracts\Support\Htmlable | null
+    public function getSubheading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         return 'Pantau ringkasan performa penjualan dan inventaris Bloomorist.';
     }

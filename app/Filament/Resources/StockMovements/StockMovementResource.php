@@ -17,12 +17,15 @@ class StockMovementResource extends Resource
     protected static ?string $model = StockMovement::class;
 
     protected static ?string $navigationLabel = 'Stock Movements';
+
     protected static ?string $pluralLabel = 'Stock Movements';
+
     protected static ?string $label = 'Stock Movement';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsUpDown;
 
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+
     protected static ?int $navigationSort = 2;
 
     public static function table(Table $table): Table

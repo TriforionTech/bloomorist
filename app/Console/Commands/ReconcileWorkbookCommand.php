@@ -19,8 +19,9 @@ class ReconcileWorkbookCommand extends Command
     public function handle(WorkbookReconciliationService $service): int
     {
         $period = $this->period();
-        if (!$period) {
+        if (! $period) {
             $this->error('Periode akuntansi tidak ditemukan. Gunakan --period-id atau buat periode Agustus 2026.');
+
             return self::FAILURE;
         }
 
@@ -28,6 +29,7 @@ class ReconcileWorkbookCommand extends Command
             $result = $service->reconcile($this->argument('path'), $period);
         } catch (RuntimeException $exception) {
             $this->error($exception->getMessage());
+
             return self::FAILURE;
         }
 
@@ -47,7 +49,7 @@ class ReconcileWorkbookCommand extends Command
         $passed = $result['checks']->where('passed', true)->count();
         $this->info("Rekonsiliasi selesai: {$passed}/{$result['checks']->count()} cocok.");
 
-        return $result['passed'] || !$this->option('strict') ? self::SUCCESS : self::FAILURE;
+        return $result['passed'] || ! $this->option('strict') ? self::SUCCESS : self::FAILURE;
     }
 
     private function period(): ?AccountingPeriod

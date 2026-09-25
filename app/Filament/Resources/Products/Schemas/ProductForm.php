@@ -5,9 +5,9 @@ namespace App\Filament\Resources\Products\Schemas;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -36,9 +36,9 @@ class ProductForm
                 Select::make('kategori')
                     ->label('Category')
                     ->options([
-                        'bunga'     => '🌸 Flowers',
+                        'bunga' => '🌸 Flowers',
                         'packaging' => '📦 Packaging',
-                        'others'    => '🔖 Others',
+                        'others' => '🔖 Others',
                     ])
                     ->default('bunga')
                     ->required()
@@ -59,7 +59,7 @@ class ProductForm
                             ])
                             ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
                             ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                            ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                            ->disabled(fn () => ! Filament::auth()->user()?->is_super_admin)
                             ->dehydrated(),
 
                         Grid::make(3)->schema([
@@ -75,7 +75,7 @@ class ProductForm
                                 ])
                                 ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
                                 ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->disabled(fn () => ! Filament::auth()->user()?->is_super_admin)
                                 ->dehydrated(),
 
                             TextInput::make('harga_vendor')
@@ -91,7 +91,7 @@ class ProductForm
                                 ])
                                 ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
                                 ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->disabled(fn () => ! Filament::auth()->user()?->is_super_admin)
                                 ->dehydrated(),
 
                             TextInput::make('harga_dekor')
@@ -107,7 +107,7 @@ class ProductForm
                                 ])
                                 ->dehydrateStateUsing(fn ($state) => (int) str_replace('.', '', (string) ($state ?? 0)))
                                 ->formatStateUsing(fn ($state) => $state ? number_format((int) $state, 0, ',', '.') : '')
-                                ->disabled(fn () => !Filament::auth()->user()?->is_super_admin)
+                                ->disabled(fn () => ! Filament::auth()->user()?->is_super_admin)
                                 ->dehydrated(),
                         ]),
                     ]),

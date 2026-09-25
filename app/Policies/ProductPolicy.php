@@ -45,7 +45,7 @@ class ProductPolicy
     public function restore(User $user, Product $product): bool
     {
         return $user->is_super_admin;
-    }    
+    }
 
     public function restoreAny(User $user): bool
     {

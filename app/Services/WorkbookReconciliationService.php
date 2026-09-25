@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\AccountingPeriod;
-use Illuminate\Support\Collection;
 use RuntimeException;
 use ZipArchive;
 
@@ -64,11 +63,11 @@ class WorkbookReconciliationService
 
     public function readWorkbook(string $path): array
     {
-        if (!is_file($path)) {
+        if (! is_file($path)) {
             throw new RuntimeException("Workbook tidak ditemukan: {$path}");
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
             throw new RuntimeException('Workbook Excel tidak dapat dibuka.');
         }
@@ -82,7 +81,7 @@ class WorkbookReconciliationService
         $relationships->registerXPathNamespace('rel', $relationshipNamespace);
         $relationshipMap = [];
         foreach ($relationships->xpath('//rel:Relationship') as $relationship) {
-            $relationshipMap[(string) $relationship['Id']] = 'xl/' . ltrim((string) $relationship['Target'], '/');
+            $relationshipMap[(string) $relationship['Id']] = 'xl/'.ltrim((string) $relationship['Target'], '/');
         }
 
         $result = [];
@@ -90,7 +89,7 @@ class WorkbookReconciliationService
             $attributes = $sheet->attributes();
             $relationAttributes = $sheet->attributes($namespaces['r']);
             $sheetPath = $relationshipMap[(string) $relationAttributes['id']] ?? null;
-            if (!$sheetPath) {
+            if (! $sheetPath) {
                 continue;
             }
             $result[(string) $attributes['name']] = $this->sheetValues(
@@ -100,6 +99,7 @@ class WorkbookReconciliationService
         }
 
         $zip->close();
+
         return $result;
     }
 
@@ -115,6 +115,7 @@ class WorkbookReconciliationService
         foreach ($document->si as $item) {
             $strings[] = implode('', array_map('strval', $item->xpath('.//*[local-name()="t"]') ?: []));
         }
+
         return $strings;
     }
 
@@ -133,6 +134,7 @@ class WorkbookReconciliationService
             }
             $values[(string) $attributes['r']] = $value;
         }
+
         return $values;
     }
 }

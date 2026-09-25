@@ -14,8 +14,7 @@ class DepreciationService
 {
     public function __construct(
         private readonly JournalEntryService $journalEntryService,
-    ) {
-    }
+    ) {}
 
     public function calculate(FixedAsset $asset, Carbon $periodEnd): array
     {

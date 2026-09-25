@@ -12,7 +12,7 @@ class EditExpense extends EditRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index'); 
+        return $this->getResource()::getUrl('index');
     }
 
     /**
@@ -48,7 +48,7 @@ class EditExpense extends EditRecord
         if (! $this->record->isEditable()) {
             Notification::make()
                 ->title('Expense tidak dapat disimpan')
-                ->body('Status expense telah berubah menjadi ' . strtoupper($this->record->status) . '. Perubahan Anda dibatalkan.')
+                ->body('Status expense telah berubah menjadi '.strtoupper($this->record->status).'. Perubahan Anda dibatalkan.')
                 ->danger()
                 ->send();
 

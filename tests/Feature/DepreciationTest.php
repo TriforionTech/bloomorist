@@ -6,7 +6,6 @@ use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDepreciation;
-use App\Models\GeneralJournal;
 use App\Services\DepreciationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

@@ -52,9 +52,9 @@ class ChartOfAccountsTable
                     ->label('SALDO NORMAL')
                     ->badge()
                     ->color(fn ($state) => match ($state) {
-                        'Debit'  => 'info',
+                        'Debit' => 'info',
                         'Kredit' => 'success',
-                        default  => 'gray',
+                        default => 'gray',
                     })
                     ->sortable()
                     ->extraAttributes([

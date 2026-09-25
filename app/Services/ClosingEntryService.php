@@ -6,7 +6,6 @@ use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\GeneralJournal;
 use App\Models\JournalItem;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -14,8 +13,7 @@ class ClosingEntryService
 {
     public function __construct(
         private readonly JournalEntryService $journalEntryService,
-    ) {
-    }
+    ) {}
 
     public function post(AccountingPeriod $period): GeneralJournal
     {
@@ -38,7 +36,7 @@ class ClosingEntryService
             ->get();
         $modal = ChartOfAccount::where('kode_akun', '3101')->first();
 
-        if (!$modal) {
+        if (! $modal) {
             throw new RuntimeException('Akun Modal Pemilik (3101) belum tersedia.');
         }
 
@@ -82,7 +80,7 @@ class ClosingEntryService
 
         return DB::transaction(fn () => $this->journalEntryService->createManualEntry(
             $period->end_date->toDateString(),
-            'Jurnal Penutup ' . $period->label,
+            'Jurnal Penutup '.$period->label,
             $lines,
             null,
             'CLOSING',

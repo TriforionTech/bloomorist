@@ -14,8 +14,7 @@ class ViewUser extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make()->visible(fn () => 
-                Filament::auth()->user()?->is_super_admin
+            EditAction::make()->visible(fn () => Filament::auth()->user()?->is_super_admin
             ),
         ];
     }

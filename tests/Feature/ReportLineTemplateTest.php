@@ -90,7 +90,7 @@ class ReportLineTemplateTest extends TestCase
     {
         $journal = GeneralJournal::create([
             'tanggal' => $period->start_date,
-            'no_bukti' => 'TPL-' . uniqid(),
+            'no_bukti' => 'TPL-'.uniqid(),
             'keterangan' => 'Template test',
             'source_type' => 'MANUAL',
         ]);

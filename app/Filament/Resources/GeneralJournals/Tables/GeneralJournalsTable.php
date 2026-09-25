@@ -42,21 +42,21 @@ class GeneralJournalsTable
                     ->color(fn ($state) => match ($state) {
                         'EXPENSE' => 'danger',
                         'INVOICE' => 'success',
-                        'STOCK'   => 'warning',
-                        default   => 'info',
+                        'STOCK' => 'warning',
+                        default => 'info',
                     })
                     ->sortable(),
 
                 TextColumn::make('items_sum_debit')
                     ->label('TOTAL DEBIT')
                     ->sum('items', 'debit')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->alignEnd(),
 
                 TextColumn::make('items_sum_kredit')
                     ->label('TOTAL KREDIT')
                     ->sum('items', 'kredit')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->alignEnd(),
             ]);
     }

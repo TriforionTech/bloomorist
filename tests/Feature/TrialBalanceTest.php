@@ -6,8 +6,8 @@ use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Models\GeneralJournal;
 use App\Models\JournalItem;
-use App\Services\TrialBalanceService;
 use App\Services\FinancialHealthCheckService;
+use App\Services\TrialBalanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

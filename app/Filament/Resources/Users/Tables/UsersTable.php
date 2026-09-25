@@ -73,29 +73,30 @@ class UsersTable
                     ->disabled(fn ($record) => Gate::denies('update', $record))
                     ->tooltip(function ($record) {
                         $response = Gate::inspect('update', $record);
+
                         return $response->denied() ? $response->message() : 'Edit this admin';
                     })
                     ->icon(function ($record) {
-                        return Gate::inspect('update', $record)->denied() 
-                            ? 'heroicon-o-lock-closed' 
+                        return Gate::inspect('update', $record)->denied()
+                            ? 'heroicon-o-lock-closed'
                             : 'heroicon-o-pencil-square';
                     })
                     ->color(function ($record) {
-                        return Gate::inspect('update', $record)->denied() 
-                            ? 'gray' 
+                        return Gate::inspect('update', $record)->denied()
+                            ? 'gray'
                             : 'primary';
                     })
                     // BACKEND GUARD
                     ->before(function ($action, $record) {
                         $response = Gate::inspect('update', $record);
-                        
+
                         if ($response->denied()) {
                             Notification::make()
                                 ->warning()
                                 ->title('Access Denied')
                                 ->body($response->message())
                                 ->send();
-                            
+
                             $action->halt();
                         }
                     }),
@@ -109,36 +110,37 @@ class UsersTable
                     ->disabled(fn ($record) => Gate::inspect('delete', $record)->denied())
                     ->tooltip(function ($record) {
                         $response = Gate::inspect('delete', $record);
+
                         return $response->denied() ? $response->message() : 'Delete this admin';
                     })
                     ->icon(function ($record) {
-                        return Gate::inspect('delete', $record)->denied() 
-                            ? 'heroicon-o-lock-closed' 
+                        return Gate::inspect('delete', $record)->denied()
+                            ? 'heroicon-o-lock-closed'
                             : 'heroicon-o-trash';
                     })
                     ->color(function ($record) {
-                        return Gate::inspect('delete', $record)->denied() 
-                            ? 'gray' 
+                        return Gate::inspect('delete', $record)->denied()
+                            ? 'gray'
                             : 'danger';
                     })
                     // BACKEND GUARD
                     ->before(function ($action, $record) {
                         $response = Gate::inspect('delete', $record);
-                        
+
                         if ($response->denied()) {
                             Notification::make()
                                 ->danger()
                                 ->title('Action Denied')
                                 ->body($response->message())
                                 ->send();
-                            
+
                             $action->halt();
                         }
                     })
                     ->modalHeading('Hapus Admin')
                     ->modalDescription('Apakah Anda yakin ingin menghapus admin ini? Tindakan ini tidak dapat dibatalkan.')
                     ->modalSubmitActionLabel('Ya, Hapus')
-                    ->modalCancelActionLabel('Batal'),                    
+                    ->modalCancelActionLabel('Batal'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -146,15 +148,16 @@ class UsersTable
                         ->visible(fn () => Filament::auth()->user()?->is_super_admin)
                         ->before(function ($action) {
                             $currentUser = Filament::auth()->user();
-                            
-                            if (!$currentUser->is_super_admin) {
+
+                            if (! $currentUser->is_super_admin) {
                                 Notification::make()
                                     ->danger()
                                     ->title('Access Denied')
                                     ->body('Only Superadmin can delete users.')
                                     ->send();
-                                
+
                                 $action->halt(); // hentikan paksa
+
                                 return;
                             }
                         })
@@ -162,20 +165,21 @@ class UsersTable
                             $currentUser = Filament::auth()->user();
                             $deletedCount = 0;
                             $skippedCount = 0;
-                            
+
                             foreach ($records as $record) {
                                 // Skip current user
                                 if ($record->id === $currentUser->id) {
                                     $skippedCount++;
+
                                     continue;
                                 }
-                                
+
                                 // // Skip other superadmins
                                 // if ($record->is_super_admin) {
                                 //     $skippedCount++;
                                 //     continue;
                                 // }
-                                
+
                                 // Delete jika lolos semua validasi
                                 if (Gate::allows('delete', $record)) {
                                     $record->delete();
@@ -184,7 +188,7 @@ class UsersTable
                                     $skippedCount++;
                                 }
                             }
-                            
+
                             // Notification based on result
                             if ($deletedCount > 0 && $skippedCount > 0) {
                                 Notification::make()
@@ -208,11 +212,11 @@ class UsersTable
                         }),
                 ]),
             ])
-            
+
             ->recordUrl(function ($record) {
                 $user = Filament::auth()->user();
 
-                if (!$user) {
+                if (! $user) {
                     return null;
                 }
 

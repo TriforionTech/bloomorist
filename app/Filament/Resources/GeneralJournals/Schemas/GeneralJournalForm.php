@@ -8,10 +8,8 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Validation\ValidationException;
 
 class GeneralJournalForm
 {
@@ -33,9 +31,10 @@ class GeneralJournalForm
                                 $period = \App\Models\AccountingPeriod::where('start_date', '<=', $date->toDateString())
                                     ->where('end_date', '>=', $date->toDateString())
                                     ->first();
-                                
-                                if (!$period) {
+
+                                if (! $period) {
                                     $fail('Tanggal ini tidak masuk ke dalam Periode Akuntansi manapun. Buat periode dulu.');
+
                                     return;
                                 }
                                 if ($period->isClosed()) {
@@ -130,13 +129,13 @@ class GeneralJournalForm
                             return function (string $attribute, $value, \Closure $fail) {
                                 $totalDebit = collect($value)->sum('debit');
                                 $totalKredit = collect($value)->sum('kredit');
-                                
+
                                 if ($totalDebit !== $totalKredit) {
                                     $selisih = abs($totalDebit - $totalKredit);
-                                    $fail("Jurnal belum seimbang (selisih Rp " . number_format($selisih, 0, ',', '.') . ").");
+                                    $fail('Jurnal belum seimbang (selisih Rp '.number_format($selisih, 0, ',', '.').').');
                                 }
                                 if ($totalDebit == 0) {
-                                    $fail("Nominal jurnal tidak boleh 0.");
+                                    $fail('Nominal jurnal tidak boleh 0.');
                                 }
                             };
                         })

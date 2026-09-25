@@ -19,11 +19,17 @@ class ArusKas extends Page implements HasSchemas
     use InteractsWithSchemas;
 
     protected static ?string $title = 'Cash Flow';
+
     protected static ?string $navigationLabel = 'Cash Flow';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
+
     protected static ?int $navigationSort = 6;
+
     protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.pages.arus-kas';
 
     public ?int $selectedPeriodId = null;

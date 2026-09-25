@@ -21,9 +21,13 @@ use Illuminate\Support\Facades\Gate;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
     protected static ?string $navigationLabel = 'Admin';
+
     protected static ?string $pluralLabel = 'Admins';
+
     protected static ?string $label = 'Admin';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ShieldCheck;
 
     protected static ?string $recordTitleAttribute = 'name';

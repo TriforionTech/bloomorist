@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
 class UserPolicy
-{    
+{
     public function viewAny(User $user): bool
     {
         return true;
@@ -30,7 +30,7 @@ class UserPolicy
         if ($user->is_super_admin && $user->id === $model->id) {
             return Response::allow();
         }
-        
+
         // Superadmin TIDAK boleh edit Superadmin lain
         if ($user->is_super_admin && $model->is_super_admin) {
             return Response::deny('You cannot edit other Superadmins.');
@@ -53,7 +53,7 @@ class UserPolicy
 
         return Response::allow();
     }
-    
+
     // Digunakan jika ada user nakal yg delete manual melalui url
     public function delete(User $user, User $model): Response
     {
@@ -74,11 +74,11 @@ class UserPolicy
 
         return Response::allow();
     }
-    
+
     public function deleteAny(User $user): bool
     {
         return $user->is_super_admin;
-    }    
+    }
 
     public function restore(User $user): bool
     {

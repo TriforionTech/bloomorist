@@ -72,7 +72,7 @@ class ClosingEntryTest extends TestCase
     {
         $journal = GeneralJournal::create([
             'tanggal' => $period->start_date,
-            'no_bukti' => 'CLOSE-' . uniqid(),
+            'no_bukti' => 'CLOSE-'.uniqid(),
             'keterangan' => 'Transaksi periode',
             'source_type' => 'MANUAL',
         ]);

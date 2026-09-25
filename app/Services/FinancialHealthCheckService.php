@@ -10,8 +10,7 @@ class FinancialHealthCheckService
         private readonly TrialBalanceService $trialBalanceService,
         private readonly AccountingService $accountingService,
         private readonly CashFlowService $cashFlowService,
-    ) {
-    }
+    ) {}
 
     /**
      * Validate the trial balance for an accounting period.

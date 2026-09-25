@@ -13,13 +13,13 @@ trait ParsesGlobalFilters
     protected function parseFilterDates(): array
     {
         $preset = $this->filters['filter_preset'] ?? 'this_month';
-        
+
         $startDate = null;
         $endDate = null;
 
         if ($preset === 'custom') {
-            $startDate = !empty($this->filters['startDate']) ? Carbon::parse($this->filters['startDate'])->startOfDay() : null;
-            $endDate = !empty($this->filters['endDate']) ? Carbon::parse($this->filters['endDate'])->endOfDay() : null;
+            $startDate = ! empty($this->filters['startDate']) ? Carbon::parse($this->filters['startDate'])->startOfDay() : null;
+            $endDate = ! empty($this->filters['endDate']) ? Carbon::parse($this->filters['endDate'])->endOfDay() : null;
         } else {
             match ($preset) {
                 'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
