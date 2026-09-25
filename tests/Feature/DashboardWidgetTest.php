@@ -141,4 +141,19 @@ class DashboardWidgetTest extends TestCase
             ])
             ->assertHasNoActionErrors();
     }
+
+    public function test_low_stock_products_has_pagination_and_header_action(): void
+    {
+        $user = User::create([
+            'name' => 'Admin Dashboard 7',
+            'email' => 'admin_dashboard7@example.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(\App\Filament\Widgets\LowStockProducts::class)
+            ->assertStatus(200)
+            ->assertTableHeaderActionsExistInOrder(['view_all']);
+    }
 }
