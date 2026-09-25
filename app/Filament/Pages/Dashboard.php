@@ -9,8 +9,6 @@ use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
-use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 
 class Dashboard extends BaseDashboard
 {
@@ -20,7 +18,8 @@ class Dashboard extends BaseDashboard
     {
         return [
             FilterAction::make()
-                ->label('Filter Periode')
+                ->label('Periode')
+                ->color('primary')
                 ->modalHeading('Filter Periode Dashboard')
                 ->modalDescription('Pilih rentang waktu lalu klik Terapkan untuk memperbarui seluruh data.')
                 ->modalSubmitActionLabel('Terapkan Filter')
@@ -71,23 +70,5 @@ class Dashboard extends BaseDashboard
             'default' => 1,
             'lg' => 12,
         ];
-    }
-
-    public function getSubheading(): string|Htmlable|null
-    {
-        $preset = $this->filters['filter_preset'] ?? 'this_month';
-        $label = match ($preset) {
-            'today' => 'Hari Ini',
-            'yesterday' => 'Kemarin',
-            'this_month' => 'Bulan Ini',
-            'previous_month' => 'Bulan Lalu',
-            'ytd' => 'Tahun Ini',
-            'previous_year' => 'Tahun Lalu',
-            'all' => 'Semua Waktu',
-            'custom' => 'Kustom ('.($this->filters['startDate'] ?? '-').' s/d '.($this->filters['endDate'] ?? '-').')',
-            default => 'Bulan Ini',
-        };
-
-        return new HtmlString("Pantau ringkasan performa penjualan dan inventaris Bloomorist. <span class='inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300 ml-1'>📅 Filter: {$label}</span>");
     }
 }
