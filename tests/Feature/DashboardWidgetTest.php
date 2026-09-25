@@ -122,4 +122,23 @@ class DashboardWidgetTest extends TestCase
         Livewire::test(\App\Filament\Widgets\TopProducts::class, ['pageFilters' => $filters])->assertStatus(200);
         Livewire::test(\App\Filament\Widgets\TopCustomers::class, ['pageFilters' => $filters])->assertStatus(200);
     }
+
+    public function test_dashboard_page_renders_with_filter_action(): void
+    {
+        $user = User::create([
+            'name' => 'Admin Dashboard 6',
+            'email' => 'admin_dashboard6@example.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(\App\Filament\Pages\Dashboard::class)
+            ->assertStatus(200)
+            ->assertActionExists('filter')
+            ->callAction('filter', [
+                'filter_preset' => 'today',
+            ])
+            ->assertHasNoActionErrors();
+    }
 }
