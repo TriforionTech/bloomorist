@@ -3,8 +3,6 @@
 namespace App\Observers;
 
 use App\Models\Invoice;
-use App\Models\StockMovement;
-use Filament\Facades\Filament;
 
 class InvoiceObserver
 {
@@ -42,7 +40,7 @@ class InvoiceObserver
     }
 
     /**
-     * Handle the Invoice "updated" event.          
+     * Handle the Invoice "updated" event.
      */
     public function updated(Invoice $invoice): void
     {

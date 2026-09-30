@@ -2,7 +2,9 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\AccountingPeriod;
 use App\Services\AccountingService;
+use App\Services\CashFlowService;
 use BackedEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -14,7 +16,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
@@ -22,21 +23,25 @@ class FinancialReports extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
 
-    protected static ?string $title = 'Financial Report';
-    protected static ?string $navigationLabel = 'Financial Report';
+    protected static ?string $title = 'Laporan Keuangan';
+
+    protected static ?string $navigationLabel = 'Laporan Keuangan';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
+
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 4;
+
+    protected static ?int $navigationSort = 6;
 
     protected string $view = 'filament.pages.financial-reports';
 
     // Income Statement filters
-    public string $incomeFilter = 'bulan_ini';
-    public ?string $incomeStartDate = null;
-    public ?string $incomeEndDate = null;
+    public ?int $incomePeriodId = null;
 
     // Balance Sheet filter
     public ?string $balanceAsOf = null;
+
+    public ?int $cashFlowPeriodId = null;
 
     // Active tab
     public string $activeTab = 'laba-rugi';
@@ -51,6 +56,9 @@ class FinancialReports extends Page implements HasSchemas
 
     public function mount(): void
     {
+        $defaultPeriodId = AccountingPeriod::query()->orderByDesc('start_date')->value('id');
+        $this->incomePeriodId = $defaultPeriodId;
+        $this->cashFlowPeriodId = $defaultPeriodId;
         $this->balanceAsOf = now()->format('Y-m-d');
     }
 
@@ -62,30 +70,15 @@ class FinancialReports extends Page implements HasSchemas
         return $schema->components([
             Section::make('Filter Laporan Laba Rugi')
                 ->schema([
-                    Select::make('incomeFilter')
-                        ->label('Periode')
-                        ->options([
-                            'bulan_ini'  => 'Bulan Ini',
-                            'bulan_lalu' => 'Bulan Lalu',
-                            'tahun_ini'  => 'Tahun Ini',
-                            'custom'     => 'Custom Range',
-                        ])
+                    Select::make('incomePeriodId')
+                        ->label('Periode Akuntansi')
+                        ->options(AccountingPeriod::query()->orderByDesc('start_date')->pluck('label', 'id'))
+                        ->searchable()
                         ->native(false)
-                        ->live(),
-
-                    DatePicker::make('incomeStartDate')
-                        ->label('Dari Tanggal')
-                        ->native(false)
-                        ->visible(fn () => $this->incomeFilter === 'custom')
-                        ->live(),
-
-                    DatePicker::make('incomeEndDate')
-                        ->label('Sampai Tanggal')
-                        ->native(false)
-                        ->visible(fn () => $this->incomeFilter === 'custom')
-                        ->live(),
+                        ->live()
+                        ->required(),
                 ])
-                ->columns(3),
+                ->columns(1),
         ]);
     }
 
@@ -104,6 +97,22 @@ class FinancialReports extends Page implements HasSchemas
                         ->live(),
                 ])
                 ->columns(1),
+        ]);
+    }
+
+    public function cashFlowFilterSchema(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('Filter Arus Kas')
+                ->schema([
+                    Select::make('cashFlowPeriodId')
+                        ->label('Periode Akuntansi')
+                        ->options(AccountingPeriod::query()->orderByDesc('start_date')->pluck('label', 'id'))
+                        ->searchable()
+                        ->native(false)
+                        ->live()
+                        ->required(),
+                ]),
         ]);
     }
 
@@ -129,21 +138,26 @@ class FinancialReports extends Page implements HasSchemas
         return app(AccountingService::class)->getBalanceSheet($asOf);
     }
 
+    public function getCashFlowData(): ?array
+    {
+        return $this->cashFlowPeriodId
+            ? app(CashFlowService::class)->getForPeriod($this->cashFlowPeriodId)
+            : null;
+    }
+
     /**
      * Resolve date range from income filter selection.
      */
     private function getIncomeDateRange(): array
     {
-        return match ($this->incomeFilter) {
-            'bulan_ini'  => [now()->startOfMonth(), now()->endOfMonth()],
-            'bulan_lalu' => [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-            'tahun_ini'  => [now()->startOfYear(), now()->endOfYear()],
-            'custom'     => [
-                $this->incomeStartDate ? Carbon::parse($this->incomeStartDate) : now()->startOfMonth(),
-                $this->incomeEndDate ? Carbon::parse($this->incomeEndDate) : now()->endOfMonth(),
-            ],
-            default => [now()->startOfMonth(), now()->endOfMonth()],
-        };
+        if ($this->incomePeriodId) {
+            $period = AccountingPeriod::find($this->incomePeriodId);
+            if ($period) {
+                return [$period->start_date, $period->end_date];
+            }
+        }
+
+        return [now()->startOfMonth(), now()->endOfMonth()];
     }
 
     /**
@@ -152,16 +166,22 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadIncomeStatementPdf()
     {
         $data = $this->getIncomeStatementData();
+        $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
         $pdf = Pdf::loadView('pdf.income-statement', [
-            'data'      => $data,
-            'company'   => 'Bloomorist',
+            'data' => $data,
+            'company' => config('app.name'),
             'generated' => now()->format('d M Y H:i'),
-        ]);
+            'periodLabel' => $periodLabel,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
+
+        $filename = 'laporan-laba-rugi-'.($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')).'.pdf';
 
         return response()->streamDownload(
-            fn () => print($pdf->output()),
-            'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.pdf'
+            fn () => print ($pdf->output()),
+            $filename
         );
     }
 
@@ -171,15 +191,19 @@ class FinancialReports extends Page implements HasSchemas
     public function downloadIncomeStatementCsv(): StreamedResponse
     {
         $data = $this->getIncomeStatementData();
+        $periodLabel = $this->incomePeriodId ? AccountingPeriod::find($this->incomePeriodId)?->label : null;
 
-        return response()->streamDownload(function () use ($data) {
+        $filename = 'laporan-laba-rugi-'.($periodLabel ? \Illuminate\Support\Str::slug($periodLabel) : $data['start_date']->format('Y-m-d')).'.csv';
+
+        return response()->streamDownload(function () use ($data, $periodLabel) {
             $handle = fopen('php://output', 'w');
 
             // UTF-8 BOM for Excel compatibility
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['LAPORAN LABA RUGI - BLOOMORIST']);
-            fputcsv($handle, ['Periode: ' . $data['start_date']->format('d M Y') . ' - ' . $data['end_date']->format('d M Y')]);
+            $periodText = $periodLabel ?? ($data['start_date']->format('d M Y').' - '.$data['end_date']->format('d M Y'));
+            fputcsv($handle, ['Periode: '.$periodText]);
             fputcsv($handle, []);
 
             // Pendapatan
@@ -204,7 +228,7 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['', 'LABA/RUGI BERSIH', $data['laba_rugi']]);
 
             fclose($handle);
-        }, 'laporan-laba-rugi-' . $data['start_date']->format('Y-m-d') . '-to-' . $data['end_date']->format('Y-m-d') . '.csv');
+        }, $filename);
     }
 
     /**
@@ -215,14 +239,16 @@ class FinancialReports extends Page implements HasSchemas
         $data = $this->getBalanceSheetData();
 
         $pdf = Pdf::loadView('pdf.balance-sheet', [
-            'data'      => $data,
-            'company'   => 'Bloomorist',
+            'data' => $data,
+            'company' => config('app.name'),
             'generated' => now()->format('d M Y H:i'),
-        ]);
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
 
         return response()->streamDownload(
-            fn () => print($pdf->output()),
-            'neraca-' . now()->format('Y-m-d') . '.pdf'
+            fn () => print ($pdf->output()),
+            'neraca-'.now()->format('Y-m-d').'.pdf'
         );
     }
 
@@ -240,7 +266,7 @@ class FinancialReports extends Page implements HasSchemas
             fwrite($handle, "\xEF\xBB\xBF");
 
             fputcsv($handle, ['NERACA KEUANGAN - BLOOMORIST']);
-            fputcsv($handle, ['Per Tanggal: ' . $data['as_of']->format('d M Y')]);
+            fputcsv($handle, ['Per Tanggal: '.$data['as_of']->format('d M Y')]);
             fputcsv($handle, []);
 
             // Aset
@@ -276,6 +302,74 @@ class FinancialReports extends Page implements HasSchemas
             fputcsv($handle, ['', 'Neraca Balance', $data['is_balanced'] ? 'YA' : 'TIDAK']);
 
             fclose($handle);
-        }, 'neraca-' . now()->format('Y-m-d') . '.csv');
+        }, 'neraca-'.now()->format('Y-m-d').'.csv');
+    }
+
+    /**
+     * Download Cash Flow as PDF.
+     */
+    public function downloadCashFlowPdf()
+    {
+        $data = $this->getCashFlowData();
+        if (! $data) {
+            return null;
+        }
+
+        $pdf = Pdf::loadView('pdf.cash-flow', [
+            'data' => $data,
+            'company' => config('app.name'),
+            'generated' => now()->format('d M Y H:i'),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true);
+
+        return response()->streamDownload(
+            fn () => print ($pdf->output()),
+            'arus-kas-'.\Illuminate\Support\Str::slug($data['period']->label).'.pdf'
+        );
+    }
+
+    /**
+     * Download Cash Flow as CSV.
+     */
+    public function downloadCashFlowCsv(): StreamedResponse
+    {
+        $data = $this->getCashFlowData();
+        if (! $data) {
+            return response()->streamDownload(function () {
+                $handle = fopen('php://output', 'w');
+                fwrite($handle, "\xEF\xBB\xBF");
+                fputcsv($handle, ['Belum ada periode akuntansi yang dipilih atau tersedia.']);
+                fclose($handle);
+            }, 'arus-kas-empty.csv');
+        }
+
+        return response()->streamDownload(function () use ($data) {
+            $handle = fopen('php://output', 'w');
+
+            // UTF-8 BOM
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, ['LAPORAN ARUS KAS (CASH FLOW) - BLOOMORIST']);
+            fputcsv($handle, ['Periode: '.$data['period']->label]);
+            fputcsv($handle, []);
+
+            foreach (['operating' => 'Aktivitas Operasi', 'investing' => 'Aktivitas Investasi', 'financing' => 'Aktivitas Pendanaan'] as $section => $label) {
+                fputcsv($handle, [strtoupper($label)]);
+                fputcsv($handle, ['Deskripsi', 'Jumlah']);
+                foreach ($data[$section] as $item) {
+                    fputcsv($handle, [$item['label'], $item['amount']]);
+                }
+                fputcsv($handle, ['Total '.$label, $data["{$section}_total"]]);
+                fputcsv($handle, []);
+            }
+
+            fputcsv($handle, ['RINGKASAN']);
+            fputcsv($handle, ['Saldo Kas Awal', $data['opening_cash']]);
+            fputcsv($handle, ['Kenaikan (Penurunan) Kas Bersih', $data['net_change']]);
+            fputcsv($handle, ['Saldo Kas Akhir', $data['ending_cash']]);
+
+            fclose($handle);
+        }, 'arus-kas-'.\Illuminate\Support\Str::slug($data['period']->label).'.csv');
     }
 }

@@ -2,12 +2,11 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Observers\InvoiceObserver;
 use App\Observers\ProductObserver;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {

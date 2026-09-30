@@ -17,14 +17,17 @@ class GeneralJournalResource extends Resource
 {
     protected static ?string $model = GeneralJournal::class;
 
-    protected static ?string $navigationLabel = 'Journal';
-    protected static ?string $pluralLabel = 'Journals';
-    protected static ?string $label = 'Journal';
+    protected static ?string $navigationLabel = 'Jurnal Umum';
+
+    protected static ?string $pluralLabel = 'Jurnal Umum';
+
+    protected static ?string $label = 'Jurnal Umum';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 2;
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {
@@ -44,7 +47,7 @@ class GeneralJournalResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListGeneralJournals::route('/'),
+            'index' => ListGeneralJournals::route('/'),
             'create' => CreateGeneralJournal::route('/create'),
         ];
     }

@@ -11,7 +11,7 @@ class CreateExpense extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index'); 
+        return $this->getResource()::getUrl('index');
     }
 
     /**
@@ -24,6 +24,7 @@ class CreateExpense extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['status'] = 'draft';
+
         return $data;
     }
 }

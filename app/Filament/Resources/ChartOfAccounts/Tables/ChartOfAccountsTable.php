@@ -35,12 +35,16 @@ class ChartOfAccountsTable
                     ->label('KATEGORI')
                     ->badge()
                     ->color(fn ($state) => match ($state) {
-                        'Aset'       => 'info',
-                        'Kewajiban'  => 'danger',
-                        'Ekuitas'    => 'success',
-                        'Pendapatan' => 'warning',
-                        'Beban'      => 'gray',
-                        default      => 'gray',
+                        'Aktiva Lancar', 'Aktiva Tetap' => 'info',
+                        'Aktiva Tetap (Kontra)' => 'warning',
+                        'Kewajiban Lancar' => 'danger',
+                        'Modal' => 'success',
+                        'Modal (Kontra)' => 'warning',
+                        'Pendapatan', 'Pendapatan Lain-Lain' => 'success',
+                        'Pendapatan (Kontra)' => 'danger',
+                        'Beban Pokok Penjualan', 'Beban Operasional' => 'gray',
+                        'Beban Pokok Penjualan (Kontra)' => 'warning',
+                        default => 'gray',
                     })
                     ->sortable(),
 
@@ -48,9 +52,9 @@ class ChartOfAccountsTable
                     ->label('SALDO NORMAL')
                     ->badge()
                     ->color(fn ($state) => match ($state) {
-                        'Debit'  => 'info',
+                        'Debit' => 'info',
                         'Kredit' => 'success',
-                        default  => 'gray',
+                        default => 'gray',
                     })
                     ->sortable()
                     ->extraAttributes([

@@ -18,7 +18,7 @@ class JournalItem extends Model
     ];
 
     protected $casts = [
-        'debit'  => 'integer',
+        'debit' => 'integer',
         'kredit' => 'integer',
     ];
 

@@ -2,13 +2,17 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Models\Customer;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class CustomersTable
@@ -23,6 +27,18 @@ class CustomersTable
                     ->rowIndex(),
                 TextColumn::make('nama')
                     ->label('NAME')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('tipe_customer')
+                    ->label('TYPE')
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'toko' => 'success',
+                        'vendor' => 'warning',
+                        'dekor' => 'info',
+                        default => 'gray',
+                    })
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('alias')
@@ -89,6 +105,13 @@ class CustomersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('tipe_customer')
+                    ->label('Customer Type')
+                    ->options([
+                        'toko' => 'Toko',
+                        'vendor' => 'Vendor',
+                        'dekor' => 'Dekorator',
+                    ]),
                 SelectFilter::make('membership_id')
                     ->label('Membership Category')
                     ->options([
@@ -97,6 +120,8 @@ class CustomersTable
                         3 => 'PLATINUM',
                     ])
                     ->searchable(),
+
+                TrashedFilter::make(),
             ])
             ->recordActionsColumnLabel('ACTIONS')
             ->recordActions([
@@ -105,22 +130,42 @@ class CustomersTable
                     ->size('xl')
                     ->tooltip('Edit customer')
                     ->icon('heroicon-o-pencil-square'),
+
                 DeleteAction::make()
                     ->hiddenLabel()
                     ->size('xl')
-                    ->tooltip('Delete customer')
+                    ->tooltip('Hapus / Arsipkan customer')
                     ->icon('heroicon-o-trash')
-                    ->modalHeading('Hapus Customer')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus customer ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalHeading('Hapus / Arsipkan Customer')
+                    ->modalDescription(function (Customer $record): string {
+                        $invoiceCount = $record->invoices()->count();
+                        if ($invoiceCount > 0) {
+                            return 'Customer ini memiliki '.$invoiceCount.' transaksi invoice. Customer akan diarsipkan (soft delete). Riwayat invoice dan laporan keuangan tetap aman dan tidak akan hilang.';
+                        }
+
+                        return 'Apakah Anda yakin ingin menghapus customer ini? Customer akan dipindahkan ke arsip.';
+                    })
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal'),
-            ])            
+
+                RestoreAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->tooltip('Pulihkan customer')
+                    ->icon('heroicon-o-arrow-path'),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->modalHeading('Hapus Customer Terpilih')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus semua customer yang dipilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalHeading('Hapus / Arsipkan Customer Terpilih')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus customer yang dipilih? Customer akan diarsipkan (soft delete) sehingga riwayat invoice tetap aman.')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
+                        ->modalCancelActionLabel('Batal')
+                        ->visible(fn () => Filament::auth()->user()?->is_super_admin),
+
+                    RestoreBulkAction::make()
+                        ->modalHeading('Pulihkan Customer Terpilih')
+                        ->modalSubmitActionLabel('Ya, Pulihkan Semua')
                         ->modalCancelActionLabel('Batal')
                         ->visible(fn () => Filament::auth()->user()?->is_super_admin),
                 ]),

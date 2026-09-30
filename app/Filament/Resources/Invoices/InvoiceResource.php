@@ -7,9 +7,7 @@ use App\Filament\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Tables\Table;
-
 use UnitEnum;
 
 class InvoiceResource extends Resource

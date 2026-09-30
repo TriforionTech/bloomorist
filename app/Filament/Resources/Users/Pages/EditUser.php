@@ -13,7 +13,7 @@ class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         parent::mount($record);
 
@@ -27,8 +27,7 @@ class EditUser extends EditRecord
     {
         return [
             ViewAction::make(),
-            DeleteAction::make()->visible(fn ($record) => 
-                Filament::auth()->user()?->is_super_admin && 
+            DeleteAction::make()->visible(fn ($record) => Filament::auth()->user()?->is_super_admin &&
                 Filament::auth()->id() !== $record->id
             ),
         ];

@@ -209,16 +209,36 @@ class ProductSeeder extends Seeder
             ['nama' => 'Tulip Holland', 'harga_beli' => 400000, 'harga_jual' => 450000, 'kategori' => 'bunga'],
             ['nama' => 'Xanado', 'harga_beli' => 10000, 'harga_jual' => 15000, 'kategori' => 'bunga'],
             ['nama' => 'Zaitun', 'harga_beli' => 15000, 'harga_jual' => 20000, 'kategori' => 'bunga'],
-            
+
             ['nama' => 'Box', 'harga_beli' => 35000, 'harga_jual' => 35000, 'kategori' => 'packaging'],
             ['nama' => 'Wrapping', 'harga_beli' => 20000, 'harga_jual' => 20000, 'kategori' => 'packaging'],
         ];
 
-        $products = array_map(fn ($p) => array_merge($p, [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]), $products);
+        $counters = [];
+        $productsWithSku = [];
+        $now = now();
 
-        Product::insert($products);
+        foreach ($products as $p) {
+            $seg1 = match ($p['kategori']) {
+                'bunga' => 'FLW',
+                'packaging' => 'PKG',
+                default => 'OTH',
+            };
+            $cleaned = preg_replace('/[^a-zA-Z]/', '', $p['nama']);
+            $seg2 = strtoupper(substr($cleaned, 0, 3));
+            if (strlen($seg2) < 3) {
+                $seg2 = str_pad($seg2, 3, 'X');
+            }
+            $prefix = "{$seg1}-{$seg2}-";
+            $counters[$prefix] = ($counters[$prefix] ?? 0) + 1;
+            $sku = $prefix.str_pad($counters[$prefix], 3, '0', STR_PAD_LEFT);
+
+            $p['sku'] = $sku;
+            $p['created_at'] = $now;
+            $p['updated_at'] = $now;
+            $productsWithSku[] = $p;
+        }
+
+        Product::insert($productsWithSku);
     }
 }

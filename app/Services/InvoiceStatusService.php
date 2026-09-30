@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Invoice;
-use App\Models\GeneralJournal;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
@@ -17,8 +16,8 @@ class InvoiceStatusService
      * - paid → cancelled     : Kembalikan stok + Reversing Journal
      */
     private const ALLOWED_TRANSITIONS = [
-        'pending'   => ['paid', 'cancelled'],
-        'paid'      => ['cancelled'],
+        'pending' => ['paid', 'cancelled'],
+        'paid' => ['cancelled'],
         'cancelled' => [], // Final — tidak bisa ke mana-mana
     ];
 
@@ -41,8 +40,8 @@ class InvoiceStatusService
         $allowed = self::ALLOWED_TRANSITIONS[$oldStatus] ?? [];
         if (! in_array($newStatus, $allowed, true)) {
             throw new \RuntimeException(
-                "Transisi status dari " . strtoupper($oldStatus)
-                . " ke " . strtoupper($newStatus) . " tidak diperbolehkan."
+                'Transisi status dari '.strtoupper($oldStatus)
+                .' ke '.strtoupper($newStatus).' tidak diperbolehkan.'
             );
         }
 
@@ -53,9 +52,14 @@ class InvoiceStatusService
             // Re-validate setelah lock (bisa saja berubah antara check dan lock)
             if ($invoice->status !== $oldStatus) {
                 throw new \RuntimeException(
-                    "Status invoice telah berubah (race condition detected). Silakan coba lagi."
+                    'Status invoice telah berubah (race condition detected). Silakan coba lagi.'
                 );
             }
+
+            // Recalculate totals after invoice items have been persisted and
+            // before the accounting journal reads grand_total.
+            $invoice->load('items');
+            $invoice->save();
 
             // 1. Process stock mutations
             $this->processStockMutation($invoice, $oldStatus, $newStatus);
@@ -88,19 +92,19 @@ class InvoiceStatusService
                     if ($item->product->stok < $item->quantity) {
                         throw new \RuntimeException(
                             "Stok tidak mencukupi untuk produk: {$item->product->nama}. "
-                            . "Stok saat ini: {$item->product->stok}, dibutuhkan: {$item->quantity}."
+                            ."Stok saat ini: {$item->product->stok}, dibutuhkan: {$item->quantity}."
                         );
                     }
 
                     $item->product->decrement('stok', $item->quantity);
 
                     StockMovement::create([
-                        'product_id'   => $item->product->id,
-                        'type'         => 'sale',
-                        'quantity'     => $item->quantity,
+                        'product_id' => $item->product->id,
+                        'type' => 'sale',
+                        'quantity' => $item->quantity,
                         'reference_id' => $invoice->invoice_number,
-                        'notes'        => 'Auto: Invoice paid - ' . $invoice->invoice_number,
-                        'user_id'      => $userId,
+                        'notes' => 'Auto: Invoice paid - '.$invoice->invoice_number,
+                        'user_id' => $userId,
                     ]);
                 }
             }
@@ -115,12 +119,12 @@ class InvoiceStatusService
                     $item->product->increment('stok', $item->quantity);
 
                     StockMovement::create([
-                        'product_id'   => $item->product->id,
-                        'type'         => 'return',
-                        'quantity'     => $item->quantity,
+                        'product_id' => $item->product->id,
+                        'type' => 'return',
+                        'quantity' => $item->quantity,
                         'reference_id' => $invoice->invoice_number,
-                        'notes'        => 'Auto: Pembatalan Invoice #' . $invoice->invoice_number,
-                        'user_id'      => $userId,
+                        'notes' => 'Auto: Pembatalan Invoice #'.$invoice->invoice_number,
+                        'user_id' => $userId,
                     ]);
                 }
             }

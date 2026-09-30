@@ -2,15 +2,14 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\ParsesGlobalFilters;
 use App\Models\Invoice;
-use Carbon\Carbon;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
-use Filament\Support\RawJs;
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use App\Filament\Traits\ParsesGlobalFilters;
 
 class SalesChart extends ChartWidget
 {
@@ -18,16 +17,18 @@ class SalesChart extends ChartWidget
     use ParsesGlobalFilters;
 
     protected static ?int $sort = 2;
+
     protected ?string $heading = 'Sales Chart';
+
     protected string $view = 'filament.widgets.sales-chart';
+
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 12,
-        'xl' => 8,
     ];
 
     protected ?string $maxHeight = '500px';
-    
+
     protected ?string $pollingInterval = null;
 
     /**
@@ -39,8 +40,8 @@ class SalesChart extends ChartWidget
         $this->applyDateFilter($query);
 
         $totalRevenue = (clone $query)->sum('grand_total');
-        $totalOrders  = (clone $query)->count();
-        $formatted    = 'Rp ' . number_format($totalRevenue, 0, ',', '.');
+        $totalOrders = (clone $query)->count();
+        $formatted = 'Rp '.number_format($totalRevenue, 0, ',', '.');
 
         $html = "
             <div class='flex flex-wrap items-center gap-6 mt-1 mb-2'>
@@ -62,19 +63,35 @@ class SalesChart extends ChartWidget
     protected function getData(): array
     {
         $labels = [];
-        $data   = [];
+        $data = [];
 
         $baseQuery = Invoice::where('status', 'paid');
         [$startDate, $endDate, $preset] = $this->parseFilterDates();
 
-        \Illuminate\Support\Facades\Log::info("SalesChart getData called", [
+        // Normalisasi jika preset custom memiliki tanggal parsial atau terbalik
+        if ($preset === 'custom') {
+            if ($startDate && ! $endDate) {
+                $endDate = $startDate->copy()->endOfMonth();
+                if ($endDate->lt(now())) {
+                    $endDate = now()->endOfDay();
+                }
+            } elseif (! $startDate && $endDate) {
+                $startDate = $endDate->copy()->startOfMonth();
+            }
+
+            if ($startDate && $endDate && $startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+            }
+        }
+
+        \Illuminate\Support\Facades\Log::info('SalesChart getData called', [
             'preset' => $preset,
             'startDate' => $startDate ? $startDate->toDateString() : null,
             'endDate' => $endDate ? $endDate->toDateString() : null,
         ]);
 
         // Ensure we always have a start and end date for chart plotting unless it's 'all'
-        if ($preset === 'all' || (!$startDate && !$endDate)) {
+        if ($preset === 'all' || (! $startDate && ! $endDate)) {
             $results = (clone $baseQuery)
                 ->select(
                     DB::raw('YEAR(issued_date) as year'),
@@ -87,9 +104,14 @@ class SalesChart extends ChartWidget
 
             foreach ($results as $year => $total) {
                 $labels[] = (string) $year;
-                $data[]   = (float) $total;
+                $data[] = (float) $total;
             }
-        } elseif ($preset === 'ytd' || $preset === 'last_365') {
+        } elseif ($preset === 'ytd' || $preset === 'last_365' || ($startDate && $endDate && $startDate->diffInDays($endDate) > 90)) {
+            if (! $startDate || ! $endDate) {
+                $startDate = now()->startOfYear();
+                $endDate = now()->endOfDay();
+            }
+
             $results = (clone $baseQuery)
                 ->whereBetween('issued_date', [$startDate, $endDate])
                 ->select(DB::raw('MONTH(issued_date) as month'), DB::raw('YEAR(issued_date) as year'), DB::raw('SUM(grand_total) as total'))
@@ -99,32 +121,39 @@ class SalesChart extends ChartWidget
                 ->get();
 
             $monthsMap = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
-            
+
             $current = $startDate->copy()->startOfMonth();
             $endMonth = $endDate->copy()->startOfMonth();
-            
+
             while ($current->lte($endMonth)) {
                 $y = $current->year;
                 $m = $current->month;
-                $found = $results->first(fn($r) => $r->year == $y && $r->month == $m);
-                $labels[] = $monthsMap[$m] . ($preset === 'last_365' ? " '" . substr($y, 2) : '');
-                $data[]   = $found ? (float) $found->total : 0;
+                $found = $results->first(fn ($r) => $r->year == $y && $r->month == $m);
+                $labels[] = $monthsMap[$m].($preset === 'last_365' || $current->year !== now()->year ? " '".substr($y, 2) : '');
+                $data[] = $found ? (float) $found->total : 0;
                 $current->addMonth();
             }
 
         } elseif (in_array($preset, ['today', 'yesterday'])) {
+            $date = $startDate ?? now()->startOfDay();
             $results = (clone $baseQuery)
-                ->whereDate('issued_date', $startDate)
+                ->whereDate('issued_date', $date)
                 ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
                 ->groupBy('hour')
                 ->pluck('total', 'hour')
                 ->toArray();
 
             for ($i = 8; $i <= 22; $i++) {
-                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
-                $data[]   = (float) ($results[$i] ?? 0);
+                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT).':00';
+                $data[] = (float) ($results[$i] ?? 0);
             }
         } else {
+            // Failsafe jika tanggal masih null
+            if (! $startDate || ! $endDate) {
+                $startDate = now()->startOfMonth();
+                $endDate = now()->endOfMonth();
+            }
+
             // Treat as daily ranges (last_7, this_month, prev_month, last_30, last_90, last_180, custom)
             $results = (clone $baseQuery)
                 ->whereBetween('issued_date', [$startDate, $endDate])
@@ -134,13 +163,13 @@ class SalesChart extends ChartWidget
                 ->toArray();
 
             $current = $startDate->copy();
-            
+
             // If the range is huge (e.g. last_180), grouping by week might be better, but let's stick to daily for now
             // or just plot every day. Chart.js handles large datasets well.
             while ($current->lte($endDate)) {
                 $dateString = $current->format('Y-m-d');
-                $labels[]   = $current->format('d M');
-                $data[]     = (float) ($results[$dateString] ?? 0);
+                $labels[] = $current->format('d M');
+                $data[] = (float) ($results[$dateString] ?? 0);
                 $current->addDay();
             }
         }
@@ -148,14 +177,14 @@ class SalesChart extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label'                 => 'Pendapatan (Rp)',
-                    'data'                  => $data,
-                    'borderColor'           => '#db2777',
-                    'backgroundColor'       => 'rgba(219, 39, 119, 0.08)',
-                    'fill'                  => true,
-                    'tension'               => 0.4,
-                    'pointBackgroundColor'  => '#db2777',
-                    'pointRadius'           => 4,
+                    'label' => 'Pendapatan (Rp)',
+                    'data' => $data,
+                    'borderColor' => '#db2777',
+                    'backgroundColor' => 'rgba(219, 39, 119, 0.08)',
+                    'fill' => true,
+                    'tension' => 0.4,
+                    'pointBackgroundColor' => '#db2777',
+                    'pointRadius' => 4,
                 ],
             ],
             'labels' => $labels,
@@ -214,7 +243,14 @@ class SalesChart extends ChartWidget
         [$startDate, $endDate, $preset] = $this->parseFilterDates();
 
         if ($startDate && $endDate) {
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+            }
             $query->whereBetween('issued_date', [$startDate, $endDate]);
+        } elseif ($startDate) {
+            $query->where('issued_date', '>=', $startDate);
+        } elseif ($endDate) {
+            $query->where('issued_date', '<=', $endDate);
         }
     }
 }

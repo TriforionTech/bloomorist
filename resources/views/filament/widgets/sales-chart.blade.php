@@ -63,12 +63,56 @@
             </div>
         </x-slot>
 
+        <style>
+            .fi-wi-sales-chart-scroll::-webkit-scrollbar {
+                height: 4px;
+            }
+            .fi-wi-sales-chart-scroll::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .fi-wi-sales-chart-scroll::-webkit-scrollbar-thumb {
+                background: rgba(156, 163, 175, 0.4);
+                border-radius: 9999px;
+            }
+            .dark .fi-wi-sales-chart-scroll::-webkit-scrollbar-thumb {
+                background: rgba(107, 114, 128, 0.4);
+            }
+            @media (max-width: 1023px) {
+                .fi-wi-sales-chart-scroll {
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-x: contain;
+                    scrollbar-width: thin;
+                }
+                .fi-wi-sales-chart-inner {
+                    min-width: 650px !important;
+                    width: 100% !important;
+                }
+                .fi-wi-sales-chart-inner canvas {
+                    touch-action: pan-x pan-y !important;
+                }
+            }
+            @media (min-width: 1024px) {
+                .fi-wi-sales-chart-inner {
+                    min-width: 100% !important;
+                    width: 100% !important;
+                }
+            }
+        </style>
+
         <div
             @if ($pollingInterval = $this->getPollingInterval())
                 wire:poll.{{ $pollingInterval }}="updateChartData"
             @endif
-            class="overflow-x-auto w-full pb-2"
+            class="fi-wi-sales-chart-scroll w-full pb-2"
         >
+            <div class="flex items-center justify-end gap-1 mb-1 text-xs text-gray-400 dark:text-gray-500 lg:hidden">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+                <span>Geser grafik untuk melihat detail</span>
+            </div>
+
             <div
                 x-load
                 x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('chart', 'filament/widgets') }}"
@@ -85,7 +129,7 @@
                         ->class([
                             'fi-wi-chart-canvas-ctn',
                             'fi-wi-chart-canvas-ctn-no-aspect-ratio' => filled($maxHeight = $this->getMaxHeight()),
-                            'min-w-[700px] lg:min-w-0'
+                            'fi-wi-sales-chart-inner',
                         ])
                         ->style([
                             'max-height: ' . $maxHeight => filled($maxHeight),

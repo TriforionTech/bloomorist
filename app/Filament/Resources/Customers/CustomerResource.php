@@ -17,9 +17,13 @@ use Filament\Tables\Table;
 class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
+
     protected static ?string $navigationLabel = 'Customer';
+
     protected static ?string $pluralLabel = 'Customers';
+
     protected static ?string $label = 'Customer';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
     public static function form(Schema $schema): Schema
@@ -37,6 +41,14 @@ class CustomerResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                \Illuminate\Database\Eloquent\SoftDeletingScope::class,
+            ]);
     }
 
     public static function getPages(): array

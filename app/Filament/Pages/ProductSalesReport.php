@@ -3,32 +3,35 @@
 namespace App\Filament\Pages;
 
 use App\Models\Product;
+use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
-use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Actions\Action;
-use BackedEnum;
 use UnitEnum;
 
 class ProductSalesReport extends Page implements HasTable
 {
     use InteractsWithTable;
-    
-    protected static ?string $title = 'Sales Report per Product';
+
+    protected static ?string $title = 'Laporan Penjualan Produk';
+
+    protected static ?string $navigationLabel = 'Laporan Penjualan Produk';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
+
     protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+
     protected static ?int $navigationSort = 4;
-    
+
     protected string $view = 'filament.pages.product-sales-report';
 
     public function mount(): void
@@ -51,13 +54,13 @@ class ProductSalesReport extends Page implements HasTable
             ->modifyQueryUsing(function (Builder $query) use ($invoiceTable, $invoiceItemTable) {
                 // Read directly from the Livewire component's public property to ensure we have the live, un-cached state
                 $filterState = $this->tableFilters['date_filter'] ?? [];
-                
+
                 $preset = $filterState['filter_preset'] ?? request()->query('filter', 'this_month');
-                
+
                 $startDate = null;
                 $endDate = null;
 
-                if ($preset === 'custom' && !empty($filterState['date_from']) && !empty($filterState['date_until'])) {
+                if ($preset === 'custom' && ! empty($filterState['date_from']) && ! empty($filterState['date_until'])) {
                     $startDate = Carbon::parse($filterState['date_from'])->startOfDay();
                     $endDate = Carbon::parse($filterState['date_until'])->endOfDay();
                 } else {
@@ -66,9 +69,9 @@ class ProductSalesReport extends Page implements HasTable
                         'yesterday' => [$startDate, $endDate] = [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
                         'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                         'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
-                        'ytd'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],
+                        'ytd' => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],
                         'previous_year' => [$startDate, $endDate] = [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
-                        'all'   => [$startDate, $endDate] = [null, null],
+                        'all' => [$startDate, $endDate] = [null, null],
                         default => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                     };
                 }
@@ -80,7 +83,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_sold", [$startDate, $endDate]);
 
                     $query->selectRaw("COALESCE((
@@ -89,7 +92,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_revenue", [$startDate, $endDate]);
                 } else {
                     $query->selectRaw("COALESCE((
@@ -136,7 +139,7 @@ class ProductSalesReport extends Page implements HasTable
                     })
                     ->weight('bold')
                     ->color('success')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.')),
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.')),
             ])
             ->defaultSort('total_sold', 'desc')
             ->filters([
@@ -151,7 +154,7 @@ class ProductSalesReport extends Page implements HasTable
                                 'previous_month' => 'Previous Month',
                                 'ytd' => 'This Year',
                                 'previous_year' => 'Previous Year',
-                                'all'   => 'All Time',
+                                'all' => 'All Time',
                                 'custom' => 'Custom Range',
                             ])
                             ->default(fn () => request()->query('filter', 'this_month'))
@@ -179,13 +182,13 @@ class ProductSalesReport extends Page implements HasTable
                         $indicators = [];
                         if (($data['filter_preset'] ?? 'month') === 'custom') {
                             if ($data['date_from'] ?? null) {
-                                $indicators['date_from'] = 'From: ' . Carbon::parse($data['date_from'])->format('d M Y');
+                                $indicators['date_from'] = 'From: '.Carbon::parse($data['date_from'])->format('d M Y');
                             }
                             if ($data['date_until'] ?? null) {
-                                $indicators['date_until'] = 'Until: ' . Carbon::parse($data['date_until'])->format('d M Y');
+                                $indicators['date_until'] = 'Until: '.Carbon::parse($data['date_until'])->format('d M Y');
                             }
                         } else {
-                            $indicators['preset'] = 'Period: ' . match($data['filter_preset'] ?? 'this_month') {
+                            $indicators['preset'] = 'Period: '.match ($data['filter_preset'] ?? 'this_month') {
                                 'today' => 'Today',
                                 'yesterday' => 'Yesterday',
                                 'this_month' => 'This Month',
@@ -197,8 +200,9 @@ class ProductSalesReport extends Page implements HasTable
                                 default => 'This Month'
                             };
                         }
+
                         return $indicators;
-                    })
+                    }),
             ])
             ->filtersTriggerAction(
                 fn (Action $action) => $action->label('Filter Period')->extraAttributes(['class' => 'mr-3 sm:mr-0']),

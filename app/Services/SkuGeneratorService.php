@@ -11,18 +11,18 @@ class SkuGeneratorService
      * Generate SKU otomatis dengan format: [KATEGORI]-[KODE]-[COUNTER]
      * Contoh: FLW-AMR-001, PKG-BOX-001, OTH-RIB-001
      *
-     * @param string $kategori  Kategori produk (bunga, packaging, others)
-     * @param string $nama      Nama produk
-     * @return string           SKU yang di-generate
+     * @param  string  $kategori  Kategori produk (bunga, packaging, others)
+     * @param  string  $nama  Nama produk
+     * @return string SKU yang di-generate
      */
     public static function generate(string $kategori, string $nama): string
     {
         return DB::transaction(function () use ($kategori, $nama) {
             // Segmen 1: Kategori prefix
             $seg1 = match ($kategori) {
-                'bunga'     => 'FLW',
+                'bunga' => 'FLW',
                 'packaging' => 'PKG',
-                default     => 'OTH',
+                default => 'OTH',
             };
 
             // Segmen 2: 3 huruf pertama dari nama (bersihkan non-alpha)
@@ -52,7 +52,7 @@ class SkuGeneratorService
                 $newCounter = 1;
             }
 
-            return $prefix . str_pad($newCounter, 3, '0', STR_PAD_LEFT);
+            return $prefix.str_pad($newCounter, 3, '0', STR_PAD_LEFT);
         });
     }
 }
