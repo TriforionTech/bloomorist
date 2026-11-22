@@ -2,112 +2,103 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
-use Carbon\Carbon;
-use Filament\Actions\Action;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Support\Facades\DB;
+use App\Filament\Traits\HandlesChartState;
+use App\Filament\Traits\ParsesGlobalFilters;
+use App\Services\DashboardMetricsService;
+use Filament\Support\RawJs;
+use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
-class TopCustomers extends BaseWidget
+class TopCustomers extends ChartWidget
 {
-    protected static ?int $sort = 6;
-    protected int|string|array $columnSpan = 1;
+    use HandlesChartState;
+    use InteractsWithPageFilters;
+    use ParsesGlobalFilters;
 
-    public string $timeRange = 'all';
+    protected static ?int $sort = 5;
 
-    protected function getTableHeaderActions(): array
+    protected ?string $heading = 'Pelanggan Teratas';
+
+    protected ?string $description = 'Top 10 pelanggan berdasarkan total belanja (invoice lunas)';
+
+    protected string $view = 'filament.widgets.dashboard-chart';
+
+    protected int|string|array $columnSpan = [
+        'default' => 1,
+        'lg' => 6,
+    ];
+
+    protected ?string $maxHeight = '340px';
+
+    public function getEmptyStateMessage(): string
     {
-        return [
-            Action::make('filterTime')
-                ->label(match ($this->timeRange) {
-                    'today'      => 'Today',
-                    'last_7'     => 'Last 7 Days',
-                    'this_month' => 'This Month',
-                    'this_year'  => 'This Year',
-                    default      => 'All Time',
-                })
-                ->icon('heroicon-o-funnel')
-                ->color('gray')
-                ->size('sm')
-                ->action(function () {
-                    $this->timeRange = match ($this->timeRange) {
-                        'all'        => 'today',
-                        'today'      => 'last_7',
-                        'last_7'     => 'this_month',
-                        'this_month' => 'this_year',
-                        'this_year'  => 'all',
-                        default      => 'all',
-                    };
-                }),
-        ];
+        return 'Belum ada belanja pelanggan pada periode ini';
     }
 
-    public function table(Table $table): Table
+    public function getEmptyStateIcon(): string
     {
-        return $table
-            ->heading('Top Customers')
-            ->description(match ($this->timeRange) {
-                'today'      => 'Top 10 customer — Hari Ini',
-                'last_7'     => 'Top 10 customer — 7 Hari Terakhir',
-                'this_month' => 'Top 10 customer — Bulan Ini',
-                'this_year'  => 'Top 10 customer — Tahun Ini',
-                default      => 'Top 10 customer — Semua Waktu',
-            })
-            ->query(
-                Customer::query()
-                    ->select(
-                        'bl_customers_t.id',
-                        'bl_customers_t.nama',
-                        DB::raw('COUNT(bl_invoices_t.id) as total_invoices'),
-                        DB::raw('SUM(bl_invoices_t.grand_total) as total_spend')
-                    )
-                    ->join('bl_invoices_t', 'bl_customers_t.id', '=', 'bl_invoices_t.customer_id')
-                    ->where('bl_invoices_t.status', 'paid')
-                    ->when($this->timeRange === 'today', fn ($q) =>
-                        $q->whereDate('bl_invoices_t.issued_date', Carbon::today())
-                    )
-                    ->when($this->timeRange === 'last_7', fn ($q) =>
-                        $q->whereDate('bl_invoices_t.issued_date', '>=', Carbon::now()->subDays(7))
-                    )
-                    ->when($this->timeRange === 'this_month', fn ($q) =>
-                        $q->whereMonth('bl_invoices_t.issued_date', Carbon::now()->month)
-                           ->whereYear('bl_invoices_t.issued_date', Carbon::now()->year)
-                    )
-                    ->when($this->timeRange === 'this_year', fn ($q) =>
-                        $q->whereYear('bl_invoices_t.issued_date', Carbon::now()->year)
-                    )
-                    ->groupBy(
-                        'bl_customers_t.id',
-                        'bl_customers_t.nama'
-                    )
-                    ->limit(10)
-            )
-            ->defaultSort('total_spend', 'desc')
-            ->extraAttributes([
-                'class' => 'fi-fixed-table',
-            ])
-            ->columns([
-                Tables\Columns\TextColumn::make('nama')
-                    ->label('Nama Customer')
-                    ->weight('bold')
-                    ->searchable(),
+        return 'heroicon-o-users';
+    }
 
-                Tables\Columns\TextColumn::make('total_invoices')
-                    ->label('Total Invoice')
-                    ->badge()
-                    ->color('primary')
-                    ->alignCenter()
-                    ->sortable(),
+    protected function getData(): array
+    {
+        return $this->guardChartData(function (): array {
+            $customers = app(DashboardMetricsService::class)->topCustomers($this->dashboardPeriod(), 10);
 
-                Tables\Columns\TextColumn::make('total_spend')
-                    ->label('Total Belanja')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
-                    ->weight('bold')
-                    ->color('success')
-                    ->sortable(),
-            ])
-            ->paginated(false);
+            return [
+                'hasData' => $customers->isNotEmpty(),
+                'chart' => [
+                    'datasets' => [
+                        [
+                            'label' => 'Total Belanja (Rp)',
+                            'data' => $customers->pluck('total')->all(),
+                            'backgroundColor' => 'rgba(219, 39, 119, 0.75)',
+                            'borderColor' => 'rgba(190, 24, 93, 0.9)',
+                            'borderWidth' => 1,
+                            'borderRadius' => 4,
+                        ],
+                    ],
+                    'labels' => $customers->pluck('name')->all(),
+                ],
+            ];
+        });
+    }
+
+    protected function getOptions(): array|RawJs
+    {
+        return RawJs::make(<<<'JS'
+            {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => 'Rp ' + new Intl.NumberFormat('id-ID').format(context.parsed.x)
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { display: true },
+                        ticks: {
+                            callback: (value) => {
+                                if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                                if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
+                                return 'Rp ' + value;
+                            }
+                        }
+                    },
+                    y: { grid: { display: false } },
+                },
+            }
+        JS);
+    }
+
+    protected function getType(): string
+    {
+        return 'bar';
     }
 }

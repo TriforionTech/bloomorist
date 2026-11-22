@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('bl_journal_items_t', function (Blueprint $table) {
             $table->id();
             $table->foreignId('journal_id')
-                  ->constrained('bl_general_journals_t')
-                  ->cascadeOnDelete();
+                ->constrained('bl_general_journals_t')
+                ->cascadeOnDelete();
             $table->foreignId('coa_id')
-                  ->constrained('bl_coa_t');
+                ->constrained('bl_coa_t');
             $table->string('kode_coa'); // denormalized from bl_coa_t.kode_akun
             $table->bigInteger('debit')->default(0);
             $table->bigInteger('kredit')->default(0);

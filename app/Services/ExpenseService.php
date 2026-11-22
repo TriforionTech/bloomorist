@@ -21,7 +21,7 @@ class ExpenseService
         if (! $expense->isDraft()) {
             throw new \RuntimeException(
                 "Expense '{$expense->keterangan}' tidak dapat di-post karena statusnya sudah "
-                . strtoupper($expense->status) . '.'
+                .strtoupper($expense->status).'.'
             );
         }
 
@@ -58,7 +58,7 @@ class ExpenseService
         if (! $expense->isPosted()) {
             throw new \RuntimeException(
                 "Expense '{$expense->keterangan}' tidak dapat di-void karena statusnya "
-                . strtoupper($expense->status) . '.'
+                .strtoupper($expense->status).'.'
             );
         }
 

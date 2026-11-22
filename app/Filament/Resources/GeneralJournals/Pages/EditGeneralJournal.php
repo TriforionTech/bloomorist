@@ -12,24 +12,40 @@ class EditGeneralJournal extends EditRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index'); 
+        return $this->getResource()::getUrl('index');
     }
-    
+
     /**
      * Validate that total debit equals total kredit before saving.
      */
     protected function beforeSave(): void
     {
+        $tanggal = $this->data['tanggal'] ?? $this->record->tanggal;
+        $period = \App\Models\AccountingPeriod::where('start_date', '<=', $tanggal)
+            ->where('end_date', '>=', $tanggal)
+            ->first();
+
+        if ($period && $period->isClosed()) {
+            Notification::make()
+                ->danger()
+                ->title('Periode Akuntansi Sudah Ditutup')
+                ->body("Periode akuntansi '{$period->label}' sudah ditutup (Tutup Buku). Jurnal umum tidak dapat diedit pada periode ini.")
+                ->persistent()
+                ->send();
+
+            $this->halt();
+        }
+
         $items = $this->data['items'] ?? [];
 
-        $totalDebit  = collect($items)->sum(fn ($item) => (int) ($item['debit'] ?? 0));
+        $totalDebit = collect($items)->sum(fn ($item) => (int) ($item['debit'] ?? 0));
         $totalKredit = collect($items)->sum(fn ($item) => (int) ($item['kredit'] ?? 0));
 
         if ($totalDebit !== $totalKredit) {
             Notification::make()
                 ->danger()
                 ->title('Jurnal Tidak Balance')
-                ->body("Total Debit (Rp " . number_format($totalDebit, 0, ',', '.') . ") tidak sama dengan Total Kredit (Rp " . number_format($totalKredit, 0, ',', '.') . "). Jurnal harus balance.")
+                ->body('Total Debit (Rp '.number_format($totalDebit, 0, ',', '.').') tidak sama dengan Total Kredit (Rp '.number_format($totalKredit, 0, ',', '.').'). Jurnal harus balance.')
                 ->persistent()
                 ->send();
 

@@ -4,14 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
 {
     public function download(Invoice $invoice)
     {
+        $invoice->loadMissing(['customer.membership', 'items.product']);
+
         $customer = [
-            'name' => $invoice->customer->nama ?? 'Unknown',
+            'name' => $invoice->customer->nama ?? $invoice->customer_name ?? 'Unknown',
             'alias' => $invoice->customer->alias ?? '',
             'address' => $invoice->customer->alamat ?? '-',
             'city' => $invoice->customer->kota ?? '-',
@@ -19,7 +20,12 @@ class InvoiceController extends Controller
             'country' => $invoice->customer->negara ?? 'Indonesia',
             'email' => $invoice->customer->email ?? '-',
             'phone_number' => $invoice->customer->nomor_hp ?? '-',
-            'membership' => $invoice->customer->membership->nama ?? ($invoice->customer_type === 'member' ? 'Member' : '-'),
+            'membership' => $invoice->customer->membership->nama ?? null,
+            'customer_type_label' => match ($invoice->pricing_tier ?? $invoice->customer_type) {
+                'vendor' => 'Vendor',
+                'dekor' => 'Dekorator',
+                default => ($invoice->customer_type === 'member' ? 'Toko (Member)' : 'Toko (Non-Member)'),
+            },
         ];
 
         $hasDiscount = false;
@@ -53,7 +59,7 @@ class InvoiceController extends Controller
         // ALL items (including Box/Wrapping) go into the product list
         // Menggunakan snapshot_name untuk immutability
         $products = [];
-        foreach ($invoice->items()->get() as $item) {
+        foreach ($invoice->items as $item) {
             $productName = $item->snapshot_name ?: ($item->product->nama ?? 'Unknown Product');
 
             $products[] = [
@@ -63,7 +69,7 @@ class InvoiceController extends Controller
                 'normal_price' => $item->normal_price,
                 'item_discount_percent' => $item->item_discount,
                 'discount_price' => $item->discount_price,
-                'total' => $item->discount_price, 
+                'total' => $item->discount_price,
             ];
         }
 
@@ -83,9 +89,9 @@ class InvoiceController extends Controller
             'summary' => $summary,
             'flags' => $flags,
         ]);
-        
+
         $pdf->setPaper('A4', 'portrait');
-        
+
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();
         }, "INV_Bloomorist_{$invoice->invoice_number}.pdf", [

@@ -10,11 +10,16 @@ class GeneralJournalsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('tanggal', 'desc')
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
                     ->rowIndex(),
+
+                TextColumn::make('tanggal')
+                    ->label('TANGGAL')
+                    ->date('d M Y')
+                    ->sortable(),
 
                 TextColumn::make('no_bukti')
                     ->label('NO. BUKTI')
@@ -37,27 +42,22 @@ class GeneralJournalsTable
                     ->color(fn ($state) => match ($state) {
                         'EXPENSE' => 'danger',
                         'INVOICE' => 'success',
-                        'STOCK'   => 'warning',
-                        default   => 'info',
+                        'STOCK' => 'warning',
+                        default => 'info',
                     })
                     ->sortable(),
 
                 TextColumn::make('items_sum_debit')
                     ->label('TOTAL DEBIT')
                     ->sum('items', 'debit')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->alignEnd(),
 
                 TextColumn::make('items_sum_kredit')
                     ->label('TOTAL KREDIT')
                     ->sum('items', 'kredit')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.'))
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->alignEnd(),
-
-                TextColumn::make('created_at')
-                    ->label('TANGGAL')
-                    ->date('d M Y')
-                    ->sortable(),
             ]);
     }
 }

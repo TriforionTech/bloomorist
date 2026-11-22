@@ -16,6 +16,8 @@ class Product extends Model
         'kategori',
         'harga_beli',
         'harga_jual',
+        'harga_vendor',
+        'harga_dekor',
         'stok',
         'is_active',
     ];

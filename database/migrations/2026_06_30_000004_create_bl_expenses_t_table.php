@@ -16,11 +16,11 @@ return new class extends Migration
             $table->string('keterangan');
             $table->bigInteger('nominal');
             $table->foreignId('coa_id')
-                  ->constrained('bl_coa_t')
-                  ->comment('Akun Beban yang dipilih');
+                ->constrained('bl_coa_t')
+                ->comment('Akun Beban yang dipilih');
             $table->foreignId('coa_kredit_id')
-                  ->constrained('bl_coa_t')
-                  ->comment('Akun Kas/Bank yang di-kredit');
+                ->constrained('bl_coa_t')
+                ->comment('Akun Kas/Bank yang di-kredit');
             $table->timestamps();
         });
     }

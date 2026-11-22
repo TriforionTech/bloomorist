@@ -2,12 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
 use App\Services\AccountingService;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -21,19 +21,23 @@ class BukuBesar extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
 
-    protected static ?string $title = 'Ledger';
-    protected static ?string $navigationLabel = 'Ledger';
-    protected static ?string $pluralLabel = 'Ledgers';
+    protected static ?string $title = 'Buku Besar';
+
+    protected static ?string $navigationLabel = 'Buku Besar';
+
+    protected static ?string $pluralLabel = 'Buku Besar';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
-    protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
-    protected static ?int $navigationSort = 3;
+
+    protected static string|UnitEnum|null $navigationGroup = 'AKUNTANSI';
+
+    protected static ?int $navigationSort = 4;
 
     protected string $view = 'filament.pages.buku-besar';
 
     public ?int $selectedCoaId = null;
-    public ?string $startDate = null;
-    public ?string $endDate = null;
+
+    public ?int $selectedPeriodId = null;
 
     /**
      * Only superadmin can access this page.
@@ -41,6 +45,13 @@ class BukuBesar extends Page implements HasSchemas
     public static function canAccess(): bool
     {
         return Filament::auth()->user()?->is_super_admin ?? false;
+    }
+
+    public function mount(): void
+    {
+        $this->selectedPeriodId = AccountingPeriod::query()
+            ->orderByDesc('start_date')
+            ->value('id');
     }
 
     public function filterSchema(Schema $schema): Schema
@@ -62,14 +73,16 @@ class BukuBesar extends Page implements HasSchemas
                         ->required()
                         ->live(),
 
-                    DatePicker::make('startDate')
-                        ->label('Dari Tanggal')
+                    Select::make('selectedPeriodId')
+                        ->label('Periode Akuntansi')
+                        ->options(
+                            AccountingPeriod::query()
+                                ->orderByDesc('start_date')
+                                ->pluck('label', 'id')
+                        )
+                        ->searchable()
                         ->native(false)
-                        ->live(),
-
-                    DatePicker::make('endDate')
-                        ->label('Sampai Tanggal')
-                        ->native(false)
+                        ->required()
                         ->live(),
                 ])
                 ->columns(3),
@@ -81,16 +94,29 @@ class BukuBesar extends Page implements HasSchemas
      */
     public function getLedgerData(): Collection
     {
-        if (!$this->selectedCoaId) {
+        if (! $this->selectedCoaId) {
             return collect();
         }
 
         $service = app(AccountingService::class);
 
-        $start = $this->startDate ? Carbon::parse($this->startDate) : null;
-        $end   = $this->endDate ? Carbon::parse($this->endDate) : null;
+        $period = AccountingPeriod::find($this->selectedPeriodId);
+        if (! $period) {
+            return collect();
+        }
 
-        return $service->getLedgerEntries($this->selectedCoaId, $start, $end);
+        return $service->getLedgerEntries(
+            $this->selectedCoaId,
+            Carbon::parse($period->start_date)->startOfDay(),
+            Carbon::parse($period->end_date)->endOfDay(),
+        );
+    }
+
+    public function getSelectedPeriod(): ?AccountingPeriod
+    {
+        return $this->selectedPeriodId
+            ? AccountingPeriod::find($this->selectedPeriodId)
+            : null;
     }
 
     /**
@@ -98,7 +124,7 @@ class BukuBesar extends Page implements HasSchemas
      */
     public function getSelectedCoa(): ?ChartOfAccount
     {
-        if (!$this->selectedCoaId) {
+        if (! $this->selectedCoaId) {
             return null;
         }
 

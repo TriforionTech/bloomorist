@@ -11,7 +11,7 @@
                 color="primary"
                 wire:click="validateThenGenerate"
             >
-                {{ $this->isEditMode() ? 'Save Changes' : 'Save Invoice' }}
+                {{ $this->isEditMode() ? 'Simpan Perubahan' : 'Simpan Invoice' }}
             </x-filament::button>
 
             {{-- Reset/Cancel: langsung trigger action bawaan Filament --}}
@@ -19,7 +19,7 @@
                 color="gray"
                 wire:click="mountAction('resetForm')"
             >
-                {{ $this->isEditMode() ? 'Cancel' : 'Reset' }}
+                {{ $this->isEditMode() ? 'Batal' : 'Reset' }}
             </x-filament::button>
         @else
             {{-- Back button for View Mode --}}
@@ -28,7 +28,7 @@
                 tag="a"
                 href="{{ \App\Filament\Resources\Invoices\InvoiceResource::getUrl('index') }}"
             >
-                Back
+                Kembali
             </x-filament::button>
         @endif
     </div>

@@ -65,9 +65,9 @@ return new class extends Migration
 
         foreach ($products as $product) {
             $sku = match (strtolower($product->nama)) {
-                'box'      => 'PKG-BOX-001',
+                'box' => 'PKG-BOX-001',
                 'wrapping' => 'PKG-WRP-001',
-                default    => SkuGeneratorService::generate(
+                default => SkuGeneratorService::generate(
                     $product->kategori ?? 'others',
                     $product->nama
                 ),
@@ -98,9 +98,10 @@ return new class extends Migration
                             DB::table('bl_invoice_items_t')
                                 ->where('id', $item->id)
                                 ->update([
-                                    'snapshot_sku'  => $product->sku ?? 'UNKNOWN',
+                                    'snapshot_sku' => $product->sku ?? 'UNKNOWN',
                                     'snapshot_name' => $product->nama ?? 'Unknown Product',
                                 ]);
+
                             continue;
                         }
                     }
@@ -109,7 +110,7 @@ return new class extends Migration
                     DB::table('bl_invoice_items_t')
                         ->where('id', $item->id)
                         ->update([
-                            'snapshot_sku'  => 'DELETED',
+                            'snapshot_sku' => 'DELETED',
                             'snapshot_name' => 'Deleted Product',
                         ]);
                 }

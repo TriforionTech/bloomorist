@@ -14,39 +14,41 @@ class UserForm
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->placeholder('Enter admin name')
+                    ->label('Nama Admin')
+                    ->placeholder('Masukkan nama admin')
                     ->required(),
                 TextInput::make('email')
                     ->label('Email')
                     ->email()
-                    ->placeholder('example@domain.com')
+                    ->placeholder('contoh@domain.com')
                     ->required(),
                 TextInput::make('password')
+                    ->label('Kata Sandi')
                     ->password()
-                    ->placeholder('Enter secure password')
+                    ->placeholder('Masukkan kata sandi')
                     ->required(),
                 TextInput::make('confirm-password')
-                    ->label('Confirm Password')
+                    ->label('Konfirmasi Kata Sandi')
                     ->password()
-                    ->placeholder('Confirm your password')
+                    ->placeholder('Ulangi kata sandi')
                     ->required()
                     ->same('password')
                     ->validationMessages([
-                        'same' => 'Password confirmation does not match.',
+                        'same' => 'Konfirmasi kata sandi tidak cocok.',
                     ]),
                 Select::make('is_super_admin')
                     ->label('Superadmin')
-                    ->placeholder('Select role')
+                    ->placeholder('Pilih peran')
                     ->options([
-                        0 => 'No',
-                        1 => 'Yes',
+                        0 => 'Tidak',
+                        1 => 'Ya',
                     ])
-                    ->visible(fn ($record) =>
-                        Filament::auth()->user()?->is_super_admin &&
+                    ->visible(fn ($record) => Filament::auth()->user()?->is_super_admin &&
                         Filament::auth()->id() !== $record?->id
                     )
                     ->default(0)
-                    ->required(),
+                    ->required()
+                    ->native(false),
             ]);
     }
 }

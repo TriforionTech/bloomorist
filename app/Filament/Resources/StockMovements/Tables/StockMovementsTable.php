@@ -15,28 +15,29 @@ class StockMovementsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['product', 'user']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
                     ->rowIndex(),
                 TextColumn::make('created_at')
-                    ->label('DATE')
+                    ->label('TANGGAL')
                     ->dateTime('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable(),
                 TextColumn::make('product.nama')
-                    ->label('PRODUCT')
+                    ->label('PRODUK')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('type')
-                    ->label('TYPE')
+                    ->label('TIPE')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'in' => 'STOCK IN',
-                        'out' => 'STOCK OUT',
-                        'sale' => 'SALE',
-                        'return' => 'RETURN',
+                        'in' => 'STOK MASUK',
+                        'out' => 'STOK KELUAR',
+                        'sale' => 'PENJUALAN',
+                        'return' => 'RETUR',
                         'opname' => 'OPNAME',
                         default => ucfirst($state),
                     })
@@ -50,15 +51,15 @@ class StockMovementsTable
                     })
                     ->sortable(),
                 TextColumn::make('quantity')
-                    ->label('QTY')
+                    ->label('JUMLAH')
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('reference_id')
-                    ->label('REFERENCE')
+                    ->label('REFERENSI')
                     ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('notes')
-                    ->label('NOTES')
+                    ->label('CATATAN')
                     ->limit(50)
                     ->tooltip(fn ($record) => $record->notes)
                     ->placeholder('-'),
@@ -69,63 +70,67 @@ class StockMovementsTable
             ])
             ->filters([
                 SelectFilter::make('type')
-                    ->label('Movement Type')
+                    ->label('Tipe Pergerakan')
                     ->multiple()
                     ->options([
-                        'in' => 'Stock In',
-                        'out' => 'Stock Out',
-                        'sale' => 'Sale',
-                        'return' => 'Return',
+                        'in' => 'Stok Masuk',
+                        'out' => 'Stok Keluar',
+                        'sale' => 'Penjualan',
+                        'return' => 'Retur',
                         'opname' => 'Opname',
                     ]),
                 Filter::make('time_preset')
-                    ->label('Time Range')
+                    ->label('Rentang Waktu')
                     ->default(['preset' => 'today'])
                     ->schema([
                         \Filament\Forms\Components\Select::make('preset')
-                            ->label('Quick Filter')
+                            ->label('Filter Cepat')
                             ->options([
-                                'today'      => 'Today',
-                                'this_week'  => 'This Week',
-                                'this_month' => 'This Month',
-                                'last_month' => 'Last Month',
+                                'today' => 'Hari Ini',
+                                'this_week' => 'Minggu Ini',
+                                'this_month' => 'Bulan Ini',
+                                'last_month' => 'Bulan Lalu',
                             ])
                             ->default('today')
-                            ->placeholder('All Time')
+                            ->placeholder('Semua Waktu')
                             ->native(false),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $preset = $data['preset'] ?? null;
+
                         return match ($preset) {
-                            'today'      => $query->whereDate('created_at', \Carbon\Carbon::today()),
-                            'this_week'  => $query->whereBetween('created_at', [\Carbon\Carbon::now()->startOfWeek(), \Carbon\Carbon::now()->endOfWeek()]),
+                            'today' => $query->whereDate('created_at', \Carbon\Carbon::today()),
+                            'this_week' => $query->whereBetween('created_at', [\Carbon\Carbon::now()->startOfWeek(), \Carbon\Carbon::now()->endOfWeek()]),
                             'this_month' => $query->whereMonth('created_at', \Carbon\Carbon::now()->month)->whereYear('created_at', \Carbon\Carbon::now()->year),
                             'last_month' => $query->whereMonth('created_at', \Carbon\Carbon::now()->subMonth()->month)->whereYear('created_at', \Carbon\Carbon::now()->subMonth()->year),
-                            default      => $query,
+                            default => $query,
                         };
                     })
                     ->indicateUsing(function (array $data): array {
                         $preset = $data['preset'] ?? null;
-                        if (!$preset) return [];
-                        return ['preset' => 'Period: ' . match ($preset) {
-                            'today'      => 'Today',
-                            'this_week'  => 'This Week',
-                            'this_month' => 'This Month',
-                            'last_month' => 'Last Month',
-                            default      => $preset,
+                        if (! $preset) {
+                            return [];
+                        }
+
+                        return ['preset' => 'Periode: '.match ($preset) {
+                            'today' => 'Hari Ini',
+                            'this_week' => 'Minggu Ini',
+                            'this_month' => 'Bulan Ini',
+                            'last_month' => 'Bulan Lalu',
+                            default => $preset,
                         }];
                     }),
                 Filter::make('date_range')
-                    ->label('Custom Range')
+                    ->label('Rentang Kustom')
                     ->schema([
                         Grid::make([
                             'default' => 1,
                             'sm' => 2,
                         ])->schema([
                             DatePicker::make('from')
-                                ->label('From Date'),
+                                ->label('Dari Tanggal'),
                             DatePicker::make('until')
-                                ->label('Until Date'),
+                                ->label('Sampai Tanggal'),
                         ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -142,11 +147,12 @@ class StockMovementsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['from'] ?? null) {
-                            $indicators['from'] = 'From: ' . \Carbon\Carbon::parse($data['from'])->format('d M Y');
+                            $indicators['from'] = 'Dari: '.\Carbon\Carbon::parse($data['from'])->format('d M Y');
                         }
                         if ($data['until'] ?? null) {
-                            $indicators['until'] = 'Until: ' . \Carbon\Carbon::parse($data['until'])->format('d M Y');
+                            $indicators['until'] = 'Sampai: '.\Carbon\Carbon::parse($data['until'])->format('d M Y');
                         }
+
                         return $indicators;
                     }),
             ])

@@ -7,9 +7,7 @@ use App\Filament\Resources\Invoices\Tables\InvoicesTable;
 use App\Models\Invoice;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Tables\Table;
-
 use UnitEnum;
 
 class InvoiceResource extends Resource
@@ -18,9 +16,13 @@ class InvoiceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+    protected static string|UnitEnum|null $navigationGroup = 'PENJUALAN';
 
-    protected static ?string $navigationLabel = 'Invoice History';
+    protected static ?string $pluralLabel = 'Riwayat Invoice';
+
+    protected static ?string $label = 'Riwayat Invoice';
+
+    protected static ?string $navigationLabel = 'Riwayat Invoice';
 
     public static function table(Table $table): Table
     {

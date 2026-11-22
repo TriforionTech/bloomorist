@@ -17,16 +17,25 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use UnitEnum;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    protected static ?string $navigationLabel = 'Admin';
-    protected static ?string $pluralLabel = 'Admins';
+
+    protected static ?string $navigationLabel = 'Pengguna';
+
+    protected static ?string $pluralLabel = 'Admin';
+
     protected static ?string $label = 'Admin';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::ShieldCheck;
 
+    protected static string|UnitEnum|null $navigationGroup = 'ADMINISTRASI';
+
     protected static ?string $recordTitleAttribute = 'name';
+
+    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

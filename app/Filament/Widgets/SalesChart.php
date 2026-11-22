@@ -2,161 +2,107 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Invoice;
-use Carbon\Carbon;
-use Filament\Widgets\ChartWidget;
-use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\HtmlString;
+use App\Filament\Traits\HandlesChartState;
+use App\Filament\Traits\ParsesGlobalFilters;
+use App\Services\DashboardMetricsService;
 use Filament\Support\RawJs;
+use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
+use Throwable;
 
 class SalesChart extends ChartWidget
 {
-    protected static ?int $sort = 2;
-    protected ?string $heading = 'Sales Chart';
-    protected int|string|array $columnSpan = 'full';
+    use HandlesChartState;
+    use InteractsWithPageFilters;
+    use ParsesGlobalFilters;
+
+    protected static ?int $sort = 3;
+
+    protected ?string $heading = 'Grafik Penjualan';
+
+    protected string $view = 'filament.widgets.sales-chart';
+
+    protected int|string|array $columnSpan = [
+        'default' => 1,
+        'lg' => 12,
+    ];
 
     protected ?string $maxHeight = '500px';
-    
+
     protected ?string $pollingInterval = null;
 
-    public ?string $filter = 'month';
-
-    protected function getFilters(): ?array
-    {
-        return [
-            'today' => 'Today',
-            'week'  => 'Last 7 Days',
-            'month' => 'This Month',
-            'year'  => 'This Year',
-            'all'   => 'Year by Year',
-        ];
-    }
-
     /**
-     * Ringkasan Revenue + Order ditampilkan di atas chart via description.
+     * Ringkasan pendapatan + jumlah invoice lunas pada periode aktif.
      */
     public function getDescription(): string|Htmlable|null
     {
-        $query = Invoice::where('status', 'paid');
-        $this->applyDateFilter($query);
+        try {
+            $period = $this->dashboardPeriod();
+            $summary = app(DashboardMetricsService::class)->invoiceSummary($period);
+        } catch (Throwable $exception) {
+            report($exception);
 
-        $totalRevenue = (clone $query)->sum('grand_total');
-        $totalOrders  = (clone $query)->count();
-        $formatted    = 'Rp ' . number_format($totalRevenue, 0, ',', '.');
+            return null;
+        }
+
+        $revenue = e($this->formatRupiah($summary['revenue']));
+        $paidCount = number_format($summary['paid_count'], 0, ',', '.');
+        $range = e($period->presetLabel().' · '.$period->rangeLabel());
 
         return new HtmlString("
-            <div class='flex flex-wrap items-center gap-6 mt-1 mb-2'>
+            <div class='flex flex-wrap items-center gap-x-6 gap-y-2 mt-1 mb-2'>
                 <div>
-                    <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Revenue</span>
-                    <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$formatted}</div>
+                    <span class='text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>Pendapatan</span>
+                    <div class='text-lg font-bold text-gray-900 dark:text-white mt-0.5'>{$revenue}</div>
                 </div>
                 <div class='h-8 w-px bg-gray-200 dark:bg-gray-700'></div>
-                <br>
                 <div>
-                    <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Total Order</span>
-                    <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$totalOrders}</div>
+                    <span class='text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>Invoice Lunas</span>
+                    <div class='text-lg font-bold text-gray-900 dark:text-white mt-0.5'>{$paidCount}</div>
                 </div>
+                <div class='text-sm font-medium text-gray-600 dark:text-gray-300'>{$range}</div>
             </div>
         ");
     }
 
+    public function getEmptyStateMessage(): string
+    {
+        return 'Belum ada transaksi pada periode ini';
+    }
+
     protected function getData(): array
     {
-        $labels = [];
-        $data   = [];
+        return $this->guardChartData(function (): array {
+            $series = app(DashboardMetricsService::class)->salesSeries($this->dashboardPeriod());
 
-        $baseQuery = Invoice::where('status', 'paid');
+            $intervalLabel = match ($series['interval']) {
+                'hour' => 'per jam',
+                'day' => 'per hari',
+                'month' => 'per bulan',
+                default => 'per tahun',
+            };
 
-        if ($this->filter === 'today') {
-            $results = (clone $baseQuery)
-                ->whereDate('issued_date', Carbon::today())
-                ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('hour')
-                ->pluck('total', 'hour')
-                ->toArray();
-
-            for ($i = 8; $i <= 22; $i++) {
-                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
-                $data[]   = (float) ($results[$i] ?? 0);
-            }
-
-        } elseif ($this->filter === 'month') {
-            $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
-                ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('date')
-                ->pluck('total', 'date')
-                ->toArray();
-
-            $daysInMonth = Carbon::now()->daysInMonth;
-            for ($i = 1; $i <= $daysInMonth; $i++) {
-                $dateString = Carbon::now()->setDay($i)->format('Y-m-d');
-                $labels[]   = $i;
-                $data[]     = (float) ($results[$dateString] ?? 0);
-            }
-
-        } elseif ($this->filter === 'year') {
-            $results = (clone $baseQuery)
-                ->whereYear('issued_date', Carbon::now()->year)
-                ->select(DB::raw('MONTH(issued_date) as month'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('month')
-                ->pluck('total', 'month')
-                ->toArray();
-
-            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-            foreach ($months as $index => $month) {
-                $labels[] = $month;
-                $data[]   = (float) ($results[$index + 1] ?? 0);
-            }
-
-        } elseif ($this->filter === 'all') {
-            $results = (clone $baseQuery)
-                ->select(
-                    DB::raw('YEAR(issued_date) as year'),
-                    DB::raw('SUM(grand_total) as total')
-                )
-                ->groupBy('year')
-                ->orderBy('year')
-                ->pluck('total', 'year')
-                ->toArray();
-
-            foreach ($results as $year => $total) {
-                $labels[] = (string) $year;
-                $data[]   = (float) $total;
-            }
-
-        } else {
-            // 7 hari terakhir
-            $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [Carbon::today()->subDays(6), Carbon::today()])
-                ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('date')
-                ->pluck('total', 'date')
-                ->toArray();
-
-            for ($i = 6; $i >= 0; $i--) {
-                $dateString = Carbon::today()->subDays($i)->format('Y-m-d');
-                $labels[]   = Carbon::today()->subDays($i)->format('d M');
-                $data[]     = (float) ($results[$dateString] ?? 0);
-            }
-        }
-
-        return [
-            'datasets' => [
-                [
-                    'label'                 => 'Pendapatan (Rp)',
-                    'data'                  => $data,
-                    'borderColor'           => '#db2777',
-                    'backgroundColor'       => 'rgba(219, 39, 119, 0.08)',
-                    'fill'                  => true,
-                    'tension'               => 0.4,
-                    'pointBackgroundColor'  => '#db2777',
-                    'pointRadius'           => 4,
+            return [
+                'hasData' => $series['total'] > 0,
+                'chart' => [
+                    'datasets' => [
+                        [
+                            'label' => "Pendapatan {$intervalLabel} (Rp)",
+                            'data' => $series['data'],
+                            'borderColor' => '#db2777',
+                            'backgroundColor' => 'rgba(219, 39, 119, 0.08)',
+                            'fill' => true,
+                            'tension' => 0.4,
+                            'pointBackgroundColor' => '#db2777',
+                            'pointRadius' => count($series['data']) > 31 ? 2 : 4,
+                        ],
+                    ],
+                    'labels' => $series['labels'],
                 ],
-            ],
-            'labels' => $labels,
-        ];
+            ];
+        });
     }
 
     protected function getOptions(): RawJs
@@ -177,6 +123,11 @@ class SalesChart extends ChartWidget
                     }
                 },
                 scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 15
+                        }
+                    },
                     y: {
                         beginAtZero: true,
                         ticks: {
@@ -196,25 +147,5 @@ class SalesChart extends ChartWidget
     protected function getType(): string
     {
         return 'line';
-    }
-
-    /**
-     * Terapkan filter tanggal ke query builder.
-     */
-    private function applyDateFilter(\Illuminate\Database\Eloquent\Builder $query): void
-    {
-        match ($this->filter) {
-            'today' => $query->whereDate('issued_date', Carbon::today()),
-            'month' => $query->whereBetween('issued_date', [
-                Carbon::now()->startOfMonth(),
-                Carbon::now()->endOfMonth(),
-            ]),
-            'year'  => $query->whereYear('issued_date', Carbon::now()->year),
-            'all'   => null,
-            default => $query->whereBetween('issued_date', [
-                Carbon::today()->subDays(6),
-                Carbon::today(),
-            ]),
-        };
     }
 }

@@ -13,6 +13,8 @@ class Invoice extends Model
         'invoice_number',
         'customer_type',
         'customer_id',
+        'customer_name',
+        'pricing_tier',
         'discount_mode',
         'discount_mode_member',
         'custom_discount',
@@ -91,7 +93,7 @@ class Invoice extends Model
             if ($invoice->getOriginal('status') !== 'pending') {
                 throw new \RuntimeException(
                     "Invoice #{$invoice->invoice_number} tidak dapat diedit karena statusnya sudah "
-                    . strtoupper($invoice->getOriginal('status')) . '.'
+                    .strtoupper($invoice->getOriginal('status')).'.'
                 );
             }
         });
@@ -103,7 +105,7 @@ class Invoice extends Model
             if (! $invoice->isDeletable()) {
                 throw new \RuntimeException(
                     "Invoice #{$invoice->invoice_number} tidak dapat dihapus karena statusnya sudah "
-                    . strtoupper($invoice->status) . '.'
+                    .strtoupper($invoice->status).'.'
                 );
             }
         });
@@ -142,9 +144,9 @@ class Invoice extends Model
             ->where('snapshot_name', 'Wrapping');
     }
 
-    public function customer()
+    public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'customer_id');
+        return $this->belongsTo(Customer::class, 'customer_id')->withTrashed();
     }
 
     /**

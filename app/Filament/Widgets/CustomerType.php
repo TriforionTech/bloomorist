@@ -22,19 +22,19 @@ class CustomerType extends BaseWidget
         $totalCount = $memberCount + $nonMemberCount;
 
         return [
-            Stat::make('Total Customer', $totalCount)
+            Stat::make('Total Pelanggan', $totalCount)
                 ->icon('heroicon-o-users')
-                ->description('Semua customer terdaftar')
+                ->description('Semua pelanggan terdaftar')
                 ->color('primary'),
 
             Stat::make('Member', $memberCount)
                 ->icon('heroicon-o-star')
-                ->description('Customer dengan membership')
+                ->description('Pelanggan dengan membership')
                 ->color('success'),
 
             Stat::make('Non-Member', $nonMemberCount)
                 ->icon('heroicon-o-user')
-                ->description('Customer reguler')
+                ->description('Pelanggan reguler')
                 ->color('warning'),
         ];
     }

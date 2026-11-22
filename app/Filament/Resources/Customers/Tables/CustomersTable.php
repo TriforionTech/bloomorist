@@ -2,13 +2,17 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Models\Customer;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class CustomersTable
@@ -22,7 +26,19 @@ class CustomersTable
                     ->label('NO.')
                     ->rowIndex(),
                 TextColumn::make('nama')
-                    ->label('NAME')
+                    ->label('NAMA')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('tipe_customer')
+                    ->label('TIPE')
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'toko' => 'success',
+                        'vendor' => 'warning',
+                        'dekor' => 'info',
+                        default => 'gray',
+                    })
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('alias')
@@ -34,26 +50,26 @@ class CustomersTable
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('alamat')
-                    ->label('ADDRESS')
+                    ->label('ALAMAT')
                     ->searchable(),
                 TextColumn::make('kota')
-                    ->label('CITY')
+                    ->label('KOTA')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('provinsi')
-                    ->label('REGION')
+                    ->label('PROVINSI')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('negara')
-                    ->label('COUNTRY')
+                    ->label('NEGARA')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('nomor_hp')
-                    ->label('PHONE')
+                    ->label('NO. HP')
                     ->searchable(),
                 TextColumn::make('membership_id')
                     ->label('MEMBERSHIP')
-                    ->numeric()
+                    // ->numeric()
                     ->sortable()
                     ->formatStateUsing(fn (int $state): string => match ($state) {
                         1 => 'SILVER',
@@ -68,7 +84,6 @@ class CustomersTable
                         3 => 'info',
                         default => 'secondary',
                     })
-                    // TAMBAHKAN ICON DI SINI
                     ->icon(fn (int $state): string => match ($state) {
                         1 => 'heroicon-m-shield-check',
                         2 => 'heroicon-m-star',
@@ -76,51 +91,82 @@ class CustomersTable
                         default => 'heroicon-m-minus',
                     }),
                 TextColumn::make('created_at')
-                    ->label('CREATED AT')
+                    ->label('DIBUAT PADA')
                     ->dateTime('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->label('UPDATED AT')
+                    ->label('DIPERBARUI PADA')
                     ->dateTime('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('membership_id')
-                    ->label('Membership Category')
+                SelectFilter::make('tipe_customer')
+                    ->label('Tipe Pelanggan')
                     ->options([
-                        1 => 'SILVER',
-                        2 => 'GOLD',
-                        3 => 'PLATINUM',
+                        'toko' => 'Toko',
+                        'vendor' => 'Vendor',
+                        'dekor' => 'Dekorator',
                     ])
-                    ->searchable(),
+                    ->native(false),
+                SelectFilter::make('membership_id')
+                    ->label('Kategori Member')
+                    ->options([
+                        1 => 'Silver',
+                        2 => 'Gold',
+                        3 => 'Platinum',
+                    ])
+                    ->native(false),
+
+                TrashedFilter::make()
+                    ->label('Status Arsip'),
             ])
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 EditAction::make()
                     ->hiddenLabel()
                     ->size('xl')
-                    ->tooltip('Edit customer')
+                    ->tooltip('Edit pelanggan')
                     ->icon('heroicon-o-pencil-square'),
+
                 DeleteAction::make()
                     ->hiddenLabel()
                     ->size('xl')
-                    ->tooltip('Delete customer')
+                    ->tooltip('Hapus / Arsipkan pelanggan')
                     ->icon('heroicon-o-trash')
-                    ->modalHeading('Hapus Customer')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus customer ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalHeading('Hapus / Arsipkan Pelanggan')
+                    ->modalDescription(function (Customer $record): string {
+                        $invoiceCount = $record->invoices()->count();
+                        if ($invoiceCount > 0) {
+                            return 'Pelanggan ini memiliki '.$invoiceCount.' transaksi invoice, pelanggan akan diarsipkan. Riwayat transaksi dan laporan keuangan tidak akan hilang.';
+                        }
+
+                        return 'Apakah Anda yakin ingin menghapus pelanggan ini? Pelanggan akan dipindahkan ke arsip.';
+                    })
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal'),
-            ])            
+
+                RestoreAction::make()
+                    ->hiddenLabel()
+                    ->size('xl')
+                    ->tooltip('Pulihkan pelanggan')
+                    ->icon('heroicon-o-arrow-path'),
+            ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->modalHeading('Hapus Customer Terpilih')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus semua customer yang dipilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->modalHeading('Hapus / Arsipkan Pelanggan Terpilih')
+                        ->modalDescription('Apakah Anda yakin ingin menghapus pelanggan yang dipilih? Riwayat transaksi dan laporan keuangan tidak akan hilang.')
                         ->modalSubmitActionLabel('Ya, Hapus Semua')
+                        ->modalCancelActionLabel('Batal')
+                        ->visible(fn () => Filament::auth()->user()?->is_super_admin),
+
+                    RestoreBulkAction::make()
+                        ->modalHeading('Pulihkan Pelanggan Terpilih')
+                        ->modalSubmitActionLabel('Ya, Pulihkan Semua')
                         ->modalCancelActionLabel('Batal')
                         ->visible(fn () => Filament::auth()->user()?->is_super_admin),
                 ]),

@@ -3,32 +3,35 @@
 namespace App\Filament\Pages;
 
 use App\Models\Product;
+use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
-use Filament\Schemas\Components\Grid;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Actions\Action;
-use BackedEnum;
 use UnitEnum;
 
 class ProductSalesReport extends Page implements HasTable
 {
     use InteractsWithTable;
-    
-    protected static ?string $title = 'Sales Report per Product';
+
+    protected static ?string $title = 'Laporan Penjualan Produk';
+
+    protected static ?string $navigationLabel = 'Penjualan Produk';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
-    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
-    protected static ?int $navigationSort = 4;
-    
+
+    protected static string|UnitEnum|null $navigationGroup = 'LAPORAN';
+
+    protected static ?int $navigationSort = 2;
+
     protected string $view = 'filament.pages.product-sales-report';
 
     public function mount(): void
@@ -49,23 +52,26 @@ class ProductSalesReport extends Page implements HasTable
                     ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping'])
             )
             ->modifyQueryUsing(function (Builder $query) use ($invoiceTable, $invoiceItemTable) {
-                // Get filter state safely, defaulting to 'month'
-                $filterState = $this->getTableFilterState('date_filter') ?? [];
-                $preset = $filterState['filter_preset'] ?? request()->query('filter', 'month');
-                
+                // Read directly from the Livewire component's public property to ensure we have the live, un-cached state
+                $filterState = $this->tableFilters['date_filter'] ?? [];
+
+                $preset = $filterState['filter_preset'] ?? request()->query('filter', 'this_month');
+
                 $startDate = null;
                 $endDate = null;
 
-                if ($preset === 'custom' && !empty($filterState['date_from']) && !empty($filterState['date_until'])) {
+                if ($preset === 'custom' && ! empty($filterState['date_from']) && ! empty($filterState['date_until'])) {
                     $startDate = Carbon::parse($filterState['date_from'])->startOfDay();
                     $endDate = Carbon::parse($filterState['date_until'])->endOfDay();
                 } else {
                     match ($preset) {
                         'today' => [$startDate, $endDate] = [now()->startOfDay(), now()->endOfDay()],
-                        'week'  => [$startDate, $endDate] = [now()->subDays(6)->startOfDay(), now()->endOfDay()],
-                        'month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
-                        'year'  => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfYear()],
-                        'all'   => [$startDate, $endDate] = [null, null],
+                        'yesterday' => [$startDate, $endDate] = [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
+                        'this_month' => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
+                        'previous_month' => [$startDate, $endDate] = [now()->subMonth()->startOfMonth(), now()->subMonth()->endOfMonth()],
+                        'ytd' => [$startDate, $endDate] = [now()->startOfYear(), now()->endOfDay()],
+                        'previous_year' => [$startDate, $endDate] = [now()->subYear()->startOfYear(), now()->subYear()->endOfYear()],
+                        'all' => [$startDate, $endDate] = [null, null],
                         default => [$startDate, $endDate] = [now()->startOfMonth(), now()->endOfMonth()],
                     };
                 }
@@ -77,7 +83,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_sold", [$startDate, $endDate]);
 
                     $query->selectRaw("COALESCE((
@@ -86,7 +92,7 @@ class ProductSalesReport extends Page implements HasTable
                         JOIN {$invoiceTable} ON {$invoiceTable}.id = {$invoiceItemTable}.invoice_id 
                         WHERE {$invoiceItemTable}.product_id = bl_products_t.id 
                         AND {$invoiceTable}.status = 'paid' 
-                        AND {$invoiceTable}.created_at BETWEEN ? AND ?
+                        AND {$invoiceTable}.issued_date BETWEEN ? AND ?
                     ), 0) as total_revenue", [$startDate, $endDate]);
                 } else {
                     $query->selectRaw("COALESCE((
@@ -109,14 +115,16 @@ class ProductSalesReport extends Page implements HasTable
             ->columns([
                 TextColumn::make('no')
                     ->label('NO.')
-                    ->rowIndex(),
+                    ->rowIndex()
+                    ->visibleFrom('md'),
                 TextColumn::make('nama')
-                    ->label('PRODUCT')
+                    ->label('PRODUK')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->wrap(),
                 TextColumn::make('total_sold')
-                    ->label('QTY SOLD')
+                    ->label('JUMLAH')
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->orderBy('total_sold', $direction)->orderBy('nama', 'asc');
                     })
@@ -125,38 +133,44 @@ class ProductSalesReport extends Page implements HasTable
                     ->color('info')
                     ->formatStateUsing(fn ($state) => number_format($state ?? 0, 0, ',', '.')),
                 TextColumn::make('total_revenue')
-                    ->label('REVENUE')
+                    ->label('PENDAPATAN')
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->orderBy('total_revenue', $direction)->orderBy('nama', 'asc');
                     })
                     ->weight('bold')
                     ->color('success')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state ?? 0, 0, ',', '.')),
+                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.')),
             ])
             ->defaultSort('total_sold', 'desc')
             ->filters([
                 Filter::make('date_filter')
                     ->form([
                         \Filament\Forms\Components\Select::make('filter_preset')
-                            ->label('Filter By')
+                            ->label('Filter Berdasarkan')
                             ->options([
-                                'today' => 'Today',
-                                'week'  => 'Last 7 Days',
-                                'month' => 'This Month',
-                                'year'  => 'This Year',
-                                'all'   => 'All Time',
+                                'today' => 'Hari Ini',
+                                'yesterday' => 'Kemarin',
+                                'this_month' => 'Bulan Ini',
+                                'previous_month' => 'Bulan Lalu',
+                                'ytd' => 'Tahun Ini',
+                                'previous_year' => 'Tahun Lalu',
+                                'all' => 'Semua Waktu',
+                                'custom' => 'Rentang Kustom',
                             ])
-                            ->default(fn () => request()->query('filter', 'month')),
+                            ->default(fn () => request()->query('filter', 'this_month'))
+                            ->live(),
                         Grid::make(2)
                             ->schema([
                                 DatePicker::make('date_from')
-                                    ->label('From')
+                                    ->label('Dari Tanggal')
                                     ->displayFormat('d M Y')
-                                    ->native(false),
+                                    ->native(false)
+                                    ->live(), // Added live to fix responsiveness
                                 DatePicker::make('date_until')
-                                    ->label('Until')
+                                    ->label('Sampai Tanggal')
                                     ->displayFormat('d M Y')
-                                    ->native(false),
+                                    ->native(false)
+                                    ->live(), // Added live to fix responsiveness
                             ])
                             ->visible(fn (Get $get) => $get('filter_preset') === 'custom'),
                     ])
@@ -168,27 +182,30 @@ class ProductSalesReport extends Page implements HasTable
                         $indicators = [];
                         if (($data['filter_preset'] ?? 'month') === 'custom') {
                             if ($data['date_from'] ?? null) {
-                                $indicators['date_from'] = 'From: ' . Carbon::parse($data['date_from'])->format('d M Y');
+                                $indicators['date_from'] = 'Dari: '.Carbon::parse($data['date_from'])->format('d M Y');
                             }
                             if ($data['date_until'] ?? null) {
-                                $indicators['date_until'] = 'Until: ' . Carbon::parse($data['date_until'])->format('d M Y');
+                                $indicators['date_until'] = 'Sampai: '.Carbon::parse($data['date_until'])->format('d M Y');
                             }
                         } else {
-                            $indicators['preset'] = 'Period: ' . match($data['filter_preset'] ?? 'month') {
-                                'today' => 'Today',
-                                'week' => 'Last 7 Days',
-                                'month' => 'This Month',
-                                'year' => 'This Year',
-                                'all' => 'All Time',
-                                default => 'This Month'
+                            $indicators['preset'] = 'Periode: '.match ($data['filter_preset'] ?? 'this_month') {
+                                'today' => 'Hari Ini',
+                                'yesterday' => 'Kemarin',
+                                'this_month' => 'Bulan Ini',
+                                'previous_month' => 'Bulan Lalu',
+                                'ytd' => 'Tahun Ini',
+                                'previous_year' => 'Tahun Lalu',
+                                'all' => 'Semua Waktu',
+                                'custom' => 'Rentang Kustom',
+                                default => 'Bulan Ini'
                             };
                         }
+
                         return $indicators;
-                    })
+                    }),
             ])
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filtersTriggerAction(
-                fn (Action $action) => $action->label('Filter Period'),
+                fn (Action $action) => $action->label('Filter Periode')->extraAttributes(['class' => 'mr-3 sm:mr-0']),
             );
     }
 }

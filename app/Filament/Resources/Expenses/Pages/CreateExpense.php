@@ -4,14 +4,17 @@ namespace App\Filament\Resources\Expenses\Pages;
 
 use App\Filament\Resources\Expenses\ExpenseResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Enums\Width;
 
 class CreateExpense extends CreateRecord
 {
     protected static string $resource = ExpenseResource::class;
 
+    protected Width|string|null $maxContentWidth = Width::Full;
+
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index'); 
+        return $this->getResource()::getUrl('index');
     }
 
     /**
@@ -24,6 +27,7 @@ class CreateExpense extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['status'] = 'draft';
+
         return $data;
     }
 }

@@ -5,14 +5,14 @@
             icon="heroicon-o-arrow-down-tray"
             outlined
         >
-            Export
+            Ekspor
         </x-filament::button>
     </x-slot>
 
     <div style="padding: 1rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
             <h4 style="font-size: 1rem; font-weight: 600; color: inherit;">
-                Export Options
+                Opsi Ekspor
             </h4>
         </div>
 
@@ -20,15 +20,15 @@
             {{-- Period Select --}}
             <div x-data="{ period: @entangle('exportPeriod') }">
                 <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;">
-                    Period
+                    Periode
                 </label>
                 <x-filament::input.wrapper>
                     <x-filament::input.select wire:model.live="exportPeriod" x-model="period">
-                        <option value="today">Today</option>
-                        <option value="this_week">This Week</option>
-                        <option value="this_month">This Month</option>
-                        <option value="last_month">Last Month</option>
-                        <option value="custom">Custom Range</option>
+                        <option value="today">Hari Ini</option>
+                        <option value="this_week">Minggu Ini</option>
+                        <option value="this_month">Bulan Ini</option>
+                        <option value="last_month">Bulan Lalu</option>
+                        <option value="custom">Rentang Kustom</option>
                     </x-filament::input.select>
                 </x-filament::input.wrapper>
             </div>
@@ -38,7 +38,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <div>
                         <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;">
-                            From Date
+                            Dari Tanggal
                         </label>
                         <x-filament::input.wrapper>
                             <x-filament::input type="date" wire:model.live="exportFrom" />
@@ -46,7 +46,7 @@
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem;">
-                            Until Date
+                            Sampai Tanggal
                         </label>
                         <x-filament::input.wrapper>
                             <x-filament::input type="date" wire:model.live="exportUntil" />
@@ -64,7 +64,7 @@
                     x-on:click="close()"
                     size="sm"
                 >
-                    Export PDF
+                    Ekspor PDF
                 </x-filament::button>
                 <x-filament::button
                     color="success"
@@ -73,7 +73,7 @@
                     x-on:click="close()"
                     size="sm"
                 >
-                    Export CSV
+                    Ekspor CSV
                 </x-filament::button>
             </div>
         </div>

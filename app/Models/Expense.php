@@ -15,6 +15,7 @@ class Expense extends Model
         'coa_id',
         'coa_kredit_id',
         'status',
+        'created_at',
     ];
 
     protected $casts = [
@@ -68,8 +69,9 @@ class Expense extends Model
         static::updating(function (Expense $expense) {
             $dirty = $expense->getDirty();
 
-            // Jika hanya status yang berubah → transisi via service, izinkan
-            if (count($dirty) === 1 && array_key_exists('status', $dirty)) {
+            // Jika hanya status yang berubah (dengan atau tanpa timestamp updated_at) → izinkan transisi via service
+            $nonStatusDirty = array_diff(array_keys($dirty), ['status', 'updated_at']);
+            if (empty($nonStatusDirty) && array_key_exists('status', $dirty)) {
                 return;
             }
 
@@ -77,7 +79,7 @@ class Expense extends Model
             if ($expense->getOriginal('status') !== 'draft') {
                 throw new \RuntimeException(
                     "Expense '{$expense->keterangan}' tidak dapat diedit karena statusnya sudah "
-                    . strtoupper($expense->getOriginal('status')) . '.'
+                    .strtoupper($expense->getOriginal('status')).'.'
                 );
             }
         });
@@ -89,7 +91,7 @@ class Expense extends Model
             if (! $expense->isDeletable()) {
                 throw new \RuntimeException(
                     "Expense '{$expense->keterangan}' tidak dapat dihapus karena statusnya sudah "
-                    . strtoupper($expense->status) . '.'
+                    .strtoupper($expense->status).'.'
                 );
             }
         });
