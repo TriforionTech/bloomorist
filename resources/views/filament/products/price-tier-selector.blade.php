@@ -1,5 +1,5 @@
 <div class="flex items-center gap-2">
-    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:inline">
+    <span class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:inline">
         Tier Harga:
     </span>
 

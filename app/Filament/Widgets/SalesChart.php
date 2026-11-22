@@ -2,23 +2,25 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HandlesChartState;
 use App\Filament\Traits\ParsesGlobalFilters;
-use App\Models\Invoice;
+use App\Services\DashboardMetricsService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Throwable;
 
 class SalesChart extends ChartWidget
 {
+    use HandlesChartState;
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 3;
 
-    protected ?string $heading = 'Sales Chart';
+    protected ?string $heading = 'Grafik Penjualan';
 
     protected string $view = 'filament.widgets.sales-chart';
 
@@ -32,163 +34,75 @@ class SalesChart extends ChartWidget
     protected ?string $pollingInterval = null;
 
     /**
-     * Ringkasan Revenue + Order ditampilkan di atas chart via description.
+     * Ringkasan pendapatan + jumlah invoice lunas pada periode aktif.
      */
     public function getDescription(): string|Htmlable|null
     {
-        $query = Invoice::where('status', 'paid');
-        $this->applyDateFilter($query);
+        try {
+            $period = $this->dashboardPeriod();
+            $summary = app(DashboardMetricsService::class)->invoiceSummary($period);
+        } catch (Throwable $exception) {
+            report($exception);
 
-        $totalRevenue = (clone $query)->sum('grand_total');
-        $totalOrders = (clone $query)->count();
-        $formatted = 'Rp '.number_format($totalRevenue, 0, ',', '.');
+            return null;
+        }
 
-        $html = "
-            <div class='flex flex-wrap items-center gap-6 mt-1 mb-2'>
+        $revenue = e($this->formatRupiah($summary['revenue']));
+        $paidCount = number_format($summary['paid_count'], 0, ',', '.');
+        $range = e($period->presetLabel().' · '.$period->rangeLabel());
+
+        return new HtmlString("
+            <div class='flex flex-wrap items-center gap-x-6 gap-y-2 mt-1 mb-2'>
                 <div>
-                    <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Revenue</span>
-                    <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$formatted}</div>
+                    <span class='text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>Pendapatan</span>
+                    <div class='text-lg font-bold text-gray-900 dark:text-white mt-0.5'>{$revenue}</div>
                 </div>
                 <div class='h-8 w-px bg-gray-200 dark:bg-gray-700'></div>
                 <div>
-                    <span class='text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500'>Total Order</span>
-                    <div class='text-xl font-bold text-gray-900 dark:text-white mt-0.5'>{$totalOrders}</div>
+                    <span class='text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>Invoice Lunas</span>
+                    <div class='text-lg font-bold text-gray-900 dark:text-white mt-0.5'>{$paidCount}</div>
                 </div>
+                <div class='text-sm font-medium text-gray-600 dark:text-gray-300'>{$range}</div>
             </div>
-        ";
+        ");
+    }
 
-        return new HtmlString($html);
+    public function getEmptyStateMessage(): string
+    {
+        return 'Belum ada transaksi pada periode ini';
     }
 
     protected function getData(): array
     {
-        $labels = [];
-        $data = [];
+        return $this->guardChartData(function (): array {
+            $series = app(DashboardMetricsService::class)->salesSeries($this->dashboardPeriod());
 
-        $baseQuery = Invoice::where('status', 'paid');
-        [$startDate, $endDate, $preset] = $this->parseFilterDates();
+            $intervalLabel = match ($series['interval']) {
+                'hour' => 'per jam',
+                'day' => 'per hari',
+                'month' => 'per bulan',
+                default => 'per tahun',
+            };
 
-        // Normalisasi jika preset custom memiliki tanggal parsial atau terbalik
-        if ($preset === 'custom') {
-            if ($startDate && ! $endDate) {
-                $endDate = $startDate->copy()->endOfMonth();
-                if ($endDate->lt(now())) {
-                    $endDate = now()->endOfDay();
-                }
-            } elseif (! $startDate && $endDate) {
-                $startDate = $endDate->copy()->startOfMonth();
-            }
-
-            if ($startDate && $endDate && $startDate->gt($endDate)) {
-                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
-            }
-        }
-
-        \Illuminate\Support\Facades\Log::info('SalesChart getData called', [
-            'preset' => $preset,
-            'startDate' => $startDate ? $startDate->toDateString() : null,
-            'endDate' => $endDate ? $endDate->toDateString() : null,
-        ]);
-
-        // Ensure we always have a start and end date for chart plotting unless it's 'all'
-        if ($preset === 'all' || (! $startDate && ! $endDate)) {
-            $results = (clone $baseQuery)
-                ->select(
-                    DB::raw('YEAR(issued_date) as year'),
-                    DB::raw('SUM(grand_total) as total')
-                )
-                ->groupBy('year')
-                ->orderBy('year')
-                ->pluck('total', 'year')
-                ->toArray();
-
-            foreach ($results as $year => $total) {
-                $labels[] = (string) $year;
-                $data[] = (float) $total;
-            }
-        } elseif ($preset === 'ytd' || $preset === 'last_365' || ($startDate && $endDate && $startDate->diffInDays($endDate) > 90)) {
-            if (! $startDate || ! $endDate) {
-                $startDate = now()->startOfYear();
-                $endDate = now()->endOfDay();
-            }
-
-            $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [$startDate, $endDate])
-                ->select(DB::raw('MONTH(issued_date) as month'), DB::raw('YEAR(issued_date) as year'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('year', 'month')
-                ->orderBy('year')
-                ->orderBy('month')
-                ->get();
-
-            $monthsMap = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
-
-            $current = $startDate->copy()->startOfMonth();
-            $endMonth = $endDate->copy()->startOfMonth();
-
-            while ($current->lte($endMonth)) {
-                $y = $current->year;
-                $m = $current->month;
-                $found = $results->first(fn ($r) => $r->year == $y && $r->month == $m);
-                $labels[] = $monthsMap[$m].($preset === 'last_365' || $current->year !== now()->year ? " '".substr($y, 2) : '');
-                $data[] = $found ? (float) $found->total : 0;
-                $current->addMonth();
-            }
-
-        } elseif (in_array($preset, ['today', 'yesterday'])) {
-            $date = $startDate ?? now()->startOfDay();
-            $results = (clone $baseQuery)
-                ->whereDate('issued_date', $date)
-                ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('hour')
-                ->pluck('total', 'hour')
-                ->toArray();
-
-            for ($i = 8; $i <= 22; $i++) {
-                $labels[] = str_pad($i, 2, '0', STR_PAD_LEFT).':00';
-                $data[] = (float) ($results[$i] ?? 0);
-            }
-        } else {
-            // Failsafe jika tanggal masih null
-            if (! $startDate || ! $endDate) {
-                $startDate = now()->startOfMonth();
-                $endDate = now()->endOfMonth();
-            }
-
-            // Treat as daily ranges (last_7, this_month, prev_month, last_30, last_90, last_180, custom)
-            $results = (clone $baseQuery)
-                ->whereBetween('issued_date', [$startDate, $endDate])
-                ->select(DB::raw('DATE(issued_date) as date'), DB::raw('SUM(grand_total) as total'))
-                ->groupBy('date')
-                ->pluck('total', 'date')
-                ->toArray();
-
-            $current = $startDate->copy();
-
-            // If the range is huge (e.g. last_180), grouping by week might be better, but let's stick to daily for now
-            // or just plot every day. Chart.js handles large datasets well.
-            while ($current->lte($endDate)) {
-                $dateString = $current->format('Y-m-d');
-                $labels[] = $current->format('d M');
-                $data[] = (float) ($results[$dateString] ?? 0);
-                $current->addDay();
-            }
-        }
-
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Pendapatan (Rp)',
-                    'data' => $data,
-                    'borderColor' => '#db2777',
-                    'backgroundColor' => 'rgba(219, 39, 119, 0.08)',
-                    'fill' => true,
-                    'tension' => 0.4,
-                    'pointBackgroundColor' => '#db2777',
-                    'pointRadius' => 4,
+            return [
+                'hasData' => $series['total'] > 0,
+                'chart' => [
+                    'datasets' => [
+                        [
+                            'label' => "Pendapatan {$intervalLabel} (Rp)",
+                            'data' => $series['data'],
+                            'borderColor' => '#db2777',
+                            'backgroundColor' => 'rgba(219, 39, 119, 0.08)',
+                            'fill' => true,
+                            'tension' => 0.4,
+                            'pointBackgroundColor' => '#db2777',
+                            'pointRadius' => count($series['data']) > 31 ? 2 : 4,
+                        ],
+                    ],
+                    'labels' => $series['labels'],
                 ],
-            ],
-            'labels' => $labels,
-        ];
+            ];
+        });
     }
 
     protected function getOptions(): RawJs
@@ -233,24 +147,5 @@ class SalesChart extends ChartWidget
     protected function getType(): string
     {
         return 'line';
-    }
-
-    /**
-     * Terapkan filter tanggal ke query builder.
-     */
-    private function applyDateFilter(\Illuminate\Database\Eloquent\Builder $query): void
-    {
-        [$startDate, $endDate, $preset] = $this->parseFilterDates();
-
-        if ($startDate && $endDate) {
-            if ($startDate->gt($endDate)) {
-                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
-            }
-            $query->whereBetween('issued_date', [$startDate, $endDate]);
-        } elseif ($startDate) {
-            $query->where('issued_date', '>=', $startDate);
-        } elseif ($endDate) {
-            $query->where('issued_date', '<=', $endDate);
-        }
     }
 }

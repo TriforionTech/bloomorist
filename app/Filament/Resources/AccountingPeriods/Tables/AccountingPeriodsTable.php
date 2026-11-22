@@ -66,7 +66,7 @@ class AccountingPeriodsTable
             ->filters([
                 //
             ])
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 Action::make('jurnalPenutup')
                     ->label('Jurnal Penutup')

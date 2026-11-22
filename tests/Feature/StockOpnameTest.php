@@ -92,8 +92,8 @@ class StockOpnameTest extends TestCase
 
         Livewire::test(CreateStockOpname::class)
             ->assertSuccessful()
-            ->assertSee('Stock Opname Details')
-            ->assertSee('Items');
+            ->assertSee('Detail Stock Opname')
+            ->assertSee('Daftar Barang');
     }
 
     public function test_stock_opname_can_be_created_as_draft_with_items(): void

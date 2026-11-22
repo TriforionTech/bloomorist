@@ -18,31 +18,35 @@ class StockOpnameForm
         return $schema
             ->columns(1)
             ->components([
-                Section::make('Stock Opname Details')
+                Section::make('Detail Stock Opname')
                     ->columnSpanFull()
                     ->columns(3)
                     ->schema([
                         TextInput::make('reference_number')
+                            ->label('Nomor Referensi')
                             ->required()
                             ->maxLength(255)
                             ->default(fn () => 'SO-'.date('Y-m-d').'-'.Str::random(4))
                             ->readOnly(),
                         DatePicker::make('date')
+                            ->label('Tanggal')
                             ->required()
                             ->default(now()),
                         TextInput::make('notes')
+                            ->label('Catatan')
                             ->placeholder('Catatan (opsional)'),
                     ]),
 
-                Section::make('Items')
+                Section::make('Daftar Barang')
                     ->columnSpanFull()
                     ->schema([
                         Repeater::make('items')
+                            ->label('Barang')
                             ->relationship('items')
                             ->columns(7)
                             ->schema([
                                 Select::make('product_id')
-                                    ->label('Product')
+                                    ->label('Produk')
                                     ->options(Product::where('is_active', true)->pluck('nama', 'id'))
                                     ->required()
                                     ->live()
@@ -63,12 +67,14 @@ class StockOpnameForm
                                     })
                                     ->columnSpan(2),
                                 TextInput::make('system_qty')
+                                    ->label('Stok Sistem')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
                                     ->required()
                                     ->columnSpan(1),
                                 TextInput::make('physical_qty')
+                                    ->label('Stok Fisik')
                                     ->numeric()
                                     ->required()
                                     ->live(onBlur: true)
@@ -83,17 +89,20 @@ class StockOpnameForm
                                     })
                                     ->columnSpan(1),
                                 TextInput::make('variance')
+                                    ->label('Selisih')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
                                     ->columnSpan(1),
                                 TextInput::make('unit_cost')
+                                    ->label('Harga Beli Satuan')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
                                     ->prefix('Rp')
                                     ->columnSpan(1),
                                 TextInput::make('total_value')
+                                    ->label('Total Nilai Selisih')
                                     ->numeric()
                                     ->readOnly()
                                     ->dehydrated()
@@ -107,7 +116,7 @@ class StockOpnameForm
                             ])
                             ->columns(8)
                             ->defaultItems(0)
-                            ->addActionLabel('Add Item'),
+                            ->addActionLabel('Tambah Barang'),
                     ]),
             ]);
     }

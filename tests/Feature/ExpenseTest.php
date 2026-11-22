@@ -300,4 +300,21 @@ class ExpenseTest extends TestCase
             'record' => $expense->id,
         ])->assertForbidden();
     }
+
+    public function test_filament_create_expense_page_uses_full_width_layout(): void
+    {
+        $user = User::create([
+            'name' => 'Admin Expense Full Width',
+            'email' => 'admin_expense_full@example.com',
+            'password' => bcrypt('password'),
+            'is_super_admin' => true,
+        ]);
+
+        $this->actingAs($user);
+
+        $response = $this->get(\App\Filament\Resources\Expenses\ExpenseResource::getUrl('create'));
+        $response->assertSuccessful();
+        $response->assertSee('fi-width-full', false);
+        $response->assertSee('Informasi Pengeluaran');
+    }
 }

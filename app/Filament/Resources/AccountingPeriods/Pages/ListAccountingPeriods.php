@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\AccountingPeriods\Pages;
 
-use App\Filament\Resources\AccountingPeriodResource;
+use App\Filament\Resources\AccountingPeriods\AccountingPeriodResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 

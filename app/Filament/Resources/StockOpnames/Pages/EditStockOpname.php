@@ -29,7 +29,7 @@ class EditStockOpname extends EditRecord
             Actions\ViewAction::make(),
             Actions\DeleteAction::make(),
             Actions\Action::make('post')
-                ->label('Post to Accounting')
+                ->label('Posting ke Akuntansi')
                 ->color('success')
                 ->requiresConfirmation()
                 ->icon('heroicon-o-check-circle')
@@ -66,7 +66,7 @@ class EditStockOpname extends EditRecord
                         app(AccountingService::class)->createStockOpnameJournal($record);
 
                         Notification::make()
-                            ->title('Posted Successfully')
+                            ->title('Berhasil Diposting')
                             ->success()
                             ->send();
 

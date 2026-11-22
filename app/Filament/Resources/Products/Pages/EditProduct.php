@@ -21,7 +21,7 @@ class EditProduct extends EditRecord
 
             // Soft delete: set is_active = false
             Action::make('delete')
-                ->label('Delete')
+                ->label('Hapus')
                 ->color('danger')
                 ->icon('heroicon-o-trash')
                 ->requiresConfirmation()

@@ -13,7 +13,7 @@ class ListChartOfAccounts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('New COA'),
+            CreateAction::make()->label('Tambah Akun (COA)'),
         ];
     }
 }

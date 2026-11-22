@@ -33,7 +33,7 @@ class UserPolicy
 
         // Superadmin TIDAK boleh edit Superadmin lain
         if ($user->is_super_admin && $model->is_super_admin) {
-            return Response::deny('You cannot edit other Superadmins.');
+            return Response::deny('Anda tidak dapat mengedit Superadmin lain.');
         }
 
         // Superadmin boleh edit Admin biasa
@@ -43,12 +43,12 @@ class UserPolicy
 
         // Admin biasa TIDAK BOLEH edit Super Admin
         if ($model->is_super_admin) {
-            return Response::deny('Only Superadmin can edit this account.');
+            return Response::deny('Hanya Superadmin yang dapat mengedit akun ini.');
         }
 
         // Admin biasa hanya boleh edit dirinya sendiri
         if ($user->id !== $model->id) {
-            return Response::deny('You can only edit your own account.');
+            return Response::deny('Anda hanya dapat mengedit akun Anda sendiri.');
         }
 
         return Response::allow();
@@ -59,12 +59,12 @@ class UserPolicy
     {
         // Tidak boleh menghapus diri sendiri (berlaku utk superadmin juga)
         if ($user->id === $model->id) {
-            return Response::deny('You cannot delete your own account.');
+            return Response::deny('Anda tidak dapat menghapus akun Anda sendiri.');
         }
 
         // Hanya superadmin yang boleh delete
         if (! $user->is_super_admin) {
-            return Response::deny('Only Superadmin can delete users.');
+            return Response::deny('Hanya Superadmin yang dapat menghapus pengguna.');
         }
 
         // // Superadmin tidak boleh delete superadmin lain

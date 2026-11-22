@@ -20,12 +20,15 @@ class StockOpnamesTable
         return $table
             ->columns([
                 TextColumn::make('reference_number')
+                    ->label('NO. REFERENSI')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('date')
+                    ->label('TANGGAL')
                     ->date()
                     ->sortable(),
                 TextColumn::make('status')
+                    ->label('STATUS')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'draft' => 'gray',
@@ -33,21 +36,25 @@ class StockOpnamesTable
                         default => 'primary',
                     }),
                 TextColumn::make('notes')
+                    ->label('CATATAN')
                     ->limit(50),
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
                         'draft' => 'Draft',
-                        'posted' => 'Posted',
-                    ]),
+                        'posted' => 'Diposting',
+                    ])
+                    ->native(false),
             ])
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(fn ($record) => $record->status !== 'posted'),
                 Action::make('post')
-                    ->label('Post')
+                    ->label('Posting')
                     ->color('success')
                     ->requiresConfirmation()
                     ->icon('heroicon-o-check-circle')
@@ -82,7 +89,7 @@ class StockOpnamesTable
                             app(AccountingService::class)->createStockOpnameJournal($record);
 
                             Notification::make()
-                                ->title('Posted Successfully')
+                                ->title('Berhasil Diposting')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {

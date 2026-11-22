@@ -55,7 +55,7 @@ class ProductsTable
                     ->color('primary')
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('nama')
-                    ->label('NAME')
+                    ->label('NAMA')
                     ->searchable(
                         query: function ($query, string $search) {
                             return $query
@@ -66,12 +66,12 @@ class ProductsTable
                     )
                     ->sortable(),
                 TextColumn::make('kategori')
-                    ->label('CATEGORY')
+                    ->label('KATEGORI')
                     ->badge()
                     ->formatStateUsing(fn ($state) => match ($state) {
-                        'bunga' => 'FLOWERS',
-                        'packaging' => 'PACKAGING',
-                        'others' => 'OTHERS',
+                        'bunga' => 'BUNGA',
+                        'packaging' => 'KEMASAN',
+                        'others' => 'LAINNYA',
                         default => strtoupper($state),
                     })
                     ->color(fn ($state) => match ($state) {
@@ -83,15 +83,15 @@ class ProductsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('harga_beli')
-                    ->label('COST PRICE')
+                    ->label('HARGA BELI')
                     ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->sortable(),
                 TextColumn::make('harga_jual')
                     ->label(function ($livewire) {
                         return match ($livewire->priceTier ?? 'toko') {
-                            'vendor' => 'VENDOR PRICE',
-                            'dekor' => 'DECOR PRICE',
-                            default => 'STORE PRICE',
+                            'vendor' => 'HARGA VENDOR',
+                            'dekor' => 'HARGA DEKOR',
+                            default => 'HARGA TOKO',
                         };
                     })
                     ->state(function ($record, $livewire) {
@@ -160,14 +160,14 @@ class ProductsTable
                     ->suffix('%')
                     ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('stok')
-                    ->label('REAL STOCK')
+                    ->label('STOK FISIK')
                     ->sortable(),
                 TextColumn::make('booked_stock')
-                    ->label('BOOKED')
+                    ->label('DIPESAN')
                     ->state(fn ($record) => $record->booked_stock ?? 0)
                     ->color('warning'),
                 TextColumn::make('available_stock')
-                    ->label('SYSTEM STOCK')
+                    ->label('STOK SISTEM')
                     ->state(fn ($record) => $record->stok - ($record->booked_stock ?? 0))
                     ->badge()
                     ->color(fn ($state) => match (true) {
@@ -176,13 +176,13 @@ class ProductsTable
                         default => 'success',
                     }),
                 TextColumn::make('created_at')
-                    ->label('CREATED AT')
+                    ->label('DIBUAT PADA')
                     ->date('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->label('UPDATED AT')
+                    ->label('DIPERBARUI PADA')
                     ->date('d M Y H:i')
                     ->description(fn ($record) => $record->updated_at->diffForHumans())
                     ->sortable()
@@ -218,14 +218,14 @@ class ProductsTable
                             'sm' => 2,
                         ])->schema([
                             TextInput::make('min_cost')
-                                ->label('Min Cost')
+                                ->label('Harga Beli Min')
                                 ->numeric()
                                 ->step(1000)
                                 ->minValue(0)
                                 ->prefix('Rp')
                                 ->placeholder('0'),
                             TextInput::make('max_cost')
-                                ->label('Max Cost')
+                                ->label('Harga Beli Maks')
                                 ->numeric()
                                 ->step(1000)
                                 ->minValue(0)
@@ -247,10 +247,10 @@ class ProductsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['min_cost'] ?? null) {
-                            $indicators['min_cost'] = 'Cost Min: Rp '.number_format($data['min_cost'], 0, ',', '.');
+                            $indicators['min_cost'] = 'Harga Beli Min: Rp '.number_format($data['min_cost'], 0, ',', '.');
                         }
                         if ($data['max_cost'] ?? null) {
-                            $indicators['max_cost'] = 'Cost Max: Rp '.number_format($data['max_cost'], 0, ',', '.');
+                            $indicators['max_cost'] = 'Harga Beli Maks: Rp '.number_format($data['max_cost'], 0, ',', '.');
                         }
 
                         return $indicators;
@@ -265,14 +265,14 @@ class ProductsTable
                             'sm' => 2,
                         ])->schema([
                             TextInput::make('min_price')
-                                ->label('Min Selling Price')
+                                ->label('Harga Jual Min')
                                 ->numeric()
                                 ->step(1000)
                                 ->minValue(0)
                                 ->prefix('Rp')
                                 ->placeholder('0'),
                             TextInput::make('max_price')
-                                ->label('Max Selling Price')
+                                ->label('Harga Jual Maks')
                                 ->numeric()
                                 ->step(1000)
                                 ->minValue(0)
@@ -294,10 +294,10 @@ class ProductsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['min_price'] ?? null) {
-                            $indicators['min_price'] = 'Sell Min: Rp '.number_format($data['min_price'], 0, ',', '.');
+                            $indicators['min_price'] = 'Harga Jual Min: Rp '.number_format($data['min_price'], 0, ',', '.');
                         }
                         if ($data['max_price'] ?? null) {
-                            $indicators['max_price'] = 'Sell Max: Rp '.number_format($data['max_price'], 0, ',', '.');
+                            $indicators['max_price'] = 'Harga Jual Maks: Rp '.number_format($data['max_price'], 0, ',', '.');
                         }
 
                         return $indicators;
@@ -311,15 +311,15 @@ class ProductsTable
                     ->icon('heroicon-m-funnel')
                     ->size(Size::Small)
             )
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 Action::make('adjustStock')
                     ->hiddenLabel()
                     ->icon('heroicon-o-arrow-path')
                     ->size(Size::Small)
                     ->color('info')
-                    ->tooltip('Adjust Stock')
-                    ->modalHeading(fn ($record) => 'Adjust Stock: '.$record->nama)
+                    ->tooltip('Edit Stok')
+                    ->modalHeading(fn ($record) => 'Edit Stok: '.$record->nama)
                     ->modalDescription(function () {
                         $today = now()->toDateString();
                         $period = \App\Models\AccountingPeriod::where('start_date', '<=', $today)
@@ -338,13 +338,13 @@ class ProductsTable
                         Select::make('type')
                             ->label('Jenis Transaksi')
                             ->options([
-                                'in' => 'Stock In (Masuk / Koreksi)',
-                                'out' => 'Stock Out (Rusak / Hilang)',
+                                'in' => 'Stok Masuk (Masuk / Koreksi)',
+                                'out' => 'Stok Keluar (Rusak / Hilang)',
                             ])
                             ->required()
                             ->native(false),
                         TextInput::make('quantity')
-                            ->label('Quantity')
+                            ->label('Jumlah')
                             ->required()
                             ->numeric()
                             ->minValue(1)
@@ -419,7 +419,7 @@ class ProductsTable
 
                             Notification::make()
                                 ->success()
-                                ->title('Stock Updated')
+                                ->title('Stok Diperbarui')
                                 ->body("Stok {$record->nama} telah disesuaikan.")
                                 ->send();
                         } catch (\App\Exceptions\AccountingPeriodClosedException $e) {
@@ -464,7 +464,7 @@ class ProductsTable
                             if ($response->denied()) {
                                 Notification::make()
                                     ->warning()
-                                    ->title('Access Denied')
+                                    ->title('Akses Ditolak')
                                     ->body($response->message())
                                     ->send();
 
@@ -474,6 +474,7 @@ class ProductsTable
 
                     // === SOFT DELETE: set is_active = false instead of real delete ===
                     Action::make('deactivate')
+                        ->label('Nonaktifkan')
                         ->hiddenLabel()
                         ->authorize(fn () => true)
                         ->visible(fn () => true)
@@ -541,7 +542,7 @@ class ProductsTable
                     ->icon('heroicon-m-ellipsis-horizontal')
                     ->color('gray')
                     ->size(Size::Small)
-                    ->tooltip('More Actions'),
+                    ->tooltip('Aksi Lainnya'),
             ])
             ->toolbarActions([
                 Action::make('priceTierSelector')
@@ -549,7 +550,7 @@ class ProductsTable
                 BulkActionGroup::make([
                     // === SOFT DELETE BULK: set is_active = false ===
                     BulkAction::make('deactivateBulk')
-                        ->label('Delete')
+                        ->label('Hapus')
                         ->icon('heroicon-o-trash')
                         ->color('danger')
                         ->requiresConfirmation()

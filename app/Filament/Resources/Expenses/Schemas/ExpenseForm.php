@@ -6,7 +6,6 @@ use App\Models\ChartOfAccount;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -14,17 +13,23 @@ class ExpenseForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make('Informasi Pengeluaran')
-                ->description('Catat informasi beban operasional, akun beban, dan akun kas/bank yang digunakan.')
-                ->schema([
-                    Grid::make(2)->schema([
+        return $schema
+            ->columns(1)
+            ->components([
+                Section::make('Informasi Pengeluaran')
+                    ->description('Catat informasi beban operasional, akun beban, dan akun kas/bank yang digunakan.')
+                    ->columnSpanFull()
+                    ->columns([
+                        'default' => 1,
+                        'sm' => 2,
+                    ])
+                    ->schema([
                         TextInput::make('keterangan')
                             ->label('Keterangan Pengeluaran')
                             ->required()
                             ->maxLength(255)
                             ->placeholder('Contoh: Biaya Listrik Toko Bulan Ini')
-                            ->columnSpan(2),
+                            ->columnSpanFull(),
 
                         TextInput::make('nominal')
                             ->label('Nominal Pengeluaran')
@@ -74,7 +79,6 @@ class ExpenseForm
                             ->native(false)
                             ->helperText('Pilih akun kas/bank yang digunakan untuk membayar'),
                     ]),
-                ]),
-        ]);
+            ]);
     }
 }

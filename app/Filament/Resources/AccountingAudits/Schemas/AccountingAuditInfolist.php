@@ -26,8 +26,8 @@ class AccountingAuditInfolist
                             ->dateTime('d M Y H:i:s'),
 
                         TextEntry::make('user.name')
-                            ->label('Pelaku (User)')
-                            ->placeholder('System')
+                            ->label('Pelaku (Pengguna)')
+                            ->placeholder('Sistem')
                             ->weight('bold'),
 
                         TextEntry::make('action')
@@ -57,14 +57,14 @@ class AccountingAuditInfolist
 
                 Section::make('Rincian Perubahan Nilai')
                     ->icon('heroicon-o-code-bracket')
-                    ->description('Perbandingan nilai sebelum (old values) dan sesudah (new values)')
+                    ->description('Perbandingan nilai sebelum dan sesudah perubahan')
                     ->schema([
                         Grid::make([
                             'default' => 1,
                             'md' => 2,
                         ])->schema([
                             TextEntry::make('old_values')
-                                ->label('Nilai Sebelum (Old Values)')
+                                ->label('Nilai Sebelum')
                                 ->html()
                                 ->formatStateUsing(function ($state) {
                                     if (empty($state)) {
@@ -76,7 +76,7 @@ class AccountingAuditInfolist
                                 }),
 
                             TextEntry::make('new_values')
-                                ->label('Nilai Sesudah (New Values)')
+                                ->label('Nilai Sesudah')
                                 ->html()
                                 ->formatStateUsing(function ($state) {
                                     if (empty($state)) {

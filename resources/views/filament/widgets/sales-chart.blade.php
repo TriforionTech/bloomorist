@@ -8,6 +8,8 @@
     $filters = $this->getFilters();
     $isCollapsible = $this->isCollapsible();
     $type = $this->getType();
+    $hasError = method_exists($this, 'hasChartError') && $this->hasChartError();
+    $isEmpty = ! $hasError && method_exists($this, 'hasChartData') && ! $this->hasChartData();
 @endphp
 
 <x-filament-widgets::widget class="fi-wi-chart">
@@ -100,6 +102,19 @@
             }
         </style>
 
+        @if ($hasError)
+            <div id="sales-chart-error" class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-danger-300 bg-danger-50/50 px-4 py-10 text-center dark:border-danger-500/40 dark:bg-danger-500/5">
+                <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-8 w-8 text-danger-500" />
+                <p class="text-sm font-semibold text-danger-700 dark:text-danger-400">Grafik gagal dimuat</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">Terjadi kesalahan saat mengambil data. Muat ulang halaman atau ubah periode.</p>
+            </div>
+        @elseif ($isEmpty)
+            <div id="sales-chart-empty" class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center dark:border-white/15">
+                <x-filament::icon icon="heroicon-o-chart-bar" class="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Belum ada transaksi pada periode ini</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">Ubah periode untuk melihat data penjualan lainnya.</p>
+            </div>
+        @else
         <div
             @if ($pollingInterval = $this->getPollingInterval())
                 wire:poll.{{ $pollingInterval }}="updateChartData"
@@ -110,7 +125,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                 </svg>
-                <span>Geser grafik untuk melihat detail</span>
+                <span>Arahkan kursor untuk melihat detail</span>
             </div>
 
             <div
@@ -159,5 +174,6 @@
                 ></span>
             </div>
         </div>
+        @endif
     </x-filament::section>
 </x-filament-widgets::widget>

@@ -29,9 +29,9 @@ class FinancialReports extends Page implements HasSchemas
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
+    protected static string|UnitEnum|null $navigationGroup = 'LAPORAN';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 3;
 
     protected string $view = 'filament.pages.financial-reports';
 

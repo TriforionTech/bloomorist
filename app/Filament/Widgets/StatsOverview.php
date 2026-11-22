@@ -3,14 +3,16 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Traits\ParsesGlobalFilters;
-use App\Models\Invoice;
-use App\Models\Product;
-use Carbon\Carbon;
+use App\Services\DashboardMetricsService;
+use App\Services\DashboardPeriod;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\HtmlString;
+use Throwable;
 
+/**
+ * KPI historis: seluruh angka mengikuti filter periode global dashboard.
+ */
 class StatsOverview extends BaseWidget
 {
     use InteractsWithPageFilters;
@@ -23,113 +25,155 @@ class StatsOverview extends BaseWidget
         'lg' => 12,
     ];
 
+    protected ?string $heading = 'Ringkasan Periode';
+
+    protected function getDescription(): ?string
+    {
+        $period = $this->dashboardPeriod();
+
+        return "Mengikuti filter periode · {$period->presetLabel()} ({$period->rangeLabel()})";
+    }
+
     protected function getColumns(): int|array
     {
         return [
             'default' => 1,
             'sm' => 2,
-            'md' => 6,
-            'lg' => 6,
-            'xl' => 6,
+            'lg' => 3,
+            'xl' => 5,
         ];
     }
 
     protected function getStats(): array
     {
-        $today = Carbon::today();
+        try {
+            return $this->buildStats();
+        } catch (Throwable $exception) {
+            report($exception);
 
-        // --- Ambil tanggal dari Global Filter ---
-        [$startDate, $endDate, $preset] = $this->parseFilterDates();
-
-        // --- Pendapatan Hari Ini (selalu hari ini, tidak dipengaruhi filter) ---
-        $paidTodayQuery = Invoice::where('status', 'paid')->whereDate('issued_date', $today);
-        $revenueToday = $paidTodayQuery->sum('grand_total');
-        $invoiceTodayPaidCount = $paidTodayQuery->count();
-
-        // --- Pendapatan Berdasarkan Filter ---
-        $paidFilterQuery = Invoice::where('status', 'paid');
-        if ($startDate && $endDate) {
-            if ($startDate->gt($endDate)) {
-                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
-            }
-            $paidFilterQuery->whereBetween('issued_date', [$startDate, $endDate]);
-        } elseif ($startDate) {
-            $paidFilterQuery->where('issued_date', '>=', $startDate);
-        } elseif ($endDate) {
-            $paidFilterQuery->where('issued_date', '<=', $endDate);
+            return [
+                Stat::make('Ringkasan Periode', 'Gagal memuat data')
+                    ->description('Terjadi kesalahan saat mengambil data. Muat ulang halaman atau ubah periode.')
+                    ->descriptionIcon('heroicon-m-exclamation-circle')
+                    ->descriptionColor('danger')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('danger')
+                    ->columnSpan('full'),
+            ];
         }
-        $revenueFiltered = $paidFilterQuery->sum('grand_total');
-        $invoiceFilteredPaidCount = $paidFilterQuery->count();
+    }
 
-        // --- Total Order Hari Ini (semua status) ---
-        $totalOrdersToday = Invoice::whereDate('issued_date', $today)->count();
+    /**
+     * @return array<int, Stat>
+     */
+    private function buildStats(): array
+    {
+        $period = $this->dashboardPeriod();
+        $metrics = app(DashboardMetricsService::class);
+        $previousPeriod = $period->comparison();
 
-        // --- Order Pending ---
-        $pendingOrders = Invoice::where('status', 'pending')->count();
-        $lowStockProducts = Product::where('is_active', true)->where('stok', '<', 10)->count();
+        $summary = $metrics->invoiceSummary($period);
+        $expense = $metrics->expenseTotal($period);
+        $profit = $metrics->profit($period);
 
-        $filterLabel = 'Pendapatan '.match ($preset) {
-            'today' => 'Hari Ini',
-            'yesterday' => 'Kemarin',
-            'this_month' => 'Bulan Ini',
-            'previous_month' => 'Bulan Lalu',
-            'ytd' => 'Tahun Ini',
-            'previous_year' => 'Tahun Lalu',
-            'all' => 'Semua Waktu',
-            'custom' => 'Custom Range',
-            default => 'Bulan Ini',
-        };
+        $previousSummary = $previousPeriod ? $metrics->invoiceSummary($previousPeriod) : null;
+        $previousExpense = $previousPeriod ? $metrics->expenseTotal($previousPeriod) : null;
+        $previousProfit = $previousPeriod ? $metrics->profit($previousPeriod) : null;
 
         return [
-            Stat::make('Total Order Hari Ini', new HtmlString('<span class="text-lg font-bold">'.$totalOrdersToday.'</span>'))
-                ->description('Jumlah pesanan yang masuk hari ini')
-                ->icon('heroicon-o-document-text')
-                ->color('info')
-                ->columnSpan([
-                    'default' => 1,
-                    'sm' => 1,
-                    'md' => 2,
-                ]),
+            $this->makeStat(
+                $period,
+                'Total Transaksi',
+                number_format($summary['total_count'], 0, ',', '.'),
+                "{$summary['paid_count']} lunas · semua status",
+                'heroicon-o-document-text',
+                'info',
+                $summary['total_count'],
+                $previousSummary['total_count'] ?? null,
+            ),
 
-            Stat::make('Pendapatan Hari Ini', new HtmlString('<span class="text-lg font-bold">Rp '.number_format($revenueToday, 0, ',', '.').'</span>'))
-                ->description("Total dari {$invoiceTodayPaidCount} invoice lunas hari ini")
-                ->icon('heroicon-o-arrow-trending-up')
-                ->color('success')
-                ->columnSpan([
-                    'default' => 1,
-                    'sm' => 1,
-                    'md' => 2,
-                ]),
+            $this->makeStat(
+                $period,
+                'Pendapatan',
+                $this->formatRupiah($summary['revenue']),
+                "Dari {$summary['paid_count']} invoice lunas",
+                'heroicon-o-banknotes',
+                'primary',
+                $summary['revenue'],
+                $previousSummary['revenue'] ?? null,
+            ),
 
-            Stat::make($filterLabel, new HtmlString('<span class="text-lg font-bold">Rp '.number_format($revenueFiltered, 0, ',', '.').'</span>'))
-                ->description("Total dari {$invoiceFilteredPaidCount} invoice lunas")
-                ->icon('heroicon-o-banknotes')
-                ->color('primary')
-                ->columnSpan([
-                    'default' => 1,
-                    'sm' => 2,
-                    'md' => 2,
-                ]),
+            $this->makeStat(
+                $period,
+                'Pengeluaran',
+                $this->formatRupiah($expense),
+                'Pengeluaran berstatus posted',
+                'heroicon-o-receipt-percent',
+                'danger',
+                $expense,
+                $previousExpense,
+                higherIsBetter: false,
+            ),
 
-            Stat::make('Order Pending', new HtmlString('<span class="text-lg font-bold">'.$pendingOrders.'</span>'))
-                ->description('Menunggu pembayaran')
-                ->icon('heroicon-o-clock')
-                ->color('warning')
-                ->columnSpan([
-                    'default' => 1,
-                    'sm' => 1,
-                    'md' => 3,
-                ]),
-
-            Stat::make('Stok Menipis', new HtmlString('<span class="text-lg font-bold">'.$lowStockProducts.'</span>'))
-                ->description('Produk dengan stok kurang dari 10')
-                ->icon('heroicon-o-exclamation-triangle')
-                ->color('danger')
-                ->columnSpan([
-                    'default' => 1,
-                    'sm' => 1,
-                    'md' => 3,
-                ]),
+            $this->makeProfitStat($period, 'Laba Kotor', 'gross_profit', $profit, $previousProfit),
+            $this->makeProfitStat($period, 'Laba Bersih', 'net_profit', $profit, $previousProfit),
         ];
+    }
+
+    private function makeStat(
+        DashboardPeriod $period,
+        string $label,
+        string $value,
+        string $caption,
+        string $icon,
+        string $color,
+        float|int $current,
+        float|int|null $previous,
+        bool $higherIsBetter = true,
+    ): Stat {
+        $stat = Stat::make($label, $this->statValue($value, $caption))
+            ->icon($icon)
+            ->color($color);
+
+        $comparison = $this->comparisonDescriptor($period, $current, $previous, $higherIsBetter);
+
+        if ($comparison !== null) {
+            $stat->description($comparison['text'])
+                ->descriptionColor($comparison['color'])
+                ->descriptionIcon($comparison['icon']);
+        }
+
+        return $stat;
+    }
+
+    /**
+     * @param  array{gross_profit: float, net_profit: float}|null  $profit
+     * @param  array{gross_profit: float, net_profit: float}|null  $previousProfit
+     */
+    private function makeProfitStat(
+        DashboardPeriod $period,
+        string $label,
+        string $key,
+        ?array $profit,
+        ?array $previousProfit,
+    ): Stat {
+        if ($profit === null) {
+            return Stat::make($label, $this->statValue('—', 'Belum tersedia'))
+                ->icon('heroicon-o-calculator')
+                ->color('gray')
+                ->description('Butuh Periode Akuntansi yang sama dengan rentang ini dan persediaan akhir terisi')
+                ->descriptionColor('gray');
+        }
+
+        return $this->makeStat(
+            $period,
+            $label,
+            $this->formatRupiah($profit[$key]),
+            'Sesuai Laporan Laba Rugi',
+            'heroicon-o-calculator',
+            $profit[$key] >= 0 ? 'success' : 'danger',
+            $profit[$key],
+            $previousProfit[$key] ?? null,
+        );
     }
 }

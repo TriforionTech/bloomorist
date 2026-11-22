@@ -2,20 +2,26 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HandlesChartState;
 use App\Filament\Traits\ParsesGlobalFilters;
-use App\Models\Product;
+use App\Services\DashboardMetricsService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 
 class TopProducts extends ChartWidget
 {
+    use HandlesChartState;
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 4;
 
-    protected ?string $heading = 'Top 10 Selling Products';
+    protected ?string $heading = 'Top 10 Produk Terlaris';
+
+    protected string $view = 'filament.widgets.dashboard-chart';
 
     protected int|string|array $columnSpan = [
         'default' => 1,
@@ -24,97 +30,74 @@ class TopProducts extends ChartWidget
 
     protected ?string $maxHeight = '340px';
 
-    public function getDescription(): string|\Illuminate\Contracts\Support\Htmlable|null
-    {
-        $html = 'Berdasarkan total qty terjual dari invoice lunas';
+    /**
+     * @var array<int, string>
+     */
+    private const PALETTE = [
+        '#db2777', '#f59e0b', '#10b981', '#0ea5e9', '#8b5cf6',
+        '#f97316', '#14b8a6', '#ef4444', '#6366f1', '#84cc16',
+    ];
 
-        return new \Illuminate\Support\HtmlString($html);
+    public function getDescription(): string|Htmlable|null
+    {
+        return new HtmlString('Item terjual dari invoice lunas · Box &amp; Wrapping tidak dihitung');
+    }
+
+    public function getEmptyStateMessage(): string
+    {
+        return 'Belum ada produk terjual pada periode ini';
     }
 
     protected function getData(): array
     {
-        $productTable = (new Product)->getTable();
-        $invoiceItemTable = 'bl_invoice_items_t';
-        $invoiceTable = 'bl_invoices_t';
+        return $this->guardChartData(function (): array {
+            $products = app(DashboardMetricsService::class)->topProducts($this->dashboardPeriod(), 10);
 
-        [$startDate, $endDate] = $this->parseFilterDates();
-
-        $query = Product::query()
-            ->select(
-                "{$productTable}.id",
-                "{$productTable}.nama"
-            )
-            ->whereNotIn("{$productTable}.nama", ['Box', 'Wrapping']);
-
-        if ($startDate && $endDate) {
-            if ($startDate->gt($endDate)) {
-                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
-            }
-            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date BETWEEN ? AND ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$startDate, $endDate]);
-        } elseif ($startDate) {
-            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date >= ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$startDate]);
-        } elseif ($endDate) {
-            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' AND {$invoiceTable}.issued_date <= ? THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold", [$endDate]);
-        } else {
-            $query->selectRaw("COALESCE(SUM(CASE WHEN {$invoiceTable}.status = 'paid' THEN {$invoiceItemTable}.quantity ELSE 0 END), 0) as total_sold");
-        }
-
-        $query->leftJoin($invoiceItemTable, "{$productTable}.id", '=', "{$invoiceItemTable}.product_id")
-            ->leftJoin($invoiceTable, "{$invoiceItemTable}.invoice_id", '=', "{$invoiceTable}.id")
-            ->groupBy(
-                "{$productTable}.id",
-                "{$productTable}.nama"
-            )
-            ->orderByDesc('total_sold')
-            ->orderBy("{$productTable}.nama")
-            ->limit(10);
-
-        $results = $query->get();
-
-        $labels = $results->pluck('nama')->toArray();
-        $quantities = $results->pluck('total_sold')->map(fn ($v) => (int) $v)->toArray();
-        $colors = array_fill(0, count($results), 'rgba(219, 39, 119, 0.75)');
-        $borders = array_fill(0, count($results), 'rgba(190, 24, 93, 0.9)');
-
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Qty Terjual',
-                    'data' => $quantities,
-                    'backgroundColor' => $colors,
-                    'borderColor' => $borders,
-                    'borderWidth' => 1,
+            return [
+                'hasData' => $products->isNotEmpty(),
+                'chart' => [
+                    'datasets' => [
+                        [
+                            'label' => 'Qty Terjual',
+                            'data' => $products->pluck('qty')->all(),
+                            'backgroundColor' => array_slice(self::PALETTE, 0, $products->count()),
+                            'borderWidth' => 2,
+                        ],
+                    ],
+                    'labels' => $products->pluck('name')->all(),
                 ],
-            ],
-            'labels' => $labels,
-        ];
+            ];
+        });
     }
 
     protected function getOptions(): array|RawJs
     {
         return RawJs::make(<<<'JS'
             {
-                indexAxis: 'y',
                 responsive: true,
-                plugins: {
-                    legend: { display: false },
-                },
+                maintainAspectRatio: false,
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: { precision: 0 },
-                        grid: { display: true },
-                    },
-                    y: {
-                        grid: { display: false },
-                    },
+                    x: { display: false },
+                    y: { display: false },
                 },
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const total = context.dataset.data.reduce((sum, value) => sum + value, 0);
+                                const percent = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return context.label + ': ' + new Intl.NumberFormat('id-ID').format(context.parsed) + ' pcs (' + percent + '%)';
+                            }
+                        }
+                    }
+                }
             }
         JS);
     }
 
     protected function getType(): string
     {
-        return 'bar';
+        return 'pie';
     }
 }

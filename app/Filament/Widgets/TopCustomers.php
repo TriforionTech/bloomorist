@@ -2,83 +2,103 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HandlesChartState;
 use App\Filament\Traits\ParsesGlobalFilters;
-use App\Models\Customer;
-use Filament\Tables;
-use Filament\Tables\Table;
+use App\Services\DashboardMetricsService;
+use Filament\Support\RawJs;
+use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
-use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Support\Facades\DB;
 
-class TopCustomers extends BaseWidget
+class TopCustomers extends ChartWidget
 {
+    use HandlesChartState;
     use InteractsWithPageFilters;
     use ParsesGlobalFilters;
 
     protected static ?int $sort = 5;
+
+    protected ?string $heading = 'Pelanggan Teratas';
+
+    protected ?string $description = 'Top 10 pelanggan berdasarkan total belanja (invoice lunas)';
+
+    protected string $view = 'filament.widgets.dashboard-chart';
 
     protected int|string|array $columnSpan = [
         'default' => 1,
         'lg' => 6,
     ];
 
-    public function table(Table $table): Table
+    protected ?string $maxHeight = '340px';
+
+    public function getEmptyStateMessage(): string
     {
-        [$startDate, $endDate] = $this->parseFilterDates();
+        return 'Belum ada belanja pelanggan pada periode ini';
+    }
 
-        $query = Customer::query()
-            ->select(
-                'bl_customers_t.id',
-                'bl_customers_t.nama',
-                DB::raw('COUNT(bl_invoices_t.id) as total_invoices'),
-                DB::raw('SUM(bl_invoices_t.grand_total) as total_spend')
-            )
-            ->join('bl_invoices_t', 'bl_customers_t.id', '=', 'bl_invoices_t.customer_id')
-            ->where('bl_invoices_t.status', 'paid');
+    public function getEmptyStateIcon(): string
+    {
+        return 'heroicon-o-users';
+    }
 
-        if ($startDate && $endDate) {
-            if ($startDate->gt($endDate)) {
-                [$startDate, $endDate] = [$endDate->copy()->startOfDay(), $startDate->copy()->endOfDay()];
+    protected function getData(): array
+    {
+        return $this->guardChartData(function (): array {
+            $customers = app(DashboardMetricsService::class)->topCustomers($this->dashboardPeriod(), 10);
+
+            return [
+                'hasData' => $customers->isNotEmpty(),
+                'chart' => [
+                    'datasets' => [
+                        [
+                            'label' => 'Total Belanja (Rp)',
+                            'data' => $customers->pluck('total')->all(),
+                            'backgroundColor' => 'rgba(219, 39, 119, 0.75)',
+                            'borderColor' => 'rgba(190, 24, 93, 0.9)',
+                            'borderWidth' => 1,
+                            'borderRadius' => 4,
+                        ],
+                    ],
+                    'labels' => $customers->pluck('name')->all(),
+                ],
+            ];
+        });
+    }
+
+    protected function getOptions(): array|RawJs
+    {
+        return RawJs::make(<<<'JS'
+            {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => 'Rp ' + new Intl.NumberFormat('id-ID').format(context.parsed.x)
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { display: true },
+                        ticks: {
+                            callback: (value) => {
+                                if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                                if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
+                                return 'Rp ' + value;
+                            }
+                        }
+                    },
+                    y: { grid: { display: false } },
+                },
             }
-            $query->whereBetween('bl_invoices_t.issued_date', [$startDate, $endDate]);
-        } elseif ($startDate) {
-            $query->where('bl_invoices_t.issued_date', '>=', $startDate);
-        } elseif ($endDate) {
-            $query->where('bl_invoices_t.issued_date', '<=', $endDate);
-        }
+        JS);
+    }
 
-        $query->groupBy(
-            'bl_customers_t.id',
-            'bl_customers_t.nama'
-        )
-            ->orderByDesc('total_spend')
-            ->limit(10);
-
-        return $table
-            ->heading('Top Customers')
-            ->description('Top 10 Customers')
-            ->query($query)
-            ->defaultSort('total_spend', 'desc')
-            ->columns([
-                Tables\Columns\TextColumn::make('nama')
-                    ->label('Nama Customer')
-                    ->weight('bold')
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('total_invoices')
-                    ->label('Total Invoice')
-                    ->badge()
-                    ->color('primary')
-                    ->alignCenter()
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('total_spend')
-                    ->label('Total Belanja')
-                    ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
-                    ->weight('bold')
-                    ->color('success')
-                    ->sortable(),
-            ])
-            ->paginated(false);
+    protected function getType(): string
+    {
+        return 'bar';
     }
 }

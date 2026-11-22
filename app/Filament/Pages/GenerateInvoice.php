@@ -39,13 +39,13 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected string $view = 'filament.pages.generate-invoice';
 
-    protected static ?string $title = 'Create Invoice';
+    protected static ?string $title = 'Buat Invoice';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+    protected static string|UnitEnum|null $navigationGroup = 'PENJUALAN';
 
-    protected static ?string $navigationLabel = 'Generate Invoice';
+    protected static ?string $navigationLabel = 'Buat Invoice';
 
     public array $data = [];
 
@@ -99,13 +99,13 @@ class GenerateInvoice extends Page implements HasSchemas
         if ($this->invoiceId !== null) {
             $invoice = Invoice::find($this->invoiceId);
             if ($this->isViewMode) {
-                return 'View Invoice #'.($invoice?->invoice_number ?? $this->invoiceId);
+                return 'Detail Invoice #'.($invoice?->invoice_number ?? $this->invoiceId);
             }
 
             return 'Edit Invoice #'.($invoice?->invoice_number ?? $this->invoiceId);
         }
 
-        return 'Create Invoice';
+        return 'Buat Invoice';
     }
 
     protected function fillFormFromInvoice(): void
@@ -344,14 +344,14 @@ class GenerateInvoice extends Page implements HasSchemas
     // SCHEMA BUILDERS
     protected function setCustomerTypeSection(): Section
     {
-        return Section::make('Customer & Transaksi')
+        return Section::make('Pelanggan & Transaksi')
             ->icon('heroicon-o-user-circle')
             ->description('Pilih pelanggan terdaftar untuk otomatis menerapkan kategori harga, benefit membership, dan identitas pelanggan.')
             ->columns(2)
             ->schema([
                 Select::make('member_id')
-                    ->label('Pilih / Cari Customer')
-                    ->placeholder('Pilih customer terdaftar atau cari nama / alias / HP (kosongkan jika pelanggan baru)...')
+                    ->label('Pilih / Cari Pelanggan')
+                    ->placeholder('Pilih pelanggan terdaftar atau cari nama / alias / HP (kosongkan jika pelanggan baru)...')
                     ->options(fn () => Customer::query()
                         ->with('membership')
                         ->orderBy('nama')
@@ -481,7 +481,8 @@ class GenerateInvoice extends Page implements HasSchemas
                         }
                         $tier = $get('pricing_tier') ?? 'toko';
                         $this->recalculateAllProducts($get, $set, $tier);
-                    }),
+                    })
+                    ->native(false),
 
                 Select::make('pricing_tier')
                     ->label('Harga Diterapkan')
@@ -495,46 +496,52 @@ class GenerateInvoice extends Page implements HasSchemas
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set, Get $get) {
                         $this->recalculateAllProducts($get, $set, $state);
-                    }),
+                    })
+                    ->native(false),
             ]);
     }
 
     protected function setCustomerInformationSection(): Section
     {
-        return Section::make('Customer Information')
+        return Section::make('Informasi Pelanggan')
             ->icon('heroicon-o-identification')
             ->description('Masukkan data pelanggan yang diperlukan untuk identifikasi dan keperluan transaksi.')
             ->columns(2)
             ->schema([
                 TextInput::make('name')
+                    ->label('Nama')
                     ->required()
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer name')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Masukkan nama pelanggan')
                     )
                     ->readOnly(fn (Get $get) => $this->isMember($get)),
 
                 TextInput::make('alias')
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer alias (optional)')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Masukkan nama panggilan (opsional)')
                     )
                     ->readOnly(fn (Get $get) => $this->isMember($get)),
 
                 Textarea::make('address')
+                    ->label('Alamat')
                     ->columnSpanFull()
                     ->required()
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer address')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Masukkan alamat lengkap pelanggan')
                     )
                     ->readOnly(fn (Get $get) => $this->isMember($get)),
 
                 TextInput::make('city')
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer city')
+                    ->label('Kota')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Masukkan kota pelanggan')
                     )
                     ->readOnly(fn (Get $get) => $this->isMember($get)),
 
                 TextInput::make('province')
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Enter customer province')
+                    ->label('Provinsi')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Masukkan provinsi pelanggan')
                     )
                     ->readOnly(fn (Get $get) => $this->isMember($get)),
 
                 TextInput::make('country')
+                    ->label('Negara')
                     ->readOnly(fn (Get $get) => $this->isMember($get))
                     ->default(fn (Get $get) => $get('customer_type') !== 'member' ? 'Indonesia' : null
                     )
@@ -545,21 +552,23 @@ class GenerateInvoice extends Page implements HasSchemas
                     }),
 
                 TextInput::make('email')
+                    ->label('Email')
                     ->email()
                     ->readOnly(fn (Get $get) => $this->isMember($get))
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'example@domain.com')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'contoh@domain.com')
                     ),
 
                 TextInput::make('phone_number')
+                    ->label('No. Telp')
                     ->required()
                     ->tel()
                     ->rule('regex:/^[0-9+\-\s]+$/')
                     ->readOnly(fn (Get $get) => $this->isMember($get))
-                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'e.g., 081234567890')
+                    ->placeholder(fn (Get $get) => $this->dynamicPlaceholder($get, 'Contoh: 081234567890')
                     ),
 
                 Select::make('membership_id')
-                    ->label('Membership Category')
+                    ->label('Kategori Membership')
                     ->options(Membership::query()->pluck('nama', 'id'))
                     ->searchable()
                     ->preload()
@@ -573,22 +582,22 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setProductListSection(): Section
     {
-        return Section::make('Product List')
+        return Section::make('Daftar Produk')
             ->icon('heroicon-o-shopping-bag')
             ->description('Pilih produk yang akan dimasukkan ke dalam transaksi beserta jumlahnya. Pastikan untuk memeriksa kembali harga dan diskon yang diterapkan sebelum generate invoice.')
             ->schema([
                 Toggle::make('discount_mode_member')
-                    ->label('Custom Discount')
+                    ->label('Diskon Khusus')
                     ->visible(fn (Get $get) => $this->isMember($get))
                     ->live()
                     ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),
 
                 Radio::make('discount_mode')
-                    ->label('Discount Applied')
+                    ->label('Diskon yang Diberikan')
                     ->options([
-                        'none' => 'No Discount',
-                        'global' => 'Global (All Products)',
-                        'per_item' => 'Per Product (Custom)',
+                        'none' => 'Tanpa Diskon',
+                        'global' => 'Global (Semua Produk)',
+                        'per_item' => 'Per Produk (Kustom)',
                     ])
                     ->default('none')
                     ->inline()
@@ -610,7 +619,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     }),
 
                 TextInput::make('custom_discount')
-                    ->label('Global Discount (%)')
+                    ->label('Diskon Global (%)')
                     ->extraInputAttributes([
                         'inputmode' => 'decimal',
                         'oninput' => "
@@ -630,12 +639,13 @@ class GenerateInvoice extends Page implements HasSchemas
                     ->afterStateUpdated(fn (Get $get, Set $set) => $this->recalculateAllProducts($get, $set)),
 
                 Repeater::make('products')
+                    ->label('PRODUK')
                     ->columns(fn (Get $get) => $get('discount_mode') === 'per_item' && ! $this->isMember($get) ||
                         $get('discount_mode_member') && $this->isMember($get)
                         ? 6 : 5)
                     ->schema([
                         Select::make('product_id')
-                            ->label('Item')
+                            ->label('Barang')
                             ->options(function () {
                                 // Produk aktif selalu muncul (exclude packaging)
                                 $activeOptions = Product::query()
@@ -692,7 +702,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
 
                         TextInput::make('quantity')
-                            ->label('Qty')
+                            ->label('Jumlah')
                             ->numeric()
                             ->default(1)
                             ->minValue(1)
@@ -702,7 +712,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
 
                         TextInput::make('unit_price')
-                            ->label('Item Price')
+                            ->label('Harga Barang')
                             ->prefix('Rp')
                             ->readOnly()
                             ->default(0)
@@ -711,7 +721,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             ->dehydrateStateUsing(fn ($state) => (float) str_replace('.', '', (string) $state)),
 
                         TextInput::make('normal_price')
-                            ->label('Normal Price')
+                            ->label('Harga Normal')
                             ->prefix('Rp')
                             ->readOnly()
                             ->default(0)
@@ -721,7 +731,7 @@ class GenerateInvoice extends Page implements HasSchemas
 
                         // field diskon per item — mendukung format desimal Indonesia
                         TextInput::make('item_discount')
-                            ->label('Disc (%)')
+                            ->label('Diskon (%)')
                             ->maxLength(6)
                             ->extraInputAttributes([
                                 'inputmode' => 'decimal',
@@ -742,7 +752,7 @@ class GenerateInvoice extends Page implements HasSchemas
                             ->afterStateUpdated(fn (Get $get, Set $set) => $this->calculateItemPrices($get, $set)),
 
                         TextInput::make('discount_price')
-                            ->label('Discount Price')
+                            ->label('Setelah Diskon')
                             ->prefix('Rp')
                             // ->numeric()
                             ->readOnly()
@@ -754,7 +764,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     ->extraAttributes([
                         'style' => 'max-height: 480px; overflow-y: auto; padding-right: 18px; padding-bottom: 5px; scroll-behavior: smooth;',
                     ])
-                    ->addActionLabel('Add Product')
+                    ->addActionLabel('Tambah Barang')
                     ->defaultItems(1)
                     ->reorderable(false)
                     ->collapsible()
@@ -778,7 +788,7 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setAdditionalSection(): Section
     {
-        return Section::make('Add Ons')
+        return Section::make('Tambahan')
             ->description('Tambahkan ongkos kirim dan perlengkapan tambahan untuk pesanan ini.')
             ->icon('heroicon-o-plus-circle')
             ->columns(1)
@@ -800,7 +810,7 @@ class GenerateInvoice extends Page implements HasSchemas
                 Grid::make(2)
                     ->schema([
                         // Box
-                        Fieldset::make('Packaging Box')
+                        Fieldset::make('Kemasan Box')
                             ->schema([
                                 Toggle::make('use_box')
                                     ->label('Tambahkan Box')
@@ -916,7 +926,7 @@ class GenerateInvoice extends Page implements HasSchemas
 
     protected function setInvoiceDetailSection(): Section
     {
-        return Section::make('Invoice Details')
+        return Section::make('Detail Invoice')
             ->icon('heroicon-o-document-text')
             ->description('Periksa ringkasan pesanan sebelum generate invoice. Anda juga dapat melakukan custom nomor dan tanggal penerbitan/jatuh tempo sesuai kebutuhan.')
             ->schema([
@@ -930,9 +940,9 @@ class GenerateInvoice extends Page implements HasSchemas
                 Grid::make(3)
                     ->schema([
                         TextInput::make('custom_invoice_number')
-                            ->label('Invoice Number')
+                            ->label('Nomor Invoice')
                             ->placeholder(fn () => $this->generateInvoiceNumber())
-                            ->helperText('Leave blank to auto-generate')
+                            ->helperText('Biarkan kosong untuk generate otomatis')
                             ->numeric()
                             ->maxLength(10)
                             ->extraInputAttributes([
@@ -942,16 +952,16 @@ class GenerateInvoice extends Page implements HasSchemas
                             ]),
 
                         DatePicker::make('issued_date')
-                            ->label('Issued On')
+                            ->label('Tanggal Diterbitkan')
                             ->placeholder(now()->format('d M Y'))
-                            ->helperText('Leave blank to use today')
+                            ->helperText('Biarkan kosong untuk menggunakan tanggal hari ini')
                             ->native(false)
                             ->displayFormat('d M Y'),
 
                         DatePicker::make('due_date')
-                            ->label('Due By')
+                            ->label('Jatuh Tempo')
                             ->placeholder(now()->format('d M Y'))
-                            ->helperText('Leave blank to use today')
+                            ->helperText('Biarkan kosong untuk menggunakan tanggal hari ini')
                             ->native(false)
                             ->displayFormat('d M Y'),
                     ]),
@@ -983,7 +993,7 @@ class GenerateInvoice extends Page implements HasSchemas
     {
         if ($this->isEditMode()) {
             return Action::make('reset')
-                ->label('Cancel')
+                ->label('Batal')
                 ->color('gray')
                 ->requiresConfirmation()
                 ->modalHeading('Batalkan Perubahan')
@@ -1003,7 +1013,7 @@ class GenerateInvoice extends Page implements HasSchemas
     public function generateAction(): Action
     {
         return Action::make('generate')
-            ->label($this->isEditMode() ? 'Save Changes' : 'Save Invoice')
+            ->label($this->isEditMode() ? 'Simpan Perubahan' : 'Simpan Invoice')
             ->icon('heroicon-o-check-circle')
             ->requiresConfirmation()
             ->modalHeading($this->isEditMode() ? 'Konfirmasi Simpan Perubahan' : 'Konfirmasi Simpan Invoice')
@@ -1029,7 +1039,7 @@ class GenerateInvoice extends Page implements HasSchemas
                     $due = Carbon::parse($dueDate);
 
                     if ($due->lt($issued)) {
-                        $warnings[] = '⚠️ Due By ('.$due->format('d M Y').') lebih awal dari Issued On ('.$issued->format('d M Y').'). Pastikan tanggalnya sudah benar.';
+                        $warnings[] = '⚠️ Jatuh Tempo ('.$due->format('d M Y').') lebih awal dari Tanggal Diterbitkan ('.$issued->format('d M Y').'). Pastikan tanggalnya sudah benar.';
                     }
                 }
 

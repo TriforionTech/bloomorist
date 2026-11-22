@@ -18,13 +18,13 @@ class ArusKas extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
 
-    protected static ?string $title = 'Cash Flow';
+    protected static ?string $title = 'Arus Kas';
 
-    protected static ?string $navigationLabel = 'Cash Flow';
+    protected static ?string $navigationLabel = 'Arus Kas';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
+    protected static string|UnitEnum|null $navigationGroup = 'AKUNTANSI';
 
     protected static ?int $navigationSort = 6;
 

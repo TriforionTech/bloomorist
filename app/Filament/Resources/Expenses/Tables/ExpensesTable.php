@@ -85,9 +85,10 @@ class ExpensesTable
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
                         'draft' => '📝 Draft',
-                        'posted' => '✅ Posted',
+                        'posted' => '✅ Diposting',
                         'void' => '❌ Void',
                     ])
                     ->searchable(),
@@ -101,6 +102,7 @@ class ExpensesTable
                     ->searchable(),
 
                 Filter::make('tanggal')
+                    ->label('Rentang Tanggal')
                     ->form([
                         DatePicker::make('from')->label('Dari Tanggal')->native(false),
                         DatePicker::make('until')->label('Sampai Tanggal')->native(false),
@@ -111,7 +113,7 @@ class ExpensesTable
                             ->when($data['until'], fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date));
                     }),
             ])
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 // ─── Post Expense ────────────────────────────────────────
                 Action::make('postExpense')
@@ -119,21 +121,21 @@ class ExpensesTable
                     ->icon('heroicon-o-check-circle')
                     ->color(fn (Expense $record): string => $record->isDraft() ? 'success' : 'gray')
                     ->tooltip(fn (Expense $record): string => $record->isDraft()
-                        ? 'Post expense (buat jurnal)'
-                        : 'Expense sudah '.strtoupper($record->status))
+                        ? 'Posting pengeluaran (buat jurnal)'
+                        : 'Pengeluaran sudah '.strtoupper($record->status))
                     ->disabled(fn (Expense $record): bool => ! $record->isDraft())
                     ->requiresConfirmation()
-                    ->modalHeading('Post Expense')
-                    ->modalDescription(fn (Expense $record): string => 'Expense "'.$record->keterangan.'" (Rp '.number_format($record->nominal, 0, ',', '.').') akan diposting dan jurnal umum akan dibuat. Setelah diposting, expense tidak dapat diedit atau dihapus.')
-                    ->modalSubmitActionLabel('Ya, Post Expense')
+                    ->modalHeading('Posting Pengeluaran')
+                    ->modalDescription(fn (Expense $record): string => 'Pengeluaran "'.$record->keterangan.'" (Rp '.number_format($record->nominal, 0, ',', '.').') akan diposting dan jurnal umum akan dibuat. Setelah diposting, pengeluaran tidak dapat diedit atau dihapus.')
+                    ->modalSubmitActionLabel('Ya, Posting')
                     ->modalCancelActionLabel('Batal')
                     ->action(function (Expense $record): void {
                         try {
                             app(ExpenseService::class)->postExpense($record);
 
                             Notification::make()
-                                ->title('Expense Berhasil Diposting')
-                                ->body('Expense "'.$record->keterangan.'" telah diposting dan jurnal umum telah dibuat.')
+                                ->title('Pengeluaran Berhasil Diposting')
+                                ->body('Pengeluaran "'.$record->keterangan.'" telah diposting dan jurnal umum telah dibuat.')
                                 ->success()
                                 ->send();
                         } catch (AccountingPeriodClosedException $e) {
@@ -145,7 +147,7 @@ class ExpensesTable
                                 ->send();
                         } catch (\Throwable $e) {
                             Notification::make()
-                                ->title('Gagal Memposting Expense')
+                                ->title('Gagal Memposting Pengeluaran')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->persistent()
@@ -159,23 +161,23 @@ class ExpensesTable
                     ->icon('heroicon-o-x-circle')
                     ->color(fn (Expense $record): string => $record->isPosted() ? 'danger' : 'gray')
                     ->tooltip(fn (Expense $record): string => match (true) {
-                        $record->isPosted() => 'Void expense (buat reversing journal)',
-                        $record->isVoid() => 'Expense sudah VOID (final)',
-                        default => 'Post terlebih dahulu sebelum void',
+                        $record->isPosted() => 'Batalkan (Void) pengeluaran (buat jurnal pembalik)',
+                        $record->isVoid() => 'Pengeluaran sudah VOID (final)',
+                        default => 'Posting terlebih dahulu sebelum void',
                     })
                     ->disabled(fn (Expense $record): bool => ! $record->isPosted())
                     ->requiresConfirmation()
-                    ->modalHeading('Void Expense')
-                    ->modalDescription(fn (Expense $record): string => 'Expense "'.$record->keterangan.'" (Rp '.number_format($record->nominal, 0, ',', '.').') akan di-void. Reversing journal akan dibuat untuk membatalkan jurnal asli. Jurnal asli TIDAK akan dihapus.')
-                    ->modalSubmitActionLabel('Ya, Void Expense')
+                    ->modalHeading('Batalkan (Void) Pengeluaran')
+                    ->modalDescription(fn (Expense $record): string => 'Pengeluaran "'.$record->keterangan.'" (Rp '.number_format($record->nominal, 0, ',', '.').') akan di-void. Jurnal pembalik akan dibuat untuk membatalkan jurnal asli. Jurnal asli TIDAK akan dihapus.')
+                    ->modalSubmitActionLabel('Ya, Batalkan')
                     ->modalCancelActionLabel('Batal')
                     ->action(function (Expense $record): void {
                         try {
                             app(ExpenseService::class)->voidExpense($record);
 
                             Notification::make()
-                                ->title('Expense Berhasil Di-void')
-                                ->body('Expense "'.$record->keterangan.'" telah di-void dan reversing journal telah dibuat.')
+                                ->title('Pengeluaran Berhasil Di-void')
+                                ->body('Pengeluaran "'.$record->keterangan.'" telah di-void dan jurnal pembalik telah dibuat.')
                                 ->success()
                                 ->send();
                         } catch (AccountingPeriodClosedException $e) {
@@ -187,7 +189,7 @@ class ExpensesTable
                                 ->send();
                         } catch (\Throwable $e) {
                             Notification::make()
-                                ->title('Gagal Mem-void Expense')
+                                ->title('Gagal Mem-void Pengeluaran')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->persistent()
@@ -201,8 +203,8 @@ class ExpensesTable
                     ->icon('heroicon-o-pencil-square')
                     ->color(fn (Expense $record): string => $record->isEditable() ? 'warning' : 'gray')
                     ->tooltip(fn (Expense $record): string => $record->isEditable()
-                        ? 'Edit expense'
-                        : 'Expense '.strtoupper($record->status).' tidak dapat diedit')
+                        ? 'Edit pengeluaran'
+                        : 'Pengeluaran '.strtoupper($record->status).' tidak dapat diedit')
                     ->disabled(fn (Expense $record): bool => ! $record->isEditable()),
 
                 // ─── Delete ──────────────────────────────────────────────
@@ -211,11 +213,11 @@ class ExpensesTable
                     ->icon('heroicon-o-trash')
                     ->color(fn (Expense $record): string => $record->isDeletable() ? 'danger' : 'gray')
                     ->tooltip(fn (Expense $record): string => $record->isDeletable()
-                        ? 'Hapus expense'
-                        : 'Expense '.strtoupper($record->status).' tidak dapat dihapus')
+                        ? 'Hapus pengeluaran'
+                        : 'Pengeluaran '.strtoupper($record->status).' tidak dapat dihapus')
                     ->disabled(fn (Expense $record): bool => ! $record->isDeletable())
-                    ->modalHeading('Hapus Expense')
-                    ->modalDescription('Apakah Anda yakin ingin menghapus expense ini? Tindakan ini tidak dapat dibatalkan.')
+                    ->modalHeading('Hapus Pengeluaran')
+                    ->modalDescription('Apakah Anda yakin ingin menghapus pengeluaran ini? Tindakan ini tidak dapat dibatalkan.')
                     ->modalSubmitActionLabel('Ya, Hapus')
                     ->modalCancelActionLabel('Batal'),
             ]);

@@ -85,7 +85,7 @@ class StockTransferForm
                                 }
                                 $product = Product::find($get('source_product_id'));
 
-                                return $product ? "Sisa Stok: {$product->stok} (Cost: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
+                                return $product ? "Sisa Stok: {$product->stok} (Harga Beli: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
                             }),
 
                         Select::make('target_product_id')
@@ -101,7 +101,7 @@ class StockTransferForm
                                 }
                                 $product = Product::find($get('target_product_id'));
 
-                                return $product ? "Sisa Stok: {$product->stok} (Cost: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
+                                return $product ? "Sisa Stok: {$product->stok} (Harga Beli: Rp ".number_format($product->harga_beli, 0, ',', '.').')' : null;
                             }),
 
                         Textarea::make('keterangan')

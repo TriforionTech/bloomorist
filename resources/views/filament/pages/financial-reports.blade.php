@@ -36,10 +36,10 @@
         {{-- Export Buttons --}}
         <div class="flex flex-wrap gap-3 mt-4 mb-4">
             <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadIncomeStatementPdf" size="sm">
-                Download PDF
+                Unduh PDF
             </x-filament::button>
             <x-filament::button color="success" icon="heroicon-o-table-cells" wire:click="downloadIncomeStatementCsv" size="sm">
-                Download CSV
+                Unduh CSV
             </x-filament::button>
         </div>
 
@@ -131,15 +131,15 @@
         {{-- Export Buttons --}}
         <div class="flex flex-wrap gap-3 mt-4 mb-4">
             <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadBalanceSheetPdf" size="sm">
-                Download PDF
+                Unduh PDF
             </x-filament::button>
             <x-filament::button color="success" icon="heroicon-o-table-cells" wire:click="downloadBalanceSheetCsv" size="sm">
-                Download CSV
+                Unduh CSV
             </x-filament::button>
         </div>
 
         <x-filament::section
-            heading="NERACA (BALANCE SHEET)"
+            heading="NERACA"
             description="Per tanggal: {{ $balance['as_of']->format('d M Y') }}"
         >
             <div class="mb-4">
@@ -233,10 +233,10 @@
             {{-- Export Buttons --}}
             <div class="flex flex-wrap gap-3 mt-4 mb-4">
                 <x-filament::button color="danger" icon="heroicon-o-document-arrow-down" wire:click="downloadCashFlowPdf" size="sm">
-                    Download PDF
+                    Unduh PDF
                 </x-filament::button>
                 <x-filament::button color="success" icon="heroicon-o-table-cells" wire:click="downloadCashFlowCsv" size="sm">
-                    Download CSV
+                    Unduh CSV
                 </x-filament::button>
             </div>
 
@@ -260,7 +260,7 @@
                     <table class="w-full text-sm text-left">
                         <thead class="border-b">
                             <tr>
-                                <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white w-24">Helper</th>
+                                <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white w-24">Kode</th>
                                 <th class="py-2 px-4 font-semibold text-gray-900 dark:text-white">Keterangan</th>
                                 <th class="py-2 px-4 text-right font-semibold text-gray-900 dark:text-white">Jumlah</th>
                             </tr>

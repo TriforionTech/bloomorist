@@ -16,8 +16,8 @@ class CustomerForm
         return $schema
             ->components([
                 TextInput::make('nama')
-                    ->label('Name')
-                    ->placeholder('Enter member name')
+                    ->label('Nama Pelanggan')
+                    ->placeholder('Masukkan nama pelanggan')
                     ->required()
                     ->live(onBlur: true)
                     ->afterStateUpdated(function ($state, $set) {
@@ -25,7 +25,7 @@ class CustomerForm
                     })
                     ->dehydrateStateUsing(fn ($state) => Str::title($state)),
                 Select::make('tipe_customer')
-                    ->label('Customer Type')
+                    ->label('Tipe Pelanggan')
                     ->options([
                         'toko' => 'Toko (Default)',
                         'vendor' => 'Vendor',
@@ -35,11 +35,11 @@ class CustomerForm
                     ->required(),
                 TextInput::make('alias')
                     ->label('Alias')
-                    ->placeholder('Enter member alias (optional)'),
+                    ->placeholder('Masukkan alias pelanggan (opsional)'),
                 TextInput::make('email')
                     ->label('Email')
                     ->email()
-                    ->placeholder('example@domain.com')
+                    ->placeholder('contoh@domain.com')
                     ->unique(
                         ignoreRecord: true,
                         modifyRuleUsing: fn ($rule) => $rule->whereNull('deleted_at')
@@ -48,25 +48,25 @@ class CustomerForm
                         'unique' => 'Email ini sudah digunakan oleh customer aktif lain.',
                     ]),
                 Textarea::make('alamat')
-                    ->label('Address')
-                    ->placeholder('Enter member address')
+                    ->label('Alamat')
+                    ->placeholder('Masukkan alamat pelanggan')
                     ->required(),
                 TextInput::make('kota')
-                    ->label('City')
-                    ->placeholder('Enter member city'),
+                    ->label('Kota')
+                    ->placeholder('Masukkan kota pelanggan'),
                 TextInput::make('provinsi')
-                    ->label('Province')
-                    ->placeholder('Enter member province'),
+                    ->label('Provinsi')
+                    ->placeholder('Masukkan provinsi pelanggan'),
                 TextInput::make('negara')
-                    ->label('Country')
+                    ->label('Negara')
                     ->default('Indonesia'),
                 TextInput::make('nomor_hp')
-                    ->label('Phone Number')
-                    ->placeholder('e.g., 08xxxxxxxxxx')
+                    ->label('Nomor Telepon / HP')
+                    ->placeholder('Contoh: 08xxxxxxxxxx')
                     ->tel()
                     ->rule('regex:/^[0-9+\-\s]+$/'),
                 Select::make('membership_id')
-                    ->label('Membership Category')
+                    ->label('Kategori Membership')
                     ->searchable()
                     ->options(
                         Membership::pluck('nama', 'id')

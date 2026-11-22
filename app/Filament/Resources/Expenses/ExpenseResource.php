@@ -18,15 +18,15 @@ class ExpenseResource extends Resource
 {
     protected static ?string $model = Expense::class;
 
-    protected static ?string $navigationLabel = 'Expenses';
+    protected static ?string $navigationLabel = 'Pengeluaran';
 
-    protected static ?string $pluralLabel = 'Expenses';
+    protected static ?string $pluralLabel = 'Pengeluaran';
 
-    protected static ?string $label = 'Expense';
+    protected static ?string $label = 'Pengeluaran';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Expenses & Purchases';
+    protected static string|UnitEnum|null $navigationGroup = 'PEMBELIAN';
 
     protected static ?int $navigationSort = 1;
 

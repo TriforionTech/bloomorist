@@ -24,9 +24,13 @@ class DashboardWidgetTest extends TestCase
 
         Livewire::test(StatsOverview::class)
             ->assertStatus(200)
-            ->assertSee('Total Order Hari Ini')
-            ->assertSee('Pendapatan Hari Ini')
-            ->assertSee('Order Pending')
+            ->assertSee('Total Transaksi')
+            ->assertSee('Pendapatan')
+            ->assertSee('Pengeluaran');
+
+        Livewire::test(\App\Filament\Widgets\CurrentStatusOverview::class)
+            ->assertStatus(200)
+            ->assertSee('Transaksi Pending')
             ->assertSee('Stok Menipis');
     }
 
@@ -42,9 +46,7 @@ class DashboardWidgetTest extends TestCase
 
         Livewire::test(\App\Filament\Widgets\SalesChart::class)
             ->assertStatus(200)
-            ->assertSee('Sales Chart')
-            ->assertSee('fi-wi-sales-chart-scroll', false)
-            ->assertSee('fi-wi-sales-chart-inner', false);
+            ->assertSee('Grafik Penjualan');
     }
 
     public function test_sales_chart_handles_partial_custom_date_filter_without_error(): void
@@ -60,7 +62,7 @@ class DashboardWidgetTest extends TestCase
         // Pass pageFilters in initial mount parameters
         Livewire::test(\App\Filament\Widgets\SalesChart::class, [
             'pageFilters' => [
-                'date_preset' => 'custom',
+                'filter_preset' => 'custom',
                 'startDate' => null,
                 'endDate' => '2026-09-30',
             ],
@@ -79,7 +81,7 @@ class DashboardWidgetTest extends TestCase
 
         Livewire::test(\App\Filament\Widgets\SalesChart::class, [
             'pageFilters' => [
-                'date_preset' => 'custom',
+                'filter_preset' => 'custom',
                 'startDate' => '2026-09-30',
                 'endDate' => '2026-09-01',
             ],
@@ -113,7 +115,7 @@ class DashboardWidgetTest extends TestCase
         $this->actingAs($user);
 
         $filters = [
-            'date_preset' => 'custom',
+            'filter_preset' => 'custom',
             'startDate' => null,
             'endDate' => '2026-09-30',
         ];
@@ -123,7 +125,7 @@ class DashboardWidgetTest extends TestCase
         Livewire::test(\App\Filament\Widgets\TopCustomers::class, ['pageFilters' => $filters])->assertStatus(200);
     }
 
-    public function test_dashboard_page_renders_with_filter_action(): void
+    public function test_dashboard_page_renders_with_header_filter(): void
     {
         $user = User::create([
             'name' => 'Admin Dashboard 6',
@@ -135,11 +137,9 @@ class DashboardWidgetTest extends TestCase
 
         Livewire::test(\App\Filament\Pages\Dashboard::class)
             ->assertStatus(200)
-            ->assertActionExists('filter')
-            ->callAction('filter', [
-                'filter_preset' => 'today',
-            ])
-            ->assertHasNoActionErrors();
+            ->assertSee('Periode aktif')
+            ->set('filters.filter_preset', 'today')
+            ->assertSee('Periode aktif: Hari Ini');
     }
 
     public function test_low_stock_products_has_pagination_and_header_action(): void

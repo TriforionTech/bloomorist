@@ -18,15 +18,15 @@ class ReportLineTemplateResource extends Resource
 {
     protected static ?string $model = ReportLineTemplate::class;
 
-    protected static ?string $navigationLabel = 'Report Templates';
+    protected static ?string $navigationLabel = 'Template Baris Laporan';
 
-    protected static ?string $modelLabel = 'Report Template';
+    protected static ?string $modelLabel = 'Template Baris Laporan';
 
-    protected static ?string $pluralModelLabel = 'Report Templates';
+    protected static ?string $pluralModelLabel = 'Template Baris Laporan';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Controls & Audit';
+    protected static string|UnitEnum|null $navigationGroup = 'AKUNTANSI';
 
     protected static ?int $navigationSort = 7;
 

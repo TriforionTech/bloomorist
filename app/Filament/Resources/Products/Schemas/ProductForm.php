@@ -19,13 +19,13 @@ class ProductForm
                 TextInput::make('sku')
                     ->label('SKU')
                     ->readOnly()
-                    ->helperText('Auto-generated based on category and product name.')
-                    ->placeholder('Will be generated on save')
+                    ->helperText('Dibuat otomatis berdasarkan kategori dan nama produk.')
+                    ->placeholder('Otomatis dibuat saat disimpan')
                     ->visibleOn('edit'),
 
                 TextInput::make('nama')
-                    ->label('Product Name')
-                    ->placeholder('Enter product name')
+                    ->label('Nama Produk')
+                    ->placeholder('Masukkan nama produk')
                     ->required()
                     ->live()
                     ->afterStateUpdated(function ($state, $set) {
@@ -34,22 +34,22 @@ class ProductForm
                     ->dehydrateStateUsing(fn ($state) => Str::title($state)),
 
                 Select::make('kategori')
-                    ->label('Category')
+                    ->label('Kategori')
                     ->options([
-                        'bunga' => '🌸 Flowers',
-                        'packaging' => '📦 Packaging',
-                        'others' => '🔖 Others',
+                        'bunga' => '🌸 Bunga',
+                        'packaging' => '📦 Kemasan',
+                        'others' => '🔖 Lainnya',
                     ])
                     ->default('bunga')
                     ->required()
                     ->native(false),
 
-                Section::make('Pricing')
+                Section::make('Harga')
                     ->columnSpanFull()
                     ->schema([
                         TextInput::make('harga_beli')
-                            ->label('Purchase Price (Cost)')
-                            ->placeholder('Enter purchase price')
+                            ->label('Harga Beli (Modal)')
+                            ->placeholder('Masukkan harga beli')
                             ->required()
                             ->prefix('Rp')
                             ->maxLength(13)
@@ -64,8 +64,8 @@ class ProductForm
 
                         Grid::make(3)->schema([
                             TextInput::make('harga_jual')
-                                ->label('Selling Price (Toko / Default)')
-                                ->placeholder('Enter store price')
+                                ->label('Harga Jual (Toko / Default)')
+                                ->placeholder('Masukkan harga toko')
                                 ->required()
                                 ->prefix('Rp')
                                 ->maxLength(13)
@@ -79,8 +79,8 @@ class ProductForm
                                 ->dehydrated(),
 
                             TextInput::make('harga_vendor')
-                                ->label('Selling Price (Vendor)')
-                                ->placeholder('Enter vendor price')
+                                ->label('Harga Jual (Vendor)')
+                                ->placeholder('Masukkan harga vendor')
                                 ->required()
                                 ->default(0)
                                 ->prefix('Rp')
@@ -95,8 +95,8 @@ class ProductForm
                                 ->dehydrated(),
 
                             TextInput::make('harga_dekor')
-                                ->label('Selling Price (Dekor)')
-                                ->placeholder('Enter decor price')
+                                ->label('Harga Jual (Dekor)')
+                                ->placeholder('Masukkan harga dekor')
                                 ->required()
                                 ->default(0)
                                 ->prefix('Rp')
@@ -113,12 +113,12 @@ class ProductForm
                     ]),
 
                 TextInput::make('stok')
-                    ->label('Stock')
+                    ->label('Stok')
                     ->numeric()
                     ->default(0)
                     ->disabled()
                     ->dehydrated()
-                    ->helperText('Stock is managed via Stock Movements.'),
+                    ->helperText('Stok dikelola melalui Pergerakan Stok.'),
             ]);
     }
 }

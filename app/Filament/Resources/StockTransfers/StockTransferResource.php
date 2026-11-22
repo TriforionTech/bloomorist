@@ -18,7 +18,7 @@ class StockTransferResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Inventory';
+    protected static \UnitEnum|string|null $navigationGroup = 'PERSEDIAAN';
 
     protected static ?string $navigationLabel = 'Transfer Stok';
 

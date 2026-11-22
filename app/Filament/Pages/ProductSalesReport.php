@@ -24,13 +24,13 @@ class ProductSalesReport extends Page implements HasTable
 
     protected static ?string $title = 'Laporan Penjualan Produk';
 
-    protected static ?string $navigationLabel = 'Laporan Penjualan Produk';
+    protected static ?string $navigationLabel = 'Penjualan Produk';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Sales & Invoicing';
+    protected static string|UnitEnum|null $navigationGroup = 'LAPORAN';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.pages.product-sales-report';
 
@@ -118,13 +118,13 @@ class ProductSalesReport extends Page implements HasTable
                     ->rowIndex()
                     ->visibleFrom('md'),
                 TextColumn::make('nama')
-                    ->label('PRODUCT')
+                    ->label('PRODUK')
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
                     ->wrap(),
                 TextColumn::make('total_sold')
-                    ->label('QTY')
+                    ->label('JUMLAH')
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->orderBy('total_sold', $direction)->orderBy('nama', 'asc');
                     })
@@ -133,7 +133,7 @@ class ProductSalesReport extends Page implements HasTable
                     ->color('info')
                     ->formatStateUsing(fn ($state) => number_format($state ?? 0, 0, ',', '.')),
                 TextColumn::make('total_revenue')
-                    ->label('REVENUE')
+                    ->label('PENDAPATAN')
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->orderBy('total_revenue', $direction)->orderBy('nama', 'asc');
                     })
@@ -146,28 +146,28 @@ class ProductSalesReport extends Page implements HasTable
                 Filter::make('date_filter')
                     ->form([
                         \Filament\Forms\Components\Select::make('filter_preset')
-                            ->label('Filter By')
+                            ->label('Filter Berdasarkan')
                             ->options([
-                                'today' => 'Today',
-                                'yesterday' => 'Yesterday',
-                                'this_month' => 'This Month',
-                                'previous_month' => 'Previous Month',
-                                'ytd' => 'This Year',
-                                'previous_year' => 'Previous Year',
-                                'all' => 'All Time',
-                                'custom' => 'Custom Range',
+                                'today' => 'Hari Ini',
+                                'yesterday' => 'Kemarin',
+                                'this_month' => 'Bulan Ini',
+                                'previous_month' => 'Bulan Lalu',
+                                'ytd' => 'Tahun Ini',
+                                'previous_year' => 'Tahun Lalu',
+                                'all' => 'Semua Waktu',
+                                'custom' => 'Rentang Kustom',
                             ])
                             ->default(fn () => request()->query('filter', 'this_month'))
                             ->live(),
                         Grid::make(2)
                             ->schema([
                                 DatePicker::make('date_from')
-                                    ->label('From')
+                                    ->label('Dari Tanggal')
                                     ->displayFormat('d M Y')
                                     ->native(false)
                                     ->live(), // Added live to fix responsiveness
                                 DatePicker::make('date_until')
-                                    ->label('Until')
+                                    ->label('Sampai Tanggal')
                                     ->displayFormat('d M Y')
                                     ->native(false)
                                     ->live(), // Added live to fix responsiveness
@@ -182,22 +182,22 @@ class ProductSalesReport extends Page implements HasTable
                         $indicators = [];
                         if (($data['filter_preset'] ?? 'month') === 'custom') {
                             if ($data['date_from'] ?? null) {
-                                $indicators['date_from'] = 'From: '.Carbon::parse($data['date_from'])->format('d M Y');
+                                $indicators['date_from'] = 'Dari: '.Carbon::parse($data['date_from'])->format('d M Y');
                             }
                             if ($data['date_until'] ?? null) {
-                                $indicators['date_until'] = 'Until: '.Carbon::parse($data['date_until'])->format('d M Y');
+                                $indicators['date_until'] = 'Sampai: '.Carbon::parse($data['date_until'])->format('d M Y');
                             }
                         } else {
-                            $indicators['preset'] = 'Period: '.match ($data['filter_preset'] ?? 'this_month') {
-                                'today' => 'Today',
-                                'yesterday' => 'Yesterday',
-                                'this_month' => 'This Month',
-                                'previous_month' => 'Previous Month',
-                                'ytd' => 'This Year',
-                                'previous_year' => 'Previous Year',
-                                'all' => 'All Time',
-                                'custom' => 'Custom Range',
-                                default => 'This Month'
+                            $indicators['preset'] = 'Periode: '.match ($data['filter_preset'] ?? 'this_month') {
+                                'today' => 'Hari Ini',
+                                'yesterday' => 'Kemarin',
+                                'this_month' => 'Bulan Ini',
+                                'previous_month' => 'Bulan Lalu',
+                                'ytd' => 'Tahun Ini',
+                                'previous_year' => 'Tahun Lalu',
+                                'all' => 'Semua Waktu',
+                                'custom' => 'Rentang Kustom',
+                                default => 'Bulan Ini'
                             };
                         }
 
@@ -205,7 +205,7 @@ class ProductSalesReport extends Page implements HasTable
                     }),
             ])
             ->filtersTriggerAction(
-                fn (Action $action) => $action->label('Filter Period')->extraAttributes(['class' => 'mr-3 sm:mr-0']),
+                fn (Action $action) => $action->label('Filter Periode')->extraAttributes(['class' => 'mr-3 sm:mr-0']),
             );
     }
 }

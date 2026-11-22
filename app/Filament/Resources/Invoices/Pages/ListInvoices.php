@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Invoices\Pages;
 
+use App\Filament\Pages\GenerateInvoice;
 use App\Filament\Resources\Invoices\InvoiceResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Icons\Heroicon;
 
 class ListInvoices extends ListRecords
 {
@@ -11,6 +14,11 @@ class ListInvoices extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('newInvoice')
+                ->label('Buat Invoice')
+                ->icon(Heroicon::Plus)
+                ->url(fn (): string => GenerateInvoice::getUrl()),
+        ];
     }
 }

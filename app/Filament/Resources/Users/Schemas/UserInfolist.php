@@ -11,15 +11,19 @@ class UserInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('name'),
+                TextEntry::make('name')
+                    ->label('Nama Admin'),
                 TextEntry::make('email')
-                    ->label('Email address'),
+                    ->label('Alamat Email'),
                 TextEntry::make('is_super_admin')
-                    ->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
+                    ->label('Super Admin')
+                    ->formatStateUsing(fn ($state) => $state ? 'Ya' : 'Tidak'),
                 TextEntry::make('created_at')
+                    ->label('Dibuat Pada')
                     ->dateTime()
                     ->placeholder('-'),
                 TextEntry::make('updated_at')
+                    ->label('Diperbarui Pada')
                     ->dateTime()
                     ->placeholder('-'),
             ]);

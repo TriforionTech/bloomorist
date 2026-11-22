@@ -16,12 +16,13 @@ class ReportLineTemplatesTable
             ->defaultSort('sort_order')
             ->columns([
                 TextColumn::make('report_type')->label('LAPORAN')->badge(),
-                TextColumn::make('line_key')->label('LINE KEY')->searchable(),
-                TextColumn::make('label')->label('LABEL')->searchable(),
+                TextColumn::make('line_key')->label('KUNCI BARIS')->searchable(),
+                TextColumn::make('label')->label('NAMA BARIS')->searchable(),
                 TextColumn::make('sort_order')->label('URUTAN')->sortable(),
                 IconColumn::make('is_subtotal')->label('SUBTOTAL')->boolean(),
                 IconColumn::make('is_active')->label('AKTIF')->boolean(),
             ])
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),

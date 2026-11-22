@@ -27,7 +27,7 @@ class AccountingAuditsTable
 
                 TextColumn::make('user.name')
                     ->label('PENGGUNA')
-                    ->placeholder('System')
+                    ->placeholder('Sistem')
                     ->searchable()
                     ->sortable(),
 
@@ -117,6 +117,7 @@ class AccountingAuditsTable
                         return $indicators;
                     }),
             ])
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 ViewAction::make()
                     ->label('Lihat Detail')

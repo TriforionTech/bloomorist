@@ -42,13 +42,13 @@ class StockTransfersTable
                     ->weight('medium'),
 
                 TextColumn::make('quantity')
-                    ->label('QTY')
+                    ->label('JUMLAH')
                     ->numeric()
                     ->alignEnd()
                     ->sortable(),
 
                 TextColumn::make('target_value')
-                    ->label('Nilai Hasil Transfer')
+                    ->label('NILAI HASIL TRANSFER')
                     ->state(function (StockTransfer $record) {
                         $cost = (float) ($record->targetProduct?->harga_beli ?? 0);
 
@@ -72,8 +72,8 @@ class StockTransfersTable
                             'default' => 1,
                             'sm' => 2,
                         ])->schema([
-                            DatePicker::make('from')->label('Dari Tanggal'),
-                            DatePicker::make('until')->label('Sampai Tanggal'),
+                            DatePicker::make('from')->label('Dari'),
+                            DatePicker::make('until')->label('Sampai'),
                         ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -99,6 +99,7 @@ class StockTransfersTable
                         return $indicators;
                     }),
             ])
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 ViewAction::make()
                     ->label('Lihat Detail')

@@ -61,7 +61,7 @@ class ChartOfAccountsTable
                         'class' => 'text-lg font-semibold',
                     ]),
             ])
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 EditAction::make()
                     ->hiddenLabel()

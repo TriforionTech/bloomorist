@@ -16,14 +16,14 @@ class ListExpenses extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('New Expense'),
+            CreateAction::make()->label('Tambah Pengeluaran'),
         ];
     }
 
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All')
+            'all' => Tab::make('Semua')
                 ->badge(fn () => Expense::count()),
 
             'draft' => Tab::make('Draft')
@@ -32,13 +32,13 @@ class ListExpenses extends ListRecords
                 ->badgeColor('warning')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'draft')),
 
-            'posted' => Tab::make('Posted')
+            'posted' => Tab::make('Diposting')
                 ->icon('heroicon-o-check-circle')
                 ->badge(fn () => Expense::where('status', 'posted')->count())
                 ->badgeColor('success')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'posted')),
 
-            'void' => Tab::make('Void')
+            'void' => Tab::make('Dibatalkan (Void)')
                 ->icon('heroicon-o-x-circle')
                 ->badge(fn () => Expense::where('status', 'void')->count())
                 ->badgeColor('danger')

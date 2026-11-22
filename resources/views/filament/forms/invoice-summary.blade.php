@@ -246,7 +246,7 @@
                 <thead>
                     <tr>
                         <th class="th-left">Produk</th>
-                        <th class="th-center">Qty</th>
+                        <th class="th-center">Jumlah</th>
                         <th class="th-right">Harga</th>
                     </tr>
                 </thead>
@@ -346,7 +346,7 @@
 
                     {{-- Grand Total --}}
                     <tr class="grand-row">
-                        <td>Grand Total</td>
+                        <td>Total Akhir</td>
                         <td class="grand-amount">Rp {{ number_format($grandTotal, 0, ',', '.') }}</td>
                     </tr>
 

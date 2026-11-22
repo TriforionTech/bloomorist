@@ -31,11 +31,11 @@ class InvoicesTable
     {
         return match ($currentStatus) {
             'pending' => [
-                'paid' => '✅ Paid',
-                'cancelled' => '❌ Cancelled',
+                'paid' => '✅ Lunas',
+                'cancelled' => '❌ Dibatalkan',
             ],
             'paid' => [
-                'cancelled' => '❌ Cancelled',
+                'cancelled' => '❌ Dibatalkan',
             ],
             'cancelled' => [], // Final — tidak ada transisi yang diperbolehkan
             default => [],
@@ -55,7 +55,7 @@ class InvoicesTable
                     ->label('NO.')
                     ->rowIndex(),
                 TextColumn::make('invoice_number')
-                    ->label('INVOICE NO.')
+                    ->label('NO. INVOICE')
                     ->searchable()
                     ->sortable()
                     ->copyable()
@@ -63,7 +63,7 @@ class InvoicesTable
                     ->color('primary'),
 
                 TextColumn::make('customer_name')
-                    ->label('CUSTOMER')
+                    ->label('PELANGGAN')
                     ->getStateUsing(fn (Invoice $record): string => $record->customer?->nama ?? $record->customer_name ?? '-')
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->where('customer_name', 'like', "%{$search}%")
@@ -83,14 +83,14 @@ class InvoicesTable
                     }),
 
                 TextColumn::make('regular_items_count')
-                    ->label('ITEMS')
+                    ->label('BARANG')
                     ->sortable()
                     ->alignCenter()
                     ->badge()
                     ->color('gray'),
 
                 TextColumn::make('regular_items_sum_quantity')
-                    ->label('QTY')
+                    ->label('JUMLAH')
                     ->sortable()
                     ->alignCenter()
                     ->badge()
@@ -108,7 +108,7 @@ class InvoicesTable
                     ->color('danger')
                     ->formatStateUsing(fn ($state) => $state > 0 ? '-Rp '.number_format($state, 0, ',', '.') : 'Rp 0')
                     ->description(fn (Invoice $record): string => $record->customer_type === 'member'
-                            ? ($record->discount_mode_member ? 'Custom' : 'Membership')
+                            ? ($record->discount_mode_member ? 'Kustom' : 'Membership')
                             : ($record->discount_mode === 'none' ? 'Tanpa diskon' : ucfirst($record->discount_mode ?? 'none'))
                     ),
 
@@ -119,7 +119,7 @@ class InvoicesTable
                     ->toggleable(isToggledHiddenByDefault: false),
 
                 TextColumn::make('add_ons_total')
-                    ->label('ADD ONS')
+                    ->label('TAMBAHAN')
                     ->state(fn (Invoice $record): float => ($record->boxItem?->discount_price ?? 0) + ($record->wrappingItem?->discount_price ?? 0))
                     ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->toggleable(isToggledHiddenByDefault: false)
@@ -130,19 +130,19 @@ class InvoicesTable
                     ),
 
                 TextColumn::make('grand_total')
-                    ->label('GRAND TOTAL')
+                    ->label('TOTAL AKHIR')
                     ->formatStateUsing(fn ($state) => 'Rp '.number_format($state ?? 0, 0, ',', '.'))
                     ->sortable()
                     ->weight('bold')
                     ->color('success'),
 
                 TextColumn::make('issued_date')
-                    ->label('ISSUED')
+                    ->label('DITERBITKAN')
                     ->date('d M Y')
                     ->sortable(),
 
                 TextColumn::make('due_date')
-                    ->label('DUE')
+                    ->label('JATUH TEMPO')
                     ->date('d M Y')
                     ->sortable()
                     ->color(fn (Invoice $record): string => $record->status === 'pending' && $record->due_date?->isPast()
@@ -154,7 +154,6 @@ class InvoicesTable
                     ->label('STATUS')
                     ->badge()
                     ->sortable()
-                    ->formatStateUsing(fn (string $state): string => strtoupper($state))
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
@@ -163,39 +162,40 @@ class InvoicesTable
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'pending' => '🕒 PENDING',
-                        'paid' => '✅ PAID',
-                        'cancelled' => '❌ CANCELLED',
+                        'paid' => '✅ LUNAS',
+                        'cancelled' => '❌ DIBATALKAN',
                         default => strtoupper($state),
                     }),
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label('Status')
                     ->options([
                         'pending' => '🕒 Pending',
-                        'paid' => '✅ Paid',
-                        'cancelled' => '❌ Cancelled',
+                        'paid' => '✅ Lunas',
+                        'cancelled' => '❌ Dibatalkan',
                     ])
                     ->searchable(),
                 SelectFilter::make('customer_type')
-                    ->label('Customer Type')
+                    ->label('Tipe Pelanggan')
                     ->options([
                         'member' => 'Member',
                         'non_member' => 'Non-Member',
                     ])
                     ->searchable(),
                 Filter::make('issued_date_range')
-                    ->label('Issued Date')
+                    ->label('Tanggal Diterbitkan')
                     ->schema([
                         Grid::make([
                             'default' => 1,
                             'sm' => 2,
                         ])->schema([
                             DatePicker::make('issued_from')
-                                ->label('Issued')
+                                ->label('Dari Tanggal')
                                 ->native(false)
                                 ->displayFormat('d M Y'),
                             DatePicker::make('issued_until')
-                                ->label('Due')
+                                ->label('Sampai Tanggal')
                                 ->native(false)
                                 ->displayFormat('d M Y'),
                         ]),
@@ -214,10 +214,10 @@ class InvoicesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['issued_from'] ?? null) {
-                            $indicators['issued_from'] = 'Issued From: '.Carbon::parse($data['issued_from'])->format('d M Y');
+                            $indicators['issued_from'] = 'Terbit Dari: '.Carbon::parse($data['issued_from'])->format('d M Y');
                         }
                         if ($data['issued_until'] ?? null) {
-                            $indicators['issued_until'] = 'Issued Until: '.Carbon::parse($data['issued_until'])->format('d M Y');
+                            $indicators['issued_until'] = 'Terbit Sampai: '.Carbon::parse($data['issued_until'])->format('d M Y');
                         }
 
                         return $indicators;
@@ -225,7 +225,7 @@ class InvoicesTable
             ])
             ->filtersFormWidth('xl')
             ->defaultSort('created_at', 'desc')
-            ->recordActionsColumnLabel('ACTIONS')
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 // ─── Change Status ───────────────────────────────────────
                 Action::make('changeStatus')
@@ -280,6 +280,7 @@ class InvoicesTable
                 // ─── Edit, View & Delete (Grouped) ─────────────────────────────
                 ActionGroup::make([
                     Action::make('view')
+                        ->label('Lihat')
                         ->hiddenLabel()
                         ->icon('heroicon-o-eye')
                         ->color('primary')
@@ -301,6 +302,7 @@ class InvoicesTable
                             : null),
 
                     Action::make('delete')
+                        ->label('Hapus')
                         ->hiddenLabel()
                         ->icon('heroicon-o-trash')
                         ->color(fn (Invoice $record): string => $record->isDeletable() ? 'danger' : 'gray')
@@ -334,13 +336,13 @@ class InvoicesTable
                     ->icon('heroicon-m-ellipsis-horizontal')
                     ->color('gray')
                     ->size(Size::Small)
-                    ->tooltip('More Actions'),
+                    ->tooltip('Aksi Lainnya'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     // ─── Bulk Change Status ──────────────────────────────
                     BulkAction::make('changeStatus')
-                        ->label('Update status')
+                        ->label('Ubah Status')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
                         ->modalHeading('Ubah Status Invoice Terpilih')
@@ -351,8 +353,8 @@ class InvoicesTable
                             Select::make('new_status')
                                 ->label('Status Baru')
                                 ->options([
-                                    'paid' => '✅ Paid',
-                                    'cancelled' => '❌ Cancelled',
+                                    'paid' => '✅ Lunas',
+                                    'cancelled' => '❌ Dibatalkan',
                                 ])
                                 ->required()
                                 ->native(false),
@@ -416,7 +418,7 @@ class InvoicesTable
 
                     // ─── Bulk Delete (hanya pending) ─────────────────────
                     BulkAction::make('bulkDelete')
-                        ->label('Delete selected')
+                        ->label('Hapus Terpilih')
                         ->icon('heroicon-o-trash')
                         ->color('danger')
                         ->requiresConfirmation()

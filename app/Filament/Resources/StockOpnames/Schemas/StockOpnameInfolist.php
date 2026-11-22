@@ -14,14 +14,17 @@ class StockOpnameInfolist
         return $schema
             ->columns(1)
             ->components([
-                Section::make('Stock Opname Details')
+                Section::make('Detail Stock Opname')
                     ->columnSpanFull()
                     ->columns(3)
                     ->schema([
-                        TextEntry::make('reference_number'),
+                        TextEntry::make('reference_number')
+                            ->label('Nomor Referensi'),
                         TextEntry::make('date')
+                            ->label('Tanggal')
                             ->date(),
                         TextEntry::make('status')
+                            ->label('Status')
                             ->badge()
                             ->color(fn (string $state): string => match ($state) {
                                 'draft' => 'gray',
@@ -29,27 +32,29 @@ class StockOpnameInfolist
                                 default => 'primary',
                             }),
                         TextEntry::make('notes')
+                            ->label('Catatan')
                             ->placeholder('-')
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Items')
+                Section::make('Daftar Barang')
                     ->columnSpanFull()
                     ->schema([
                         RepeatableEntry::make('items')
+                            ->label('Barang')
                             ->schema([
                                 TextEntry::make('product.nama')
-                                    ->label('Product')
+                                    ->label('Produk')
                                     ->formatStateUsing(fn ($state, $record) => $record->product?->sku ? "{$state} ({$record->product->sku})" : $state),
                                 TextEntry::make('system_qty')
-                                    ->label('System Qty')
+                                    ->label('Stok Sistem')
                                     ->formatStateUsing(fn ($state) => "{$state} pcs"),
                                 TextEntry::make('physical_qty')
-                                    ->label('Physical Qty')
+                                    ->label('Stok Fisik')
                                     ->weight('bold')
                                     ->formatStateUsing(fn ($state) => "{$state} pcs"),
                                 TextEntry::make('variance')
-                                    ->label('Variance')
+                                    ->label('Selisih')
                                     ->badge()
                                     ->color(fn (int $state): string => match (true) {
                                         $state > 0 => 'success',
@@ -58,10 +63,10 @@ class StockOpnameInfolist
                                     })
                                     ->formatStateUsing(fn ($state) => ($state > 0 ? "+{$state}" : "{$state}").' pcs'),
                                 TextEntry::make('unit_cost')
-                                    ->label('Cost Satuan')
+                                    ->label('Harga Beli Satuan')
                                     ->money('IDR'),
                                 TextEntry::make('total_value')
-                                    ->label('Total Nilai Varians')
+                                    ->label('Total Nilai Selisih')
                                     ->badge()
                                     ->color(fn (float $state): string => match (true) {
                                         $state > 0 => 'success',

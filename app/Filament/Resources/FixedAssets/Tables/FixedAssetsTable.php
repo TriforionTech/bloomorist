@@ -66,6 +66,7 @@ class FixedAssetsTable
                         '0' => 'Nonaktif',
                     ]),
             ])
+            ->recordActionsColumnLabel('AKSI')
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

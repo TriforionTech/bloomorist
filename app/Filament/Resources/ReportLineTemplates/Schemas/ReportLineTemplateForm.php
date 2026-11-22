@@ -22,15 +22,15 @@ class ReportLineTemplateForm
                 ])
                 ->required()
                 ->native(false),
-            TextInput::make('line_key')->label('Line Key')->required()->maxLength(100),
-            TextInput::make('label')->label('Label')->required()->maxLength(255),
+            TextInput::make('line_key')->label('Kunci Baris')->required()->maxLength(100),
+            TextInput::make('label')->label('Nama Baris')->required()->maxLength(255),
             Textarea::make('account_codes')
-                ->label('Kode Akun / Pattern (JSON)')
+                ->label('Kode Akun / Pola (JSON)')
                 ->helperText('Contoh: ["4101"] atau ["6*"]')
                 ->formatStateUsing(fn ($state) => $state ? json_encode($state) : '[]')
                 ->dehydrateStateUsing(fn ($state) => json_decode($state ?: '[]', true, 512, JSON_THROW_ON_ERROR))
                 ->required(fn ($get) => ! $get('is_subtotal')),
-            TextInput::make('sign')->label('Sign')->numeric()->integer()->default(1)->required(),
+            TextInput::make('sign')->label('Tanda Hitung')->numeric()->integer()->default(1)->required(),
             TextInput::make('sort_order')->label('Urutan')->numeric()->integer()->default(0)->required(),
             Toggle::make('is_subtotal')->label('Subtotal')->live(),
             TextInput::make('subtotal_formula')

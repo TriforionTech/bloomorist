@@ -21,17 +21,17 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static ?string $navigationLabel = 'Products';
+    protected static ?string $navigationLabel = 'Produk';
 
-    protected static ?string $pluralLabel = 'Products';
+    protected static ?string $pluralLabel = 'Produk';
 
-    protected static ?string $label = 'Product';
+    protected static ?string $label = 'Produk';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    protected static string|UnitEnum|null $navigationGroup = 'MASTER DATA';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'nama';
 

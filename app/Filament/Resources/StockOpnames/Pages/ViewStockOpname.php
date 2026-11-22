@@ -27,7 +27,7 @@ class ViewStockOpname extends ViewRecord
             Actions\EditAction::make()
                 ->visible(fn () => $this->record->status !== 'posted'),
             Actions\Action::make('post')
-                ->label('Post to Accounting')
+                ->label('Posting ke Akuntansi')
                 ->color('success')
                 ->requiresConfirmation()
                 ->icon('heroicon-o-check-circle')
@@ -63,7 +63,7 @@ class ViewStockOpname extends ViewRecord
                         app(AccountingService::class)->createStockOpnameJournal($record);
 
                         Notification::make()
-                            ->title('Posted Successfully')
+                            ->title('Berhasil Diposting')
                             ->success()
                             ->send();
 

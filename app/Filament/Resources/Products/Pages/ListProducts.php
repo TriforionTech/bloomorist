@@ -25,7 +25,7 @@ class ListProducts extends ListRecords
     {
         return [
             Action::make('exportExcel')
-                ->label('Export Excel')
+                ->label('Download Data')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->tooltip('Unduh data produk & tier harga saat ini ke file Excel (.xlsx)')
@@ -46,7 +46,7 @@ class ListProducts extends ListRecords
                 ->action(fn (ProductExcelService $service) => $service->generateTemplateExcel()),
 
             Action::make('importExcel')
-                ->label('Import Excel')
+                ->label('Upload Data')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
                 ->visible(fn () => Filament::auth()->user()?->is_super_admin)
@@ -120,7 +120,7 @@ class ListProducts extends ListRecords
                 }),
 
             CreateAction::make()
-                ->label('New Product')
+                ->label('Tambah Produk')
                 ->visible(fn () => Filament::auth()->user()?->is_super_admin),
         ];
     }
@@ -128,21 +128,21 @@ class ListProducts extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('All')
+            'all' => Tab::make('Semua')
                 ->icon('heroicon-o-squares-2x2')
                 ->badge(fn () => Product::where('is_active', true)->count()),
 
-            'bunga' => Tab::make('Flowers')
+            'bunga' => Tab::make('Bunga')
                 ->icon('heroicon-o-sparkles')
                 ->badge(fn () => Product::where('is_active', true)->where('kategori', 'bunga')->count())
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('kategori', 'bunga')),
 
-            'packaging' => Tab::make('Packaging')
+            'packaging' => Tab::make('Kemasan')
                 ->icon('heroicon-o-archive-box')
                 ->badge(fn () => Product::where('is_active', true)->where('kategori', 'packaging')->count())
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('kategori', 'packaging')),
 
-            'others' => Tab::make('Others')
+            'others' => Tab::make('Lainnya')
                 ->icon('heroicon-o-tag')
                 ->badge(fn () => Product::where('is_active', true)->where('kategori', 'others')->count())
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('kategori', 'others')),

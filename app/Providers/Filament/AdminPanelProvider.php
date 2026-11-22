@@ -45,10 +45,13 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->navigationGroups([
-                'Sales & Invoicing',
-                'Inventory',
-                'Expenses & Purchases',
-                'Accounting & Finances',
+                'MASTER DATA',
+                'PENJUALAN',
+                'PERSEDIAAN',
+                'PEMBELIAN',
+                'AKUNTANSI',
+                'LAPORAN',
+                'ADMINISTRASI',
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])

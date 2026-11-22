@@ -1,7 +1,10 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Resources\AccountingPeriods;
 
+use App\Filament\Resources\AccountingPeriods\Pages\CreateAccountingPeriod;
+use App\Filament\Resources\AccountingPeriods\Pages\EditAccountingPeriod;
+use App\Filament\Resources\AccountingPeriods\Pages\ListAccountingPeriods;
 use App\Filament\Resources\AccountingPeriods\Schemas\AccountingPeriodForm;
 use App\Filament\Resources\AccountingPeriods\Tables\AccountingPeriodsTable;
 use App\Models\AccountingPeriod;
@@ -17,7 +20,7 @@ class AccountingPeriodResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Accounting & Finances';
+    protected static string|UnitEnum|null $navigationGroup = 'AKUNTANSI';
 
     protected static ?string $navigationLabel = 'Periode Akuntansi';
 
@@ -40,9 +43,9 @@ class AccountingPeriodResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => \App\Filament\Resources\AccountingPeriods\Pages\ListAccountingPeriods::route('/'),
-            'create' => \App\Filament\Resources\AccountingPeriods\Pages\CreateAccountingPeriod::route('/create'),
-            'edit' => \App\Filament\Resources\AccountingPeriods\Pages\EditAccountingPeriod::route('/{record}/edit'),
+            'index' => ListAccountingPeriods::route('/'),
+            'create' => CreateAccountingPeriod::route('/create'),
+            'edit' => EditAccountingPeriod::route('/{record}/edit'),
         ];
     }
 }

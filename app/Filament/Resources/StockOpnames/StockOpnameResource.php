@@ -22,11 +22,11 @@ class StockOpnameResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Inventory';
+    protected static \UnitEnum|string|null $navigationGroup = 'PERSEDIAAN';
 
     protected static ?string $modelLabel = 'Stock Opname';
 
-    protected static ?string $pluralModelLabel = 'Stock Opnames';
+    protected static ?string $pluralModelLabel = 'Stock Opname';
 
     protected static ?int $navigationSort = 4;
 

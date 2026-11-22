@@ -5,10 +5,13 @@ namespace App\Filament\Resources\Expenses\Pages;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Enums\Width;
 
 class EditExpense extends EditRecord
 {
     protected static string $resource = ExpenseResource::class;
+
+    protected Width|string|null $maxContentWidth = Width::Full;
 
     protected function getRedirectUrl(): string
     {

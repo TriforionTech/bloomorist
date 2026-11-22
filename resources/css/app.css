@@ -85,37 +85,21 @@
     color: var(--stat-icon-color-dark, var(--stat-icon-color));
 }
 
-/* ─── Compact Stat Cards (Sales Insights: ukuran font & padding mirip Top 5) ─── */
-.fi-compact-stat {
-    padding: 1rem !important;
+/* ─── Dashboard KPI & Widget Descriptions: Lebih besar dan mudah dibaca ─── */
+.fi-wi-stats-overview-stat-description {
+    font-size: 0.875rem !important; /* 14px */
+    line-height: 1.375 !important;
+    font-weight: 500 !important;
 }
 
-.fi-compact-stat .fi-wi-stats-overview-stat-content {
-    gap: 0.25rem !important;
+.fi-wi-stats-overview-stat-description .fi-icon {
+    width: 1rem !important;
+    height: 1rem !important;
 }
 
-.fi-compact-stat .fi-wi-stats-overview-stat-label {
-    font-size: 13px !important;
-    line-height: 1.25 !important;
-}
-
-.fi-compact-stat .fi-wi-stats-overview-stat-value {
-    font-size: 15px !important;
-    line-height: 1.25 !important;
-    font-weight: 700 !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fi-compact-stat .fi-wi-stats-overview-stat-description {
-    font-size: 11px !important;
-    line-height: 1.25 !important;
-}
-
-.fi-compact-stat .fi-wi-stats-overview-stat-description .fi-icon {
-    width: 13px !important;
-    height: 13px !important;
+.fi-section-header-description {
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
 }
 
 /* ─── Grafik Penjualan: kontrol tinggi canvas ─── */
